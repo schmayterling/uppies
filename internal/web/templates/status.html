@@ -1,0 +1,67 @@
+{{define "head"}}<meta http-equiv="refresh" content="60">{{end}}
+{{define "main"}}
+<header class="page-head">
+  <h1>{{.Project.Name}}</h1>
+</header>
+
+<section class="banner banner-{{.BannerState}}" aria-label="current status">
+  {{template "face" .BannerState}}
+  <p class="banner-text">{{.BannerText}}</p>
+</section>
+
+{{range .Active}}
+<article class="incident incident-open">
+  <h2>{{.Title}}</h2>
+  <p class="meta">{{.Impact}} impact{{if .Affected}} · affects {{range $i, $name := .Affected}}{{if $i}}, {{end}}{{$name}}{{end}}{{end}}</p>
+  <ol class="updates">
+    {{range .Updates}}<li><strong>{{.Status}}</strong> <span class="update-body">{{.Body}}</span> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{utc .AtMs}}</time></li>{{end}}
+  </ol>
+</article>
+{{end}}
+
+<section aria-labelledby="components-heading">
+  <h2 id="components-heading">components</h2>
+  {{if .Components}}
+  <ul class="components">
+    {{range .Components}}
+    <li class="component">
+      <div class="component-head">
+        <span class="component-name">{{.Name}}</span>
+        <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
+      </div>
+      <div class="strip" role="img" aria-label="uptime over the last {{$.HistoryDays}} days: {{.Uptime}}">
+        {{range .Days}}<span class="day day-{{.State}}" title="{{.Label}}"></span>{{end}}
+      </div>
+      <div class="strip-legend meta">
+        <span class="wide-only">{{$.HistoryDays}} days ago</span><span class="narrow-only">30 days ago</span>
+        <span>{{.Uptime}}</span>
+        <span>today</span>
+      </div>
+    </li>
+    {{end}}
+  </ul>
+  <p class="meta">uptime is the share of checked time without a confirmed outage, over the last {{.HistoryDays}} days. a shorter bar is a day with downtime.</p>
+  {{else}}
+  <p class="muted">nothing is monitored here yet.</p>
+  {{end}}
+</section>
+
+<section aria-labelledby="history-heading">
+  <h2 id="history-heading">past incidents</h2>
+  {{if .Past}}
+  {{range .Past}}
+  <article class="incident">
+    <h3>{{.Title}}</h3>
+    <p class="meta">{{.Impact}} impact{{if .Affected}} · affected {{range $i, $name := .Affected}}{{if $i}}, {{end}}{{$name}}{{end}}{{end}}</p>
+    <ol class="updates">
+      {{range .Updates}}<li><strong>{{.Status}}</strong> <span class="update-body">{{.Body}}</span> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{utc .AtMs}}</time></li>{{end}}
+    </ol>
+  </article>
+  {{end}}
+  {{else}}
+  <p class="muted">no incidents in the last {{.HistoryDays}} days.</p>
+  {{end}}
+</section>
+
+<footer class="page-foot meta">this page reloads every minute. powered by uppies.</footer>
+{{end}}

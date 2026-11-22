@@ -1,0 +1,46 @@
+{{define "main"}}
+<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">projects</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / incident</nav>
+<h1>{{.Incident.Title}}</h1>
+<p class="meta">{{if .Incident.Published}}public{{else}}draft, not on the status page{{end}} · {{.Incident.Impact}} impact · {{.Incident.Status}} · started <time datetime="{{rfc3339 .Incident.StartedAtMs}}">{{utc .Incident.StartedAtMs}}</time>{{if .Affected}} · affects {{range $i, $name := .Affected}}{{if $i}}, {{end}}{{$name}}{{end}}{{end}}</p>
+
+{{if not .Incident.Published}}
+<form method="post" action="/admin/incidents/{{.Incident.ID}}/publish" class="form narrow">
+  <p class="hint">publishing shows this incident and every update below on the status page.</p>
+  <div class="actions"><button class="button" type="submit">publish incident</button></div>
+</form>
+{{end}}
+
+<section aria-labelledby="updates-heading">
+  <h2 id="updates-heading">updates</h2>
+  <ol class="updates">
+    {{range .Incident.Updates}}<li><strong>{{.Status}}</strong> <span class="update-body">{{.Body}}</span> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{utc .AtMs}}</time></li>{{end}}
+  </ol>
+</section>
+
+<section aria-labelledby="add-update-heading">
+  <h2 id="add-update-heading">add an update</h2>
+  <form class="form narrow" method="post" action="/admin/incidents/{{.Incident.ID}}/updates">
+    <div class="field">
+      <label for="status">status</label>
+      <select id="status" name="status">
+        {{range .Statuses}}<option value="{{.}}"{{if eq . $.Incident.Status}} selected{{end}}>{{.}}</option>{{end}}
+      </select>
+      {{with index .Problems "status"}}<p class="problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="message">update</label>
+      <textarea id="message" name="message" rows="4" required maxlength="5000"{{if index .Problems "message"}} aria-invalid="true" aria-describedby="message-problem"{{end}}>{{.Message}}</textarea>
+      {{with index .Problems "message"}}<p class="problem" id="message-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="actions"><button class="button" type="submit">post update</button></div>
+  </form>
+</section>
+
+<section aria-labelledby="danger-heading">
+  <h2 id="danger-heading">delete incident</h2>
+  <form class="form narrow" method="post" action="/admin/incidents/{{.Incident.ID}}/delete">
+    <label class="check"><input type="checkbox" required> delete this incident and its updates. this cannot be undone.</label>
+    <div class="actions"><button class="button danger" type="submit">delete incident</button></div>
+  </form>
+</section>
+{{end}}

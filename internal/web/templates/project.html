@@ -1,0 +1,78 @@
+{{define "main"}}
+<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">projects</a> / {{.Project.Name}}</nav>
+<div class="title-row">
+  <h1>{{.Project.Name}}</h1>
+  <a class="button quiet" href="/s/{{.Project.Slug}}">view status page</a>
+</div>
+
+<section aria-labelledby="monitors-heading">
+  <div class="title-row">
+    <h2 id="monitors-heading">monitors</h2>
+    <a class="button" href="/admin/projects/{{.Project.ID}}/monitors/new">add monitor</a>
+  </div>
+  {{if .Monitors}}
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th scope="col">name</th><th scope="col">state</th><th scope="col">target</th><th scope="col">last check</th><th scope="col" class="number">latency</th></tr></thead>
+    <tbody>
+      {{range .Monitors}}
+      <tr>
+        <th scope="row"><a href="/admin/monitors/{{.ID}}">{{.Name}}</a></th>
+        <td><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>{{if and .LastError (eq .State "down")}}<span class="meta cell-note">{{.LastError}}</span>{{end}}</td>
+        <td class="target">{{.Target}}</td>
+        <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{utc .LastCheckAtMs}}</time>{{else}}<span class="muted">not yet</span>{{end}}</td>
+        <td class="number">{{if .LastCheckAtMs}}{{.LastLatencyMs}} ms{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{else}}
+  <p class="muted">no monitors yet. add one to start checking.</p>
+  {{end}}
+</section>
+
+<section aria-labelledby="incidents-heading">
+  <div class="title-row">
+    <h2 id="incidents-heading">incidents</h2>
+    <a class="button" href="/admin/projects/{{.Project.ID}}/incidents/new">new incident</a>
+  </div>
+  {{if .Incidents}}
+  <ul class="rows">
+    {{range .Incidents}}
+    <li class="row">
+      <a href="/admin/incidents/{{.ID}}">{{.Title}}</a>
+      <span class="meta">{{if .Published}}public{{else}}draft{{end}} · {{.Status}} · <time datetime="{{rfc3339 .StartedAtMs}}">{{utc .StartedAtMs}}</time></span>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted">no incidents. when a monitor goes down, a private draft appears here.</p>
+  {{end}}
+</section>
+
+<section aria-labelledby="timeline-heading">
+  <h2 id="timeline-heading">timeline</h2>
+  {{if .Events}}
+  <ol class="timeline">
+    {{range .Events}}
+    <li>
+      <time class="meta" datetime="{{rfc3339 .AtMs}}">{{utc .AtMs}}</time>
+      <span><strong>{{.Title}}</strong> {{.Word}}{{if .Detail}}<span class="meta"> · {{.Detail}}</span>{{end}}</span>
+    </li>
+    {{end}}
+  </ol>
+  {{if .OlderID}}<p><a href="/admin/projects/{{.Project.ID}}?before={{.OlderID}}#timeline-heading">older events</a></p>{{end}}
+  {{else}}
+  <p class="muted">nothing has happened yet.</p>
+  {{end}}
+</section>
+
+<section aria-labelledby="danger-heading">
+  <h2 id="danger-heading">delete project</h2>
+  <form class="form narrow" method="post" action="/admin/projects/{{.Project.ID}}/delete">
+    <label class="check"><input type="checkbox" required> delete {{.Project.Name}} with its monitors, history and incidents. this cannot be undone.</label>
+    <div class="actions"><button class="button danger" type="submit">delete project</button></div>
+  </form>
+</section>
+{{end}}

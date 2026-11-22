@@ -1,0 +1,17 @@
+{{define "main"}}
+<h1 class="wordmark-title">uppies</h1>
+<p class="muted">welcome. create the admin account to get started.</p>
+<form class="form narrow" method="post" action="/admin/setup">
+  {{with .Problem}}<p class="problem" role="alert">{{.}}</p>{{end}}
+  <div class="field">
+    <label for="username">username</label>
+    <input id="username" name="username" value="{{.Username}}" autocomplete="username" required maxlength="64">
+  </div>
+  <div class="field">
+    <label for="password">password</label>
+    <input id="password" name="password" type="password" autocomplete="new-password" required minlength="10" aria-describedby="password-hint">
+    <p class="hint" id="password-hint">at least 10 characters.</p>
+  </div>
+  <div class="actions"><button class="button" type="submit">create account</button></div>
+</form>
+{{end}}

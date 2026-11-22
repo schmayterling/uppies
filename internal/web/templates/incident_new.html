@@ -1,0 +1,40 @@
+{{define "main"}}
+<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">projects</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / new incident</nav>
+<h1>new incident</h1>
+<form class="form narrow" method="post" action="/admin/projects/{{.Project.ID}}/incidents">
+  <div class="field">
+    <label for="title">title</label>
+    <input id="title" name="title" value="{{.Incident.Title}}" required maxlength="200"{{if index .Problems "title"}} aria-invalid="true" aria-describedby="title-problem"{{end}}>
+    {{with index .Problems "title"}}<p class="problem" id="title-problem">{{.}}</p>{{end}}
+  </div>
+  <div class="field">
+    <label for="impact">impact</label>
+    <select id="impact" name="impact">
+      {{range .Impacts}}<option value="{{.}}"{{if eq . $.Incident.Impact}} selected{{end}}>{{.}}</option>{{end}}
+    </select>
+    {{with index .Problems "impact"}}<p class="problem">{{.}}</p>{{end}}
+  </div>
+  <div class="field">
+    <label for="status">status</label>
+    <select id="status" name="status">
+      {{range .Statuses}}<option value="{{.}}"{{if eq . $.Incident.Status}} selected{{end}}>{{.}}</option>{{end}}
+    </select>
+    {{with index .Problems "status"}}<p class="problem">{{.}}</p>{{end}}
+  </div>
+  <div class="field">
+    <label for="message">first update</label>
+    <textarea id="message" name="message" rows="4" required maxlength="5000"{{if index .Problems "message"}} aria-invalid="true" aria-describedby="message-problem"{{end}}>{{.Message}}</textarea>
+    {{with index .Problems "message"}}<p class="problem" id="message-problem">{{.}}</p>{{end}}
+  </div>
+  {{if .Monitors}}
+  <fieldset>
+    <legend>affected monitors</legend>
+    {{range .Monitors}}<label class="check"><input type="checkbox" name="monitor" value="{{.ID}}"{{if contains $.Incident.MonitorIDs .ID}} checked{{end}}> {{.Name}}</label>{{end}}
+  </fieldset>
+  {{end}}
+  <div class="actions">
+    <button class="button" type="submit" name="action" value="publish">publish</button>
+    <button class="button quiet" type="submit" name="action" value="draft">save as draft</button>
+  </div>
+</form>
+{{end}}

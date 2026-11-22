@@ -1,0 +1,11 @@
+{{define "main"}}
+<h1 class="wordmark-title">uppies</h1>
+{{if .Projects}}
+<p class="muted">pick a status page.</p>
+<ul class="rows">
+  {{range .Projects}}<li><a class="row-link" href="/s/{{.Slug}}">{{.Name}}</a></li>{{end}}
+</ul>
+{{else}}
+<p class="muted">there are no status pages yet. <a href="/admin">sign in to add a project.</a></p>
+{{end}}
+{{end}}

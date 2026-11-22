@@ -1,0 +1,40 @@
+{{define "main"}}
+<h1>projects</h1>
+{{if .Projects}}
+{{range .Projects}}
+<section class="card">
+  <div class="card-head">
+    <h2><a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a></h2>
+    <a class="meta" href="/s/{{.Project.Slug}}">/s/{{.Project.Slug}}</a>
+  </div>
+  {{if .Monitors}}
+  <ul class="rows">
+    {{range .Monitors}}<li class="row"><span>{{.Name}}</span><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span></li>{{end}}
+  </ul>
+  {{else}}
+  <p class="muted">no monitors yet. <a href="/admin/projects/{{.Project.ID}}/monitors/new">add the first one.</a></p>
+  {{end}}
+</section>
+{{end}}
+{{else}}
+<p class="muted">no projects yet. a project is one status page with its own monitors and incidents.</p>
+{{end}}
+
+<section aria-labelledby="new-project-heading">
+  <h2 id="new-project-heading">new project</h2>
+  <form class="form narrow" method="post" action="/admin/projects">
+    <div class="field">
+      <label for="name">name</label>
+      <input id="name" name="name" value="{{.Name}}" required maxlength="120"{{if index .Problems "name"}} aria-invalid="true" aria-describedby="name-problem"{{end}}>
+      {{with index .Problems "name"}}<p class="problem" id="name-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="slug">address</label>
+      <input id="slug" name="slug" value="{{.Slug}}" required maxlength="64" pattern="[a-z0-9]([a-z0-9\-]*[a-z0-9])?" autocapitalize="none" spellcheck="false" aria-describedby="slug-hint{{if index .Problems "slug"}} slug-problem{{end}}"{{if index .Problems "slug"}} aria-invalid="true"{{end}}>
+      <p class="hint" id="slug-hint">the status page will live at /s/&lt;address&gt;.</p>
+      {{with index .Problems "slug"}}<p class="problem" id="slug-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="actions"><button class="button" type="submit">create project</button></div>
+  </form>
+</section>
+{{end}}

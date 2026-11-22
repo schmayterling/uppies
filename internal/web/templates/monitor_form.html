@@ -1,0 +1,73 @@
+{{define "main"}}
+<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">projects</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / {{if .Editing}}{{.Monitor.Name}}{{else}}new monitor{{end}}</nav>
+<h1>{{if .Editing}}edit monitor{{else}}new monitor{{end}}</h1>
+<form class="form narrow" method="post" action="{{if .Editing}}/admin/monitors/{{.Monitor.ID}}{{else}}/admin/projects/{{.Project.ID}}/monitors{{end}}">
+  <div class="field">
+    <label for="name">name</label>
+    <input id="name" name="name" value="{{.Monitor.Name}}" required maxlength="120"{{if index .Problems "name"}} aria-invalid="true" aria-describedby="name-problem"{{end}}>
+    {{with index .Problems "name"}}<p class="problem" id="name-problem">{{.}}</p>{{end}}
+  </div>
+  <div class="field">
+    <label for="kind">kind</label>
+    <select id="kind" name="kind">
+      <option value="http"{{if eq .Monitor.Kind "http"}} selected{{end}}>http or https request</option>
+      <option value="tcp"{{if eq .Monitor.Kind "tcp"}} selected{{end}}>tcp port</option>
+    </select>
+  </div>
+  <div class="field">
+    <label for="target">target</label>
+    <input id="target" name="target" value="{{.Monitor.Target}}" required maxlength="2048" autocapitalize="none" spellcheck="false" aria-describedby="target-hint{{if index .Problems "target"}} target-problem{{end}}"{{if index .Problems "target"}} aria-invalid="true"{{end}}>
+    <p class="hint" id="target-hint">a url such as https://example.com/health, or host:port for a tcp port.</p>
+    {{with index .Problems "target"}}<p class="problem" id="target-problem">{{.}}</p>{{end}}
+  </div>
+  <div class="field">
+    <label for="keyword">keyword</label>
+    <input id="keyword" name="keyword" value="{{.Monitor.Keyword}}" maxlength="200" aria-describedby="keyword-hint">
+    <p class="hint" id="keyword-hint">optional, http only. the check fails when the response does not contain this text.</p>
+  </div>
+  <fieldset>
+    <legend>timing</legend>
+    <div class="field">
+      <label for="interval_s">seconds between checks</label>
+      <input id="interval_s" name="interval_s" type="number" inputmode="numeric" min="20" max="86400" value="{{.Monitor.IntervalS}}" required{{if index .Problems "interval_s"}} aria-invalid="true" aria-describedby="interval_s-problem"{{end}}>
+      {{with index .Problems "interval_s"}}<p class="problem" id="interval_s-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="timeout_s">seconds to wait for an answer</label>
+      <input id="timeout_s" name="timeout_s" type="number" inputmode="numeric" min="1" max="60" value="{{seconds .Monitor.TimeoutMs}}" required{{if index .Problems "timeout_s"}} aria-invalid="true" aria-describedby="timeout_s-problem"{{end}}>
+      {{with index .Problems "timeout_s"}}<p class="problem" id="timeout_s-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="retries">retries before it counts as down</label>
+      <input id="retries" name="retries" type="number" inputmode="numeric" min="0" max="10" value="{{.Monitor.Retries}}" required aria-describedby="retries-hint{{if index .Problems "retries"}} retries-problem{{end}}"{{if index .Problems "retries"}} aria-invalid="true"{{end}}>
+      <p class="hint" id="retries-hint">with 2 retries, the third failed check in a row marks the monitor down.</p>
+      {{with index .Problems "retries"}}<p class="problem" id="retries-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="retry_interval_s">seconds between retries</label>
+      <input id="retry_interval_s" name="retry_interval_s" type="number" inputmode="numeric" min="1" max="3600" value="{{.Monitor.RetryIntervalS}}" required{{if index .Problems "retry_interval_s"}} aria-invalid="true" aria-describedby="retry_interval_s-problem"{{end}}>
+      {{with index .Problems "retry_interval_s"}}<p class="problem" id="retry_interval_s-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="recovery_checks">good checks before it counts as up again</label>
+      <input id="recovery_checks" name="recovery_checks" type="number" inputmode="numeric" min="1" max="10" value="{{.Monitor.RecoveryChecks}}" required{{if index .Problems "recovery_checks"}} aria-invalid="true" aria-describedby="recovery_checks-problem"{{end}}>
+      {{with index .Problems "recovery_checks"}}<p class="problem" id="recovery_checks-problem">{{.}}</p>{{end}}
+    </div>
+  </fieldset>
+  <label class="check"><input type="checkbox" name="paused"{{if .Monitor.Paused}} checked{{end}}> paused. a paused monitor is not checked.</label>
+  <div class="actions">
+    <button class="button" type="submit">{{if .Editing}}save monitor{{else}}add monitor{{end}}</button>
+    <a class="button quiet" href="/admin/projects/{{.Project.ID}}">cancel</a>
+  </div>
+</form>
+
+{{if .Editing}}
+<section aria-labelledby="danger-heading">
+  <h2 id="danger-heading">delete monitor</h2>
+  <form class="form narrow" method="post" action="/admin/monitors/{{.Monitor.ID}}/delete">
+    <label class="check"><input type="checkbox" required> delete {{.Monitor.Name}} and its history. this cannot be undone.</label>
+    <div class="actions"><button class="button danger" type="submit">delete monitor</button></div>
+  </form>
+</section>
+{{end}}
+{{end}}

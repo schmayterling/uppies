@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Chrome.Title}} · uppies</title>
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/app.css">
+{{block "head" .}}{{end}}
+</head>
+<body{{if .Chrome.Admin}} class="admin"{{end}}>
+{{if .Chrome.Admin}}
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="wordmark" href="/admin">uppies</a>
+    <nav aria-label="admin">
+      <a href="/admin">projects</a>
+      <a href="/">status pages</a>
+    </nav>
+    <form method="post" action="/admin/logout"><button class="button quiet" type="submit">sign out</button></form>
+  </div>
+</header>
+{{end}}
+<main class="column">
+{{block "main" .}}{{end}}
+</main>
+</body>
+</html>
+
+{{define "mark"}}<svg class="mark mark-{{.}}" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">{{if eq . "ok"}}<circle cx="6" cy="6" r="5"/>{{else if eq . "warn"}}<path d="M6 1 11.5 11H.5Z"/>{{else if eq . "down"}}<rect x="1" y="1" width="10" height="10" rx="2"/>{{else}}<circle class="hollow" cx="6" cy="6" r="4"/>{{end}}</svg>{{end}}
+
+{{define "face"}}<svg class="face face-{{.}}" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true">
+<rect class="face-head" x="3" y="3" width="42" height="42" rx="14"/>
+{{if eq . "none"}}<path class="face-line" d="M13 21h7M28 21h7"/><path class="face-line" d="M20 31h8"/>
+{{else}}<circle class="face-eye" cx="17" cy="20" r="2.5"/><circle class="face-eye" cx="31" cy="20" r="2.5"/>
+{{if eq . "ok"}}<path class="face-line" d="M17 29q7 7 14 0"/>{{else if eq . "warn"}}<path class="face-line" d="M18 31h12"/>{{else}}<path class="face-line" d="M17 33q7 -7 14 0"/>{{end}}{{end}}
+</svg>{{end}}

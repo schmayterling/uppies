@@ -1,0 +1,84 @@
+package web
+
+import (
+	"testing"
+
+	"uppies/internal/health"
+	"uppies/internal/store"
+)
+
+func TestUptimePercent(t *testing.T) {
+	const day = 86_400_000
+	tests := []struct {
+		name      string
+		coveredMs int64
+		downMs    int64
+		want      string
+	}{
+		{"no checks yet", 0, 0, "no data yet"},
+		{"no downtime", day, 0, "100% uptime"},
+		{"one percent down", day, 864_000, "99.00% uptime"},
+		{"one millisecond down in thirty days stays below 100", 30 * day, 1, "99.99% uptime"},
+		{"down the whole time", day, day, "0.00% uptime"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := uptimePercent(tt.coveredMs, tt.downMs); got != tt.want {
+				t.Fatalf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUptimeStrip(t *testing.T) {
+	const today = int64(20_000) * dayMs
+	rollups := []store.DayRollup{
+		{DayStartMs: today - 2*dayMs, CoveredMs: dayMs, DownMs: 3_600_000},
+		{DayStartMs: today - dayMs, CoveredMs: dayMs, DownMs: 3_599_999},
+		{DayStartMs: today, CoveredMs: dayMs, DownMs: 0},
+	}
+	cells, _ := uptimeStrip(rollups, today)
+	if len(cells) != 90 {
+		t.Fatalf("got %d cells, want 90", len(cells))
+	}
+	want := []dayCell{
+		{stateNone, "2024-10-01: no data"},
+		{stateDown, "2024-10-02: 1 h 0 min down"},
+		{stateWarn, "2024-10-03: 1 h 0 min down"},
+		{stateOK, "2024-10-04: no downtime"},
+	}
+	for i, w := range want {
+		if got := cells[86+i]; got != w {
+			t.Fatalf("cell %d: got %+v, want %+v", 86+i, got, w)
+		}
+	}
+}
+
+func TestBanner(t *testing.T) {
+	up := store.Monitor{Tracker: health.Tracker{Status: health.Up}}
+	down := store.Monitor{Tracker: health.Tracker{Status: health.Down}}
+	pausedDown := store.Monitor{Paused: true, Tracker: health.Tracker{Status: health.Down}}
+	unchecked := store.Monitor{Tracker: health.Tracker{Status: health.Unknown}}
+	tests := []struct {
+		name            string
+		monitors        []store.Monitor
+		activeIncidents int
+		wantState       string
+		wantText        string
+	}{
+		{"all up", []store.Monitor{up, up}, 0, stateOK, "everything is up."},
+		{"one of two down", []store.Monitor{up, down}, 0, stateDown, "some things are down."},
+		{"all down", []store.Monitor{down, down}, 0, stateDown, "everything is down."},
+		{"a paused monitor does not count", []store.Monitor{up, pausedDown}, 0, stateOK, "everything is up."},
+		{"up with an open incident", []store.Monitor{up}, 1, stateWarn, "we're looking into a problem."},
+		{"nothing checked yet", []store.Monitor{unchecked}, 0, stateNone, "waiting for the first checks."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state, text := banner(tt.monitors, tt.activeIncidents)
+			if state != tt.wantState || text != tt.wantText {
+				t.Fatalf("got %s %q, want %s %q", state, text, tt.wantState, tt.wantText)
+			}
+		})
+	}
+}
