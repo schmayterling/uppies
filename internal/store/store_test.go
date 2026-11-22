@@ -46,7 +46,7 @@ func TestRecordCheckTracksAnOutage(t *testing.T) {
 
 	policy := health.Policy{Retries: 2, RecoveryChecks: 2}
 	tracker := health.Tracker{Status: health.Up}
-	failureTimes := []int64{day + 1_000, day + 21_000, day + 41_000}
+	failureTimes := []int64{day + 1_000, day + 21_000, day + 41_000, day + 101_000}
 	for i, atMs := range failureTimes {
 		var elapsedMs int64
 		if i > 0 {
@@ -75,7 +75,7 @@ func TestRecordCheckTracksAnOutage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := DayRollup{DayStartMs: day, Checks: 3, Failures: 3, CoveredMs: 40_000, DownMs: 40_000}
+	want := DayRollup{DayStartMs: day, Checks: 4, Failures: 4, CoveredMs: 100_000, DownMs: 100_000}
 	if got := rollups[monitorID]; len(got) != 1 || got[0] != want {
 		t.Fatalf("rollups: got %+v, want [%+v]", got, want)
 	}
