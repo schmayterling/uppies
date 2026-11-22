@@ -90,8 +90,7 @@ func checkHTTP(ctx context.Context, target, keyword string) (err error) {
 	req.Header.Set("User-Agent", "uppies")
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		var urlErr *url.Error
-		if errors.As(err, &urlErr) {
+		if urlErr, ok := errors.AsType[*url.Error](err); ok {
 			// Drop the "Get <url>:" prefix. The timeline already names the monitor.
 			return urlErr.Err
 		}
@@ -121,8 +120,7 @@ func checkTCP(ctx context.Context, target string) error {
 	var dialer net.Dialer
 	conn, err := dialer.DialContext(ctx, "tcp", target)
 	if err != nil {
-		var opErr *net.OpError
-		if errors.As(err, &opErr) {
+		if opErr, ok := errors.AsType[*net.OpError](err); ok {
 			// Drop the "dial tcp <addr>:" prefix for the same reason as above.
 			return opErr.Err
 		}
