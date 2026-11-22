@@ -29,7 +29,8 @@ type CheckResult struct {
 }
 
 // RecordCheck stores a check, adds it to the day's rollup, updates the
-// monitor's state and, on a confirmed change, appends a timeline event.
+// monitor's state and, on a confirmed change, appends a timeline event and
+// opens or closes the monitor's draft incident.
 // It returns ErrNotFound when the monitor was deleted while the check ran.
 func (s *Store) RecordCheck(ctx context.Context, r CheckResult) error {
 	return s.write(ctx, func(tx *sql.Tx) error {
@@ -88,11 +89,63 @@ func (s *Store) RecordCheck(ctx context.Context, r CheckResult) error {
 		if r.Step.Change == health.WentDown {
 			kind = "monitor_down"
 		}
-		_, err = tx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			"insert into events (project_id, kind, at_ms, monitor_id, title, detail) values (?, ?, ?, ?, ?, ?)",
-			projectID, kind, r.AtMs, r.MonitorID, name, r.Error)
-		return err
+			projectID, kind, r.AtMs, r.MonitorID, name, r.Error); err != nil {
+			return err
+		}
+		if r.Step.Change == health.WentDown {
+			return openDraftIncident(ctx, tx, projectID, name, r)
+		}
+		return resolveDraftIncidents(ctx, tx, r.MonitorID, r.AtMs)
 	})
+}
+
+// openDraftIncident prepares a private incident for a confirmed outage, so
+// that publishing it only needs a person's decision.
+func openDraftIncident(ctx context.Context, tx *sql.Tx, projectID int64, monitorName string, r CheckResult) error {
+	firstUpdate := r.Error
+	if firstUpdate == "" {
+		firstUpdate = "the check failed"
+	}
+	_, err := insertIncident(ctx, tx, Incident{
+		ProjectID:   projectID,
+		Title:       monitorName + " is down",
+		Impact:      "major",
+		Status:      "investigating",
+		StartedAtMs: r.Step.Tracker.FailingSinceMs,
+		MonitorIDs:  []int64{r.MonitorID},
+	}, firstUpdate, r.AtMs)
+	return err
+}
+
+// resolveDraftIncidents closes the unpublished incidents of a recovered
+// monitor. Published incidents stay open until a person resolves them.
+func resolveDraftIncidents(ctx context.Context, tx *sql.Tx, monitorID, nowMs int64) error {
+	rows, err := tx.QueryContext(ctx, `
+		select i.id from incidents i
+		join incident_monitors im on im.incident_id = i.id
+		where im.monitor_id = ? and i.published = 0 and i.resolved_at_ms is null`, monitorID)
+	if err != nil {
+		return err
+	}
+	var drafts []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return errors.Join(err, rows.Close())
+		}
+		drafts = append(drafts, id)
+	}
+	if err := errors.Join(rows.Err(), rows.Close()); err != nil {
+		return err
+	}
+	for _, id := range drafts {
+		if err := addIncidentUpdate(ctx, tx, id, "resolved", "the monitor recovered", nowMs); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DayRollup is one monitor's totals for one UTC day.
