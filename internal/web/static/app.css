@@ -26,6 +26,7 @@ section > h2, .title-row { margin-block-end: var(--space-3); }
 p { margin-block: var(--space-2); }
 a { color: inherit; text-underline-offset: 0.2em; }
 a:hover { color: var(--accent); }
+strong { font-weight: var(--weight-semibold); }
 
 .muted, .meta, .hint { color: var(--muted); }
 .meta, .hint { font-size: var(--text-sm); }
@@ -47,6 +48,7 @@ a:hover { color: var(--accent); }
 }
 .topbar nav { display: flex; gap: var(--space-4); margin-inline-end: auto; }
 .topbar nav a { text-decoration: none; color: var(--muted); }
+.topbar a, .crumbs a, .rows a, tbody th a { display: inline-block; min-block-size: var(--target-min); align-content: center; }
 .topbar nav a:hover { color: var(--ink); }
 .topbar form { margin: 0; }
 
@@ -96,7 +98,8 @@ textarea { resize: vertical; }
 input[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--status-danger); }
 fieldset { margin: 0; padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-card); display: grid; gap: var(--space-4); }
 legend { padding-inline: var(--space-1); }
-.check { display: flex; gap: var(--space-2); align-items: baseline; font-weight: var(--weight-regular); }
+.check { display: flex; gap: var(--space-2); align-items: baseline; min-block-size: var(--target-min); font-weight: var(--weight-regular); }
+input[type="checkbox"] { flex: none; inline-size: var(--icon-size); block-size: var(--icon-size); margin: 0; accent-color: var(--accent); translate: 0 var(--space-0-5); }
 .actions { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .problem { margin: 0; color: var(--status-danger); font-size: var(--text-sm); }
 
@@ -123,6 +126,7 @@ thead th { color: var(--muted); font-size: var(--text-sm); font-weight: var(--we
 tbody th { font-weight: var(--weight-medium); }
 .number { text-align: end; white-space: nowrap; }
 .target { overflow-wrap: anywhere; color: var(--muted); }
+td time { white-space: nowrap; }
 .cell-note { display: block; overflow-wrap: anywhere; }
 
 /* state: a word, a colour and a shape together */
@@ -157,7 +161,7 @@ tbody th { font-weight: var(--weight-medium); }
 
 .components { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-5); }
 .component-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); margin-block-end: var(--space-2); }
-.component-name { font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+.component-name { font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
 .strip { display: flex; align-items: flex-end; gap: var(--space-0-5); block-size: var(--space-6); }
 .day { flex: 1; min-inline-size: 0; border-radius: var(--space-0-5); }
 .day-ok { block-size: 100%; background: var(--status-success); }
