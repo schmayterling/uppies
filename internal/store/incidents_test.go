@@ -44,8 +44,8 @@ func TestAnOutageOpensADraftThatRecoveryCloses(t *testing.T) {
 	if draft.Published || draft.Title != "api is down" || draft.Status != "investigating" || draft.StartedAtMs != 60_000 {
 		t.Fatalf("draft: got %+v, want an unpublished \"api is down\" investigating since 60000", draft)
 	}
-	if len(draft.Updates) != 1 || draft.Updates[0].Body != "status 503" {
-		t.Fatalf("draft updates: got %+v, want one update \"status 503\"", draft.Updates)
+	if len(draft.Updates) != 1 || draft.Updates[0].Body != "we are looking into a problem with api." {
+		t.Fatalf("draft updates: got %+v, want one update that names the monitor and not the check error", draft.Updates)
 	}
 	if len(draft.MonitorIDs) != 1 || draft.MonitorIDs[0] != monitorID {
 		t.Fatalf("draft monitors: got %v, want [%d]", draft.MonitorIDs, monitorID)

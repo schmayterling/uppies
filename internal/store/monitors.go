@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 
+	"modernc.org/sqlite"
+
 	"uppies/internal/health"
 )
 
@@ -54,10 +56,20 @@ func scanMonitor(row rowScanner) (Monitor, error) {
 	return m, err
 }
 
-// CreateProject adds a project and returns its id.
+// ErrSlugTaken is returned when a project slug is already in use.
+var ErrSlugTaken = errors.New("slug already in use")
+
+// sqliteConstraintUnique is SQLite's extended result code SQLITE_CONSTRAINT_UNIQUE.
+const sqliteConstraintUnique = 2067
+
+// CreateProject adds a project and returns its id, or ErrSlugTaken.
 func (s *Store) CreateProject(ctx context.Context, slug, name string, nowMs int64) (int64, error) {
 	res, err := s.db.ExecContext(ctx,
 		"insert into projects (slug, name, created_at_ms) values (?, ?, ?)", slug, name, nowMs)
+	var sqliteErr *sqlite.Error
+	if errors.As(err, &sqliteErr) && sqliteErr.Code() == sqliteConstraintUnique {
+		return 0, ErrSlugTaken
+	}
 	if err != nil {
 		return 0, err
 	}

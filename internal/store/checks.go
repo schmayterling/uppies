@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"uppies/internal/health"
@@ -104,10 +105,9 @@ func (s *Store) RecordCheck(ctx context.Context, r CheckResult) error {
 // openDraftIncident prepares a private incident for a confirmed outage, so
 // that publishing it only needs a person's decision.
 func openDraftIncident(ctx context.Context, tx *sql.Tx, projectID int64, monitorName string, r CheckResult) error {
-	firstUpdate := r.Error
-	if firstUpdate == "" {
-		firstUpdate = "the check failed"
-	}
+	// The raw check error can name private hosts, and this text becomes public
+	// when the draft is published. The error stays in the admin timeline.
+	const firstUpdate = "we are looking into a problem with %s."
 	_, err := insertIncident(ctx, tx, Incident{
 		ProjectID:   projectID,
 		Title:       monitorName + " is down",
@@ -115,7 +115,7 @@ func openDraftIncident(ctx context.Context, tx *sql.Tx, projectID int64, monitor
 		Status:      "investigating",
 		StartedAtMs: r.Step.Tracker.FailingSinceMs,
 		MonitorIDs:  []int64{r.MonitorID},
-	}, firstUpdate, r.AtMs)
+	}, fmt.Sprintf(firstUpdate, monitorName), r.AtMs)
 	return err
 }
 

@@ -180,3 +180,14 @@ func TestEventsPageBackwards(t *testing.T) {
 		t.Fatalf("second page: got %+v, want one event at 1000", second)
 	}
 }
+
+func TestASlugCanBeUsedOnce(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	if _, err := s.CreateProject(ctx, "acme", "Acme", 1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateProject(ctx, "acme", "Another Acme", 2); !errors.Is(err, ErrSlugTaken) {
+		t.Fatalf("second project with the same slug: got err=%v, want ErrSlugTaken", err)
+	}
+}
