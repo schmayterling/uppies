@@ -8,8 +8,6 @@ Dates are ISO dates in +08:00 unless a time says otherwise.
 uppies is a self-hosted uptime monitor: one Go binary, one SQLite file,
 server-rendered pages. Version 1 covers monitors, incident management, a
 timeline view and public status pages for several projects from one install.
-The product draft and the research behind it live outside this repository, in
-`../research/uppies-research.md`.
 
 ## Check that everything still works
 
@@ -35,16 +33,16 @@ Each line names how it was verified.
 
 - Colour contrast of the status colours on each surface was not measured. The values come unchanged from the token file.
 - Keyboard-only use and screen reader output were not checked.
-- Behaviour with many monitors (hundreds) was not measured. The memory and speed targets in the product draft are still goals.
+- Behaviour with many monitors (hundreds) was not measured. There are no memory or speed figures yet.
 - The admin pages were captured once at 1280 wide before the last style fixes and not again.
 
 ## Decisions
 
-- 2026-11-22: Go, embedded SQLite through `modernc.org/sqlite` (no cgo), server-rendered pages. Chosen by the user after the research draft. Rejected: TypeScript on Bun or Node.js, Rust, a single-page app.
+- 2026-11-22: Go, embedded SQLite through `modernc.org/sqlite` (no cgo), server-rendered pages. Chosen by the user. Rejected: TypeScript on Bun or Node.js, Rust, a single-page app.
 - 2026-11-22: SQLite stays the default database. PostgreSQL is the only planned second backend. Turso and KineDB were considered and set aside: Turso's embedded engine is not at 1.0, Turso Cloud would add a network service, and KineDB is not publicly available.
 - 2026-11-22: One goroutine per monitor in place of a shared time-ordered queue. It is simpler, and the expected size is 5 to 200 monitors.
 - 2026-11-22: Only daily rollups are stored. Hourly rollups wait until a view needs them, and adding them is an additive migration.
-- 2026-11-22: Rollups keep the latency sum and maximum, not the p95 that the draft mentions, because a p95 cannot be added up from partial results.
+- 2026-11-22: Rollups keep the latency sum and maximum, not a p95, because a p95 cannot be added up from partial results.
 - 2026-11-22: A draft incident never contains the raw check error. That text can name private hosts and becomes public when the draft is published.
 - 2026-11-22: The public status page shows a monitor's name and state only, never its target or error text.
 - 2026-11-22: A day with under one hour of downtime is drawn as a disruption, a day with one hour or more as an outage. This threshold is a judgment call and has no source.
