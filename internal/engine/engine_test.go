@@ -2,11 +2,13 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -45,6 +47,23 @@ func TestCheckOnceFollowsAnOutageFromStartToRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var alerts struct {
+		sync.Mutex
+		texts []string
+	}
+	chat := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct{ Text string }
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		alerts.Lock()
+		alerts.texts = append(alerts.texts, body.Text)
+		alerts.Unlock()
+	}))
+	defer chat.Close()
+	if _, err := st.CreateAlertChannel(ctx, store.AlertChannel{ProjectID: projectID, Kind: "slack", URL: chat.URL}, 1); err != nil {
+		t.Fatal(err)
+	}
 	m, err := st.Monitor(ctx, monitorID)
 	if err != nil {
 		t.Fatal(err)
@@ -73,6 +92,14 @@ func TestCheckOnceFollowsAnOutageFromStartToRecovery(t *testing.T) {
 		if m.Tracker.Status != s.wantStatus || wait != s.wantWait {
 			t.Fatalf("step %d: got status=%s wait=%s, want status=%s wait=%s", i, m.Tracker.Status, wait, s.wantStatus, s.wantWait)
 		}
+	}
+
+	e.alerts.Wait()
+	alerts.Lock()
+	defer alerts.Unlock()
+	if len(alerts.texts) != 2 || alerts.texts[0] != "api is down: status 500. (Acme)" ||
+		alerts.texts[1] != "api is up again after under a minute. (Acme)" {
+		t.Fatalf("alerts: got %q, want one for the outage and one for the recovery", alerts.texts)
 	}
 
 	events, err := st.Events(ctx, projectID, 0, 10)
@@ -131,4 +158,24 @@ func TestCheckOnceDoesNotRecordACancelledCheck(t *testing.T) {
 	if after.LastCheckAtMs != 0 || after.Tracker.Status != health.Unknown {
 		t.Fatalf("a cancelled check was recorded: last_check=%d status=%s", after.LastCheckAtMs, after.Tracker.Status)
 	}
+}
+
+func TestHeartbeatKeepsRequestingTheURL(t *testing.T) {
+	beats := make(chan struct{}, 8)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		beats <- struct{}{}
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		Heartbeat(ctx, server.URL, 5*time.Millisecond, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		close(done)
+	}()
+	for range 3 {
+		<-beats
+	}
+	cancel()
+	<-done
 }

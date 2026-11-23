@@ -4,11 +4,14 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"net/http"
 	"sync"
 	"time"
 
+	"uppies/internal/alert"
 	"uppies/internal/check"
 	"uppies/internal/health"
 	"uppies/internal/store"
@@ -22,6 +25,9 @@ const (
 	pruneEvery        = time.Hour
 	// maxStartDelay spreads first checks out so monitors do not all fire together.
 	maxStartDelay = 10 * time.Second
+	// alertDeadline bounds one change's alert deliveries, retries included.
+	alertDeadline  = time.Minute
+	alertRetryWait = 2 * time.Second
 )
 
 // Engine owns one goroutine per active monitor.
@@ -30,6 +36,8 @@ type Engine struct {
 	log    *slog.Logger
 	slots  chan struct{}
 	reload chan struct{}
+	// alerts tracks deliveries in flight so that shutdown can wait for them.
+	alerts sync.WaitGroup
 }
 
 // New returns an engine that reads monitors from st.
@@ -75,6 +83,7 @@ func (e *Engine) Run(ctx context.Context) error {
 			case <-ctx.Done():
 				stop()
 				loops.Wait()
+				e.alerts.Wait()
 				return nil
 			case <-e.reload:
 				reloaded = true
@@ -166,6 +175,15 @@ func (e *Engine) checkOnce(ctx context.Context, m store.Monitor) (store.Monitor,
 	}
 	if step.Change != health.NoChange {
 		e.log.Info("monitor changed", "monitor_id", m.ID, "name", m.Name, "status", step.Tracker.Status, "error", result.Error)
+		e.sendAlerts(ctx, m, alert.Event{
+			Monitor: m.Name,
+			Target:  m.Target,
+			Down:    step.Change == health.WentDown,
+			Error:   result.Error,
+			At:      time.UnixMilli(atMs),
+			DownFor: time.Duration(atMs-m.StatusSinceMs) * time.Millisecond,
+		})
+		m.StatusSinceMs = atMs
 	}
 
 	m.Tracker = step.Tracker
@@ -175,4 +193,70 @@ func (e *Engine) checkOnce(ctx context.Context, m store.Monitor) (store.Monitor,
 		wait = time.Duration(m.RetryIntervalS) * time.Second
 	}
 	return m, wait, nil
+}
+
+// sendAlerts delivers a change to the project's channels in the background.
+// Deliveries outlive a reload, and Run waits for them before it returns.
+func (e *Engine) sendAlerts(ctx context.Context, m store.Monitor, event alert.Event) {
+	project, err := e.store.ProjectByID(ctx, m.ProjectID)
+	if err != nil {
+		e.log.Error("load project for alert", "monitor_id", m.ID, "error", err)
+		return
+	}
+	channels, err := e.store.AlertChannels(ctx, m.ProjectID)
+	if err != nil {
+		e.log.Error("load alert channels", "monitor_id", m.ID, "error", err)
+		return
+	}
+	event.Project = project.Name
+	if event.Down {
+		event.DownFor = 0
+	}
+	for _, channel := range channels {
+		e.alerts.Go(func() {
+			sendCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), alertDeadline)
+			defer cancel()
+			if err := alert.Send(sendCtx, channel, event, alertRetryWait); err != nil {
+				e.log.Error("send alert", "channel_id", channel.ID, "kind", channel.Kind, "monitor_id", m.ID, "error", err)
+			}
+		})
+	}
+}
+
+// Heartbeat requests url every interval until ctx is cancelled. Pointed at an
+// outside service that expects regular requests, it gets someone told when
+// uppies itself stops running.
+func Heartbeat(ctx context.Context, url string, interval time.Duration, log *slog.Logger) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		if err := beat(ctx, client, url); err != nil && ctx.Err() == nil {
+			log.Error("send heartbeat", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+func beat(ctx context.Context, client *http.Client, url string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", "uppies")
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	if err := resp.Body.Close(); err != nil {
+		return err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return fmt.Errorf("the heartbeat url answered with status %d", resp.StatusCode)
+	}
+	return nil
 }

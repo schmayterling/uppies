@@ -17,21 +17,25 @@ import (
 	"uppies/internal/web"
 )
 
-const shutdownGrace = 10 * time.Second
+const (
+	shutdownGrace  = 10 * time.Second
+	heartbeatEvery = time.Minute
+)
 
 func main() {
 	addr := flag.String("addr", ":8080", "address to listen on")
 	dbPath := flag.String("db", "uppies.db", "path of the database file")
+	heartbeatURL := flag.String("heartbeat-url", "", "url to request every minute, so an outside service notices when uppies stops")
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	if err := run(*addr, *dbPath, log); err != nil {
+	if err := run(*addr, *dbPath, *heartbeatURL, log); err != nil {
 		log.Error("uppies stopped", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run(addr, dbPath string, log *slog.Logger) (err error) {
+func run(addr, dbPath, heartbeatURL string, log *slog.Logger) (err error) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -65,6 +69,9 @@ func run(addr, dbPath string, log *slog.Logger) (err error) {
 	serverDone := make(chan error, 1)
 	go func() { engineDone <- checks.Run(ctx) }()
 	go func() { serverDone <- server.ListenAndServe() }()
+	if heartbeatURL != "" {
+		go engine.Heartbeat(ctx, heartbeatURL, heartbeatEvery, log)
+	}
 	log.Info("uppies is running", "addr", addr, "db", dbPath)
 
 	select {
