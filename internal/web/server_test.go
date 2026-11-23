@@ -495,6 +495,7 @@ func TestStatusPageFooterTimezoneDomainAndBadge(t *testing.T) {
 	for _, want := range []string{
 		`<select id="timezone" name="timezone"`, `<option value="Asia/Manila" selected>Asia/Manila</option>`,
 		`<option value="America/New_York">America/New_York</option>`, `<option value="Pacific/Auckland">Pacific/Auckland</option>`,
+		`<option value="Etc/GMT&#43;5">Etc/GMT&#43;5</option>`, `<option value="US/Eastern">US/Eastern</option>`,
 	} {
 		if !strings.Contains(settingsHTML, want) {
 			t.Errorf("timezone dropdown is missing %q", want)

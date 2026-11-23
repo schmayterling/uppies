@@ -3,16 +3,15 @@ package web
 import (
 	_ "embed" // zones.txt is compiled in
 	"os"
-	"slices"
 	"strings"
 	"time"
 
 	"uppies/internal/store"
 )
 
-// zones.txt holds the zone names of the IANA timezone database, one per
-// line, taken from its zone.tab. Go can load a zone by name but cannot list
-// the names, so the list ships with the program.
+// zones.txt lists the names in Go's lib/time/zoneinfo.zip, except UTC.
+// It includes fixed offsets and compatibility aliases from the bundled database.
+// Regenerate it from the Go toolchain's archive when updating the list.
 //
 //go:embed zones.txt
 var zoneList string
@@ -58,9 +57,13 @@ func pageZone(project store.Project, asked string) (*time.Location, string) {
 
 // zoneChoices lists the zones offered in the picker, with the current one first.
 func zoneChoices(project store.Project, current string) []string {
-	choices := []string{current}
-	for _, name := range append([]string{project.Timezone}, offeredZones...) {
-		if !slices.Contains(choices, name) {
+	choices := make([]string, 0, len(offeredZones)+2)
+	choices = append(choices, current)
+	if project.Timezone != current {
+		choices = append(choices, project.Timezone)
+	}
+	for _, name := range offeredZones {
+		if name != current && name != project.Timezone {
 			choices = append(choices, name)
 		}
 	}
