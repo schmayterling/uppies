@@ -388,6 +388,72 @@ func TestStatusPageFollowsTheProjectSettings(t *testing.T) {
 	}
 }
 
+func TestNavbarBrandControlsThePublicHeader(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	id, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := fmt.Sprintf("/admin/projects/%d/settings", id)
+	form := url.Values{
+		"name": {"Acme"}, "theme": {"auto"}, "accent_hue": {"200"}, "history_days": {"90"}, "timezone": {"UTC"},
+	}
+	brand := func(t *testing.T, path, text, asset string) {
+		t.Helper()
+		status, page := s.get(t, s.anonymous, path)
+		_, header, found := strings.Cut(page, `<header class="site-bar">`)
+		link, _, closed := strings.Cut(header, "</a>")
+		if status != http.StatusOK || !found || !closed || !strings.Contains(link, `aria-label="Acme"`) {
+			t.Fatalf("%s: a public brand link with its accessible name is missing", path)
+		}
+		visibleText := strings.TrimSpace(link[strings.LastIndexByte(link, '>')+1:])
+		if visibleText != text {
+			t.Errorf("%s: brand text %q, want %q", path, visibleText, text)
+		}
+		if asset != "" && !strings.Contains(link, asset) || asset == "" && strings.Contains(link, "<img") {
+			t.Errorf("%s: unexpected branding image in %q, want %q", path, link, asset)
+		}
+	}
+	logo := []byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><rect width="20" height="20"/></svg>`)
+	if err := s.store.SetProjectImage(ctx, id, store.ImageLogo, "image/svg+xml", logo, 1); err != nil {
+		t.Fatal(err)
+	}
+	brand(t, "/s/acme", "Acme", "/images/logo")
+	for _, c := range []struct{ mode, text, asset string }{
+		{"icon", "", "/images/logo"},
+		{"name", "Acme", ""},
+		{"icon-name", "Acme", "/images/logo"},
+	} {
+		form.Set("navbar_brand", c.mode)
+		if got := s.post(t, s.admin, settings, form, nil).StatusCode; got != http.StatusSeeOther {
+			t.Fatalf("%s: save returned %d", c.mode, got)
+		}
+		brand(t, "/s/acme", c.text, c.asset)
+		brand(t, "/s/acme/history", c.text, c.asset)
+	}
+	form.Set("navbar_brand", "icon")
+	if got := s.post(t, s.admin, settings, form, nil).StatusCode; got != http.StatusSeeOther {
+		t.Fatalf("icon save returned %d", got)
+	}
+	form.Del("navbar_brand")
+	if got := s.post(t, s.admin, settings, form, nil).StatusCode; got != http.StatusSeeOther {
+		t.Fatalf("older form returned %d", got)
+	}
+	if err := s.store.DeleteProjectImage(ctx, id, store.ImageLogo); err != nil {
+		t.Fatal(err)
+	}
+	brand(t, "/s/acme", "", "icons.svg#globe")
+	if err := s.store.SetProjectImage(ctx, id, store.ImageFavicon, "image/svg+xml", logo, 2); err != nil {
+		t.Fatal(err)
+	}
+	form.Set("navbar_brand", "invalid")
+	if got := s.post(t, s.admin, settings, form, nil).StatusCode; got != http.StatusUnprocessableEntity {
+		t.Errorf("invalid navbar choice returned %d", got)
+	}
+	brand(t, "/s/acme", "", "/images/favicon")
+}
+
 func TestStatusPageFooterTimezoneDomainAndBadge(t *testing.T) {
 	ctx := context.Background()
 	s := newSite(t)

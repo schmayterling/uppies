@@ -442,6 +442,11 @@ where p.category <> '' group by p.project_id, p.category;
 drop table categories;
 alter table monitors drop column category;
 `,
+	// Step 18 gives each public navbar a choice of brand elements.
+	`
+alter table projects add column navbar_brand text not null default 'icon-name'
+	check (navbar_brand in ('icon', 'icon-name', 'name'));
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

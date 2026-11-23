@@ -81,6 +81,7 @@ var (
 	backfills    = []string{"none", "up", "degraded", "down"}
 	cornerStyles = []string{"sharp", "soft", "round"}
 	fonts        = []string{"system", "rounded", "serif", "mono"}
+	navbarBrands = []string{"icon", "icon-name", "name"}
 )
 
 // choice reads a field that must be one of the allowed values. An absent
@@ -143,6 +144,7 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	p.Corners = choice(form, "corners", cornerStyles, p.Corners, problems)
 	p.GraphFill = scopedGraphFill(form, p.GraphFill, problems)
 	p.Font = choice(form, "font", fonts, p.Font, problems)
+	p.NavbarBrand = choice(form, "navbar_brand", navbarBrands, p.NavbarBrand, problems)
 	p.HistoryDays = formInt(form, "history_days", 7, 365, problems)
 	p.Backfill = choice(form, "backfill", backfills, p.Backfill, problems)
 

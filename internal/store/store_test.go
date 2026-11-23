@@ -241,6 +241,7 @@ func TestUpgradingAVersionOneFileKeepsItsDataAndAddsDefaults(t *testing.T) {
 	want := Project{
 		ID: 7, Slug: "acme", Name: "Acme", AccentHue: 200, Theme: "auto", ShowFace: true, HistoryDays: 90,
 		ShowPoweredBy: true, Timezone: "UTC", Surface: "neutral", Corners: "soft", Font: "system", Backfill: "none",
+		NavbarBrand: "icon-name",
 	}
 	if got != want {
 		t.Fatalf("project after upgrade: got %+v, want %+v", got, want)

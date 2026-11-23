@@ -118,7 +118,18 @@
 
 {{/* the bar at the top of a status page's pages. it takes the page and the name of the current one. */}}
 {{define "site-bar"}}{{$section := .Second}}{{with .First}}<header class="site-bar">
-  <a class="site-brand" href="/s/{{.Project.Slug}}{{with .TZ}}?tz={{.}}{{end}}">{{with index .Images "logo"}}<img class="logo" src="/s/{{$.First.Project.Slug}}/images/logo?v={{.}}" alt="">{{end}}{{.Project.Name}}</a>
+  <a class="site-brand{{if eq .Project.NavbarBrand "icon"}} site-brand-icon{{end}}" href="/s/{{.Project.Slug}}{{with .TZ}}?tz={{.}}{{end}}" aria-label="{{.Project.Name}}">
+    {{if ne .Project.NavbarBrand "name"}}
+      {{with index .Images "logo"}}<img class="logo" src="/s/{{$.First.Project.Slug}}/images/logo?v={{.}}" alt="">
+      {{else}}
+        {{if eq .Project.NavbarBrand "icon"}}
+          {{with index .Images "favicon"}}<img class="logo" src="/s/{{$.First.Project.Slug}}/images/favicon?v={{.}}" width="32" height="32" alt="">
+          {{else}}{{template "icon" "globe"}}{{end}}
+        {{end}}
+      {{end}}
+    {{end}}
+    {{if ne .Project.NavbarBrand "icon"}}{{.Project.Name}}{{end}}
+  </a>
   <nav class="site-links" aria-label="{{.Project.Name}}">
     <a href="/s/{{.Project.Slug}}{{with .TZ}}?tz={{.}}{{end}}"{{if eq $section "status"}} aria-current="page"{{end}}>status</a>
     <a href="/s/{{.Project.Slug}}/history{{with .TZ}}?tz={{.}}{{end}}"{{if eq $section "incidents"}} aria-current="page"{{end}}>incidents</a>

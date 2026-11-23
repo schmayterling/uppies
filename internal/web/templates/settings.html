@@ -56,6 +56,15 @@
   <h2 class="group-title">look</h2>
   <div class="group">
     <div class="srow">
+      <label class="srow-copy" for="navbar_brand"><span>navbar appearance</span></label>
+      <div class="srow-control"><select id="navbar_brand" name="navbar_brand"{{if index .Problems "navbar_brand"}} aria-invalid="true" aria-describedby="navbar-brand-problem"{{end}}>
+        <option value="icon"{{if eq .Project.NavbarBrand "icon"}} selected{{end}}>icon or logo only</option>
+        <option value="icon-name"{{if eq .Project.NavbarBrand "icon-name"}} selected{{end}}>icon or logo and name</option>
+        <option value="name"{{if eq .Project.NavbarBrand "name"}} selected{{end}}>name only</option>
+      </select></div>
+      {{with index .Problems "navbar_brand"}}<p class="problem srow-problem" id="navbar-brand-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
       <div class="srow-copy" id="theme-label"><span>theme</span><small>auto follows the visitor's device.</small></div>
       <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="theme-label">
         {{range .Themes}}<label><input type="radio" name="theme" value="{{.}}"{{if eq . $.Project.Theme}} checked{{end}}><span>{{.}}</span></label>{{end}}
