@@ -79,19 +79,15 @@
 </section>
 
 <section aria-labelledby="history-heading">
-  <h2 id="history-heading">past incidents</h2>
-  {{if .Past}}
-  {{range .Past}}
-  <article class="incident">
-    <h3>{{.Title}}</h3>
-    <p class="meta">{{.Impact}} impact{{if .Affected}} · affected {{range $i, $name := .Affected}}{{if $i}}, {{end}}{{$name}}{{end}}{{end}}</p>
-    <ol class="updates">
-      {{range .Updates}}<li><strong>{{.Status}}</strong> <span class="update-body">{{.Body}}</span> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Zone .AtMs}}</time></li>{{end}}
-    </ol>
-  </article>
-  {{end}}
-  {{else}}
-  <p class="muted">no incidents in the last {{.Project.HistoryDays}} days.</p>
+  <div class="title-row">
+    <h2 id="history-heading">past incidents</h2>
+    <a class="meta" href="/s/{{.Project.Slug}}/history">incident history</a>
+  </div>
+  {{range .Recent}}
+  <div class="day-group">
+    <h3 class="day-heading">{{.Date}}</h3>
+    {{range .Incidents}}{{template "incident" (pair . $.Zone)}}{{else}}<p class="muted">no incidents on this day.</p>{{end}}
+  </div>
   {{end}}
 </section>
 

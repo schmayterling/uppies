@@ -76,7 +76,8 @@ type statusPage struct {
 	BannerText  string
 	Components  []componentView
 	Active      []incidentView
-	Past        []incidentView
+	// Recent lists the last few days, today first, with the resolved incidents of each.
+	Recent []dayGroup
 	// Maintenance holds the running and upcoming windows, soonest first.
 	Maintenance []maintenanceView
 }
@@ -287,19 +288,16 @@ func (s *Server) statusPage(ctx context.Context, project store.Project) (statusP
 		}
 		page.Components = append(page.Components, view)
 	}
+	var resolved []incidentView
 	for _, in := range incidents {
-		view := incidentView{Incident: in}
-		for _, id := range in.MonitorIDs {
-			if name, public := names[id]; public {
-				view.Affected = append(view.Affected, name)
-			}
-		}
+		view := newIncidentView(in, names)
 		if in.ResolvedAtMs.Valid {
-			page.Past = append(page.Past, view)
+			resolved = append(resolved, view)
 		} else {
 			page.Active = append(page.Active, view)
 		}
 	}
+	page.Recent = recentDayGroups(resolved, s.now(), zone)
 	nowMs := s.now().UnixMilli()
 	windows, err := s.store.MaintenanceWindows(ctx, project.ID, nowMs)
 	if err != nil {

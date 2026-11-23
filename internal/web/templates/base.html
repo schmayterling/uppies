@@ -70,6 +70,14 @@
 {{define "info"}}<p class="admonition admonition-info">{{template "icon" "info"}}<span>{{.}}</span></p>{{end}}
 {{define "success"}}<p class="admonition admonition-success" role="status">{{template "icon" "circle-check"}}<span>{{.}}</span></p>{{end}}
 
+{{define "incident"}}{{with .First}}<article class="incident">
+  <h4>{{.Title}}</h4>
+  <p class="meta">{{.Impact}} impact{{if .Affected}} · affected {{range $i, $name := .Affected}}{{if $i}}, {{end}}{{$name}}{{end}}{{end}}</p>
+  <ol class="updates">
+    {{range .Updates}}<li><strong>{{.Status}}</strong> <span class="update-body">{{.Body}}</span> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Second .AtMs}}</time></li>{{end}}
+  </ol>
+</article>{{end}}{{end}}
+
 {{define "icon"}}<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#{{.}}"/></svg>{{end}}
 
 {{define "mark"}}<svg class="mark mark-{{.}}" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">{{if eq . "ok"}}<circle cx="6" cy="6" r="5"/>{{else if eq . "warn"}}<path d="M6 1 11.5 11H.5Z"/>{{else if eq . "down"}}<rect x="1" y="1" width="10" height="10" rx="2"/>{{else}}<circle class="hollow" cx="6" cy="6" r="4"/>{{end}}</svg>{{end}}

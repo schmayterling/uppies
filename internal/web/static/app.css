@@ -434,6 +434,42 @@ input[type="file"] { padding: var(--space-1); }
 .updates, .timeline { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-3); }
 .updates li, .timeline li { display: grid; gap: var(--space-0-5); }
 .update-body { white-space: pre-line; overflow-wrap: anywhere; }
+.day-group { margin-block-start: var(--space-4); padding-block-start: var(--space-3); border-block-start: 1px solid var(--border); }
+.day-heading { font-size: var(--text-ui); font-weight: var(--weight-semibold); }
+.day-group > .muted { margin-block: var(--space-1) 0; font-size: var(--text-ui); }
+.day-group .incident { margin-block-start: var(--space-3); }
+.incident h4 { margin: 0; font-size: var(--text-heading); font-weight: var(--weight-semibold); }
+
+/* the incident map: a year of days, one column per week */
+.heat-scroll { overflow-x: auto; padding-block: var(--space-6) var(--space-1); }
+.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); grid-auto-columns: minmax(var(--space-2), 1fr); gap: var(--space-0-5); min-inline-size: 560px; }
+.heat-cell { position: relative; aspect-ratio: 1; border-radius: var(--space-0-5); background: var(--active); }
+.heat-blank { background: none; }
+.heat-1 { background: color-mix(in oklab, var(--status-warning) 45%, var(--active)); }
+.heat-2 { background: var(--status-warning); }
+.heat-3 { background: var(--status-danger); }
+.heat-cell[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  inset-block-end: calc(100% + var(--space-1-5));
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  z-index: 1;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--elevated);
+  box-shadow: var(--shadow-popover);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.heat-cell:nth-child(-n+70):hover::after { inset-inline-start: 0; translate: 0 0; }
+.heat-cell:nth-last-child(-n+70):hover::after { inset-inline-start: auto; inset-inline-end: 0; translate: 0 0; }
+.heat-legend { display: flex; align-items: center; gap: var(--space-1-5); margin-block-start: var(--space-2); }
+.heat-legend .heat-cell { inline-size: var(--space-3); margin-inline-start: var(--space-2); }
+
 .page-foot { margin-block-start: var(--space-7); }
 
 /* phones show 30 days so each day stays wide enough to see */

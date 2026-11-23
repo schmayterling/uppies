@@ -725,3 +725,49 @@ func TestEasyLookSettingsReachTheThemeStylesheet(t *testing.T) {
 		t.Fatalf("after the refused save: corners %q err=%v, want round kept", p.Corners, err)
 	}
 }
+
+func TestIncidentHistoryPageListsAYearAndHidesDrafts(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	lastYear := time.Date(now.Year()-1, time.June, 15, 12, 0, 0, 0, time.UTC)
+	seed := []struct {
+		title     string
+		published bool
+		at        time.Time
+	}{
+		{"checkout errors", true, now.Add(-time.Hour)},
+		{"secret draft", false, now.Add(-2 * time.Hour)},
+		{"summer outage", true, lastYear},
+	}
+	for _, in := range seed {
+		_, err := s.store.CreateIncident(ctx, store.Incident{
+			ProjectID: projectID, Title: in.title, Impact: "major", Status: "resolved",
+			Published: in.published, StartedAtMs: in.at.UnixMilli(),
+		}, "details.", in.at.UnixMilli())
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	status, page := s.get(t, s.anonymous, "/s/acme/history")
+	if status != http.StatusOK || !strings.Contains(page, "checkout errors") {
+		t.Fatalf("this year: got %d, want 200 with this year's incident", status)
+	}
+	for _, unwanted := range []string{"secret draft", "summer outage"} {
+		if strings.Contains(page, unwanted) {
+			t.Errorf("this year's history shows %q", unwanted)
+		}
+	}
+	_, page = s.get(t, s.anonymous, fmt.Sprintf("/s/acme/history?year=%d", now.Year()-1))
+	if !strings.Contains(page, "summer outage") || strings.Contains(page, "checkout errors") {
+		t.Error("last year's history must show only last year's incident")
+	}
+	if _, page := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(page, "no incidents on this day.") || !strings.Contains(page, "/s/acme/history") {
+		t.Error("the status page must list quiet days and link to the history")
+	}
+}

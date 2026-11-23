@@ -253,3 +253,11 @@ func (s *Store) incidents(ctx context.Context, condition string, args ...any) ([
 	}
 	return incidents, links.Err()
 }
+
+// PublishedIncidentsBetween returns a project's public incidents that started
+// in [fromMs, toMs), newest first.
+func (s *Store) PublishedIncidentsBetween(ctx context.Context, projectID, fromMs, toMs int64) ([]Incident, error) {
+	return s.incidents(ctx,
+		"i.project_id = ? and i.published = 1 and i.started_at_ms >= ? and i.started_at_ms < ?",
+		projectID, fromMs, toMs, maxIncidentsPerPage)
+}

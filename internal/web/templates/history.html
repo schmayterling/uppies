@@ -1,0 +1,37 @@
+{{define "head"}}<link rel="stylesheet" href="/s/{{.Project.Slug}}/theme.css">
+{{if .Project.NoIndex}}<meta name="robots" content="noindex">{{end}}
+{{with index .Images "favicon"}}<link rel="icon" href="/s/{{$.Project.Slug}}/images/favicon?v={{.}}">{{end}}{{end}}
+{{define "main"}}
+<header class="page-head">
+  <p class="meta"><a href="/s/{{.Project.Slug}}">back to the status page</a></p>
+  <h1>{{with index .Images "logo"}}<img class="logo" src="/s/{{$.Project.Slug}}/images/logo?v={{.}}" alt="">{{end}}{{.Project.Name}} incident history</h1>
+</header>
+
+<section aria-labelledby="map-heading">
+  <div class="title-row">
+    <h2 id="map-heading">{{.Year}}</h2>
+    <nav class="actions" aria-label="years">
+      <a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.PrevYear}}">{{.PrevYear}}</a>
+      {{if .NextYear}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.NextYear}}">{{.NextYear}}</a>{{end}}
+    </nav>
+  </div>
+  <div class="heat-scroll">
+    <div class="heat" role="img" aria-label="{{.Total}} incidents in {{.Year}}. each square is a day, and the list below names them.">
+      {{range .Weeks}}{{range .}}<span class="heat-cell{{if .Blank}} heat-blank{{else}} heat-{{.Level}}{{end}}"{{if .Tip}} data-tip="{{.Tip}}"{{end}}></span>{{end}}{{end}}
+    </div>
+  </div>
+  <p class="heat-legend meta"><span class="heat-cell heat-0"></span>none <span class="heat-cell heat-1"></span>minor <span class="heat-cell heat-2"></span>major <span class="heat-cell heat-3"></span>critical</p>
+</section>
+
+<section aria-labelledby="list-heading">
+  <h2 id="list-heading">{{if eq .Total 1}}1 incident{{else}}{{.Total}} incidents{{end}} in {{.Year}}</h2>
+  {{range .Days}}
+  <div class="day-group">
+    <h3 class="day-heading">{{.Date}}</h3>
+    {{range .Incidents}}{{template "incident" (pair . $.Zone)}}{{end}}
+  </div>
+  {{else}}
+  <p class="muted">no incidents were reported in {{.Year}}.</p>
+  {{end}}
+</section>
+{{end}}

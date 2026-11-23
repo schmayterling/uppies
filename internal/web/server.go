@@ -53,7 +53,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 	}
 	names := []string{
 		"index.html", "status.html", "error.html", "setup.html", "login.html", "dashboard.html",
-		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html",
+		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html",
 	}
 	for _, name := range names {
 		page, err := template.New("base.html").Funcs(templateFuncs).
@@ -81,6 +81,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 	mux.HandleFunc("GET /s/{slug}", s.handleStatusPage)
+	mux.HandleFunc("GET /s/{slug}/history", s.handleHistory)
 	mux.HandleFunc("GET /s/{slug}/theme.css", s.handleTheme)
 	mux.HandleFunc("GET /s/{slug}/badge.svg", s.handleBadge)
 	mux.HandleFunc("GET /s/{slug}/images/{kind}", s.handleImage)
@@ -239,6 +240,10 @@ var templateFuncs = template.FuncMap{
 		return time.UnixMilli(ms).UTC().Format(time.RFC3339)
 	},
 	"contains": slices.Contains[[]int64],
+	// pair passes two values to a template that takes one.
+	"pair": func(first, second any) struct{ First, Second any } {
+		return struct{ First, Second any }{first, second}
+	},
 	"kindIcon": func(kind string) string {
 		return kindIcons[kind]
 	},
