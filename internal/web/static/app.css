@@ -154,6 +154,11 @@ a.list-row:hover { background: var(--surface); color: inherit; }
 .list-row .mark { translate: 0 var(--space-0-5); }
 .list-note { overflow-wrap: anywhere; text-align: end; }
 .empty { margin: 0; padding: var(--space-5) var(--space-4); color: var(--muted); }
+.list form { margin: 0; }
+.panel.list-row { align-items: center; }
+table.dense .cell-note { margin-block-start: var(--space-0-5); }
+table.dense tbody th .cell-note { padding-inline-start: calc(var(--icon-size) + var(--space-2)); }
+table.dense td time { white-space: nowrap; }
 table.dense th, table.dense td { padding: var(--space-1-5) var(--space-3); vertical-align: middle; }
 table.dense tbody tr:last-child > * { border-block-end: 0; }
 table.dense tbody tr:hover { background: var(--surface); }
@@ -236,8 +241,28 @@ legend { padding-inline: var(--space-1); }
 input[type="checkbox"] { flex: none; inline-size: var(--icon-size); block-size: var(--icon-size); margin: 0; accent-color: var(--accent); translate: 0 var(--space-0-5); }
 .actions { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .problem { margin: 0; color: var(--status-danger); font-size: var(--text-sm); }
-.notice:empty { display: none; }
-.notice { padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-control); }
+/* admonitions: a message that stands apart from the form or page around it.
+   the tint is mixed in oklab, which keeps a grey background from shifting hue. */
+.admonition {
+  --tone: var(--status-info);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid color-mix(in oklab, var(--tone) 35%, var(--border));
+  border-radius: var(--radius-control);
+  background: color-mix(in oklab, var(--tone) 8%, var(--background));
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.admonition > .icon { color: var(--tone); margin-block-start: var(--space-0-5); }
+.admonition p { margin: 0 0 var(--space-1); }
+.admonition p:last-child { margin: 0; }
+.admonition-danger { --tone: var(--status-danger); }
+.admonition-warning { --tone: var(--status-warning); }
+.admonition-success { --tone: var(--status-success); }
+.content > .admonition, .content > form > .admonition { margin-block: var(--space-4); }
 .channel { display: flex; gap: var(--space-2); align-items: baseline; min-inline-size: 0; }
 .rows form { margin: 0; }
 

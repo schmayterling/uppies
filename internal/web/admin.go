@@ -112,6 +112,12 @@ func monitorRows(monitors []store.Monitor) []monitorRow {
 	return rows
 }
 
+// newOverviewRow adds the 30-day bar and the uptime figure to a monitor row.
+func newOverviewRow(row monitorRow, project store.Project, rollups []store.DayRollup, todayStartMs int64) overviewRow {
+	days, uptime := uptimeStrip(rollups, todayStartMs, overviewDays)
+	return overviewRow{monitorRow: row, Project: project, Days: days, Uptime: strings.TrimSuffix(uptime, " uptime")}
+}
+
 func (s *Server) dashboard(r *http.Request) (dashboardPage, error) {
 	ctx := r.Context()
 	page := dashboardPage{Chrome: s.adminChrome(r, "overview")}
@@ -176,9 +182,7 @@ func (s *Server) dashboard(r *http.Request) (dashboardPage, error) {
 		default:
 			page.Waiting++
 		}
-		days, uptime := uptimeStrip(rollups[row.ID], todayStartMs, overviewDays)
-		uptime = strings.TrimSuffix(uptime, " uptime")
-		page.Rows = append(page.Rows, overviewRow{monitorRow: row, Project: byID[row.ProjectID], Days: days, Uptime: uptime})
+		page.Rows = append(page.Rows, newOverviewRow(row, byID[row.ProjectID], rollups[row.ID], todayStartMs))
 	}
 	for _, in := range incidents {
 		if listed[in.ID] {
@@ -256,7 +260,7 @@ type eventRow struct {
 type projectPage struct {
 	Chrome    chrome
 	Project   store.Project
-	Monitors  []monitorRow
+	Monitors  []overviewRow
 	Incidents []store.Incident
 	Events    []eventRow
 	// Maintenance holds the running and upcoming windows.
@@ -391,10 +395,20 @@ func (s *Server) projectPage(r *http.Request) (projectPage, error) {
 		return projectPage{}, err
 	}
 
+	todayStartMs := store.DayStartMs(s.now().UnixMilli())
+	rollups, err := s.store.DailyRollups(ctx, id, todayStartMs-(overviewDays-1)*dayMs)
+	if err != nil {
+		return projectPage{}, err
+	}
+	var rows []overviewRow
+	for _, row := range monitorRows(monitors) {
+		rows = append(rows, newOverviewRow(row, project, rollups[row.ID], todayStartMs))
+	}
+
 	page := projectPage{
 		Chrome:      s.adminChrome(r, project.Name),
 		Project:     project,
-		Monitors:    monitorRows(monitors),
+		Monitors:    rows,
 		Incidents:   incidents,
 		Maintenance: windows,
 		Zone:        zone,

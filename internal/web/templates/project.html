@@ -1,77 +1,85 @@
 {{define "main"}}
-<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">projects</a> / {{.Project.Name}}</nav>
+<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">overview</a> / {{.Project.Name}}</nav>
 <div class="title-row">
   <h1>{{.Project.Name}}</h1>
   <span class="actions">
+    <a class="button quiet" href="/s/{{.Project.Slug}}">{{template "icon" "external-link"}}status page</a>
     <a class="button quiet" href="/admin/projects/{{.Project.ID}}/settings">{{template "icon" "settings"}}settings</a>
-    <a class="button quiet" href="/s/{{.Project.Slug}}">{{template "icon" "external-link"}}view status page</a>
+    <a class="button" href="/admin/projects/{{.Project.ID}}/monitors/new">{{template "icon" "plus"}}add monitor</a>
   </span>
 </div>
 
 <section aria-labelledby="monitors-heading">
-  <div class="title-row">
-    <h2 id="monitors-heading">monitors</h2>
-    <a class="button" href="/admin/projects/{{.Project.ID}}/monitors/new">{{template "icon" "plus"}}add monitor</a>
-  </div>
+  <h2 id="monitors-heading">monitors</h2>
   {{if .Monitors}}
-  <div class="table-scroll">
-  <table>
-    <thead><tr><th scope="col">name</th><th scope="col">state</th><th scope="col">target</th><th scope="col">last check</th><th scope="col" class="number">latency</th></tr></thead>
+  <div class="panel table-scroll">
+  <table class="dense">
+    <thead><tr><th scope="col">monitor</th><th scope="col">state</th><th scope="col">last {{len (index .Monitors 0).Days}} days</th><th scope="col" class="number">uptime</th><th scope="col">last check</th><th scope="col" class="number">latency</th></tr></thead>
     <tbody>
       {{range .Monitors}}
       <tr>
-        <th scope="row"><a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a></th>
-        <td><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>{{if and .LastError (eq .State "down")}}<span class="meta cell-note">{{.LastError}}</span>{{end}}</td>
-        <td class="target">{{if eq .Kind "push"}}reports in{{else}}{{.Target}}{{end}}{{if .CertExpiresAtMs}}<span class="meta cell-note">certificate expires in {{daysUntil .CertExpiresAtMs}} days</span>{{end}}</td>
-        <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{utc .LastCheckAtMs}}</time>{{else}}<span class="muted">not yet</span>{{end}}</td>
-        <td class="number">{{if .LastCheckAtMs}}{{.LastLatencyMs}} ms{{end}}</td>
+        <th scope="row">
+          <a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
+          <span class="meta cell-note target">{{if eq .Kind "push"}}waits for the job to report in{{else}}{{.Target}}{{end}}{{if not .Public}} · hidden from the status page{{end}}</span>
+        </th>
+        <td>
+          <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
+          {{if and .LastError (eq .State "down")}}<span class="meta cell-note">{{.LastError}}</span>{{end}}
+          {{if .CertExpiresAtMs}}<span class="meta cell-note">certificate expires in {{daysUntil .CertExpiresAtMs}} days</span>{{end}}
+        </td>
+        <td><div class="strip mini" role="img" aria-label="uptime {{.Uptime}}">{{range .Days}}<span class="day day-{{.State}}" title="{{.Label}}"></span>{{end}}</div></td>
+        <td class="number">{{.Uptime}}</td>
+        <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{local $.Zone .LastCheckAtMs}}</time>{{else}}<span class="muted">not yet</span>{{end}}</td>
+        <td class="number">{{if and .LastCheckAtMs (eq .State "ok") (ne .Kind "push")}}{{.LastLatencyMs}} ms{{end}}</td>
       </tr>
       {{end}}
     </tbody>
   </table>
   </div>
   {{else}}
-  <p class="muted">no monitors yet. add one to start checking.</p>
+  <p class="panel empty">no monitors yet. <a href="/admin/projects/{{.Project.ID}}/monitors/new">add the first one</a> to start checking.</p>
   {{end}}
 </section>
 
 <section aria-labelledby="incidents-heading">
   <div class="title-row">
     <h2 id="incidents-heading">incidents</h2>
-    <a class="button" href="/admin/projects/{{.Project.ID}}/incidents/new">{{template "icon" "plus"}}new incident</a>
+    <a class="button quiet" href="/admin/projects/{{.Project.ID}}/incidents/new">{{template "icon" "plus"}}new incident</a>
   </div>
   {{if .Incidents}}
-  <ul class="rows">
+  <ul class="panel list">
     {{range .Incidents}}
-    <li class="row">
-      <a href="/admin/incidents/{{.ID}}">{{.Title}}</a>
-      <span class="meta">{{if .Published}}public{{else}}draft{{end}} · {{.Status}} · <time datetime="{{rfc3339 .StartedAtMs}}">{{utc .StartedAtMs}}</time></span>
-    </li>
+    <li><a class="list-row" href="/admin/incidents/{{.ID}}">
+      <span>{{.Title}}</span>
+      <span class="meta list-note">{{if .Published}}public{{else}}draft{{end}} · {{.Status}} · <time datetime="{{rfc3339 .StartedAtMs}}">{{local $.Zone .StartedAtMs}}</time></span>
+    </a></li>
     {{end}}
   </ul>
   {{else}}
-  <p class="muted">no incidents. when a monitor goes down, a private draft appears here.</p>
+  <p class="panel empty">no incidents. when a monitor goes down, a private draft appears here.</p>
   {{end}}
 </section>
 
 <section aria-labelledby="maintenance-heading">
   <div class="title-row">
     <h2 id="maintenance-heading">planned maintenance</h2>
-    <button class="button" type="button" data-open-dialog="plan-maintenance">{{template "icon" "wrench"}}plan maintenance</button>
+    <button class="button quiet" type="button" data-open-dialog="plan-maintenance">{{template "icon" "wrench"}}plan maintenance</button>
   </div>
-  <p class="muted">during a window nothing is checked, so nothing alerts or counts as downtime. the status page announces it ahead of time.</p>
   {{if .Maintenance}}
-  <ul class="rows">
+  <ul class="panel list">
     {{range .Maintenance}}
-    <li class="row">
+    <li class="list-row">
       <span>{{.Title}} <span class="meta"><time datetime="{{rfc3339 .StartsAtMs}}">{{local $.Zone .StartsAtMs}}</time> to <time datetime="{{rfc3339 .EndsAtMs}}">{{local $.Zone .EndsAtMs}}</time></span></span>
       <form method="post" action="/admin/projects/{{$.Project.ID}}/maintenance/{{.ID}}/delete"><button class="button quiet" type="submit">remove</button></form>
     </li>
     {{end}}
   </ul>
+  {{else}}
+  <p class="panel empty">nothing planned. during a window nothing is checked, so nothing alerts or counts as downtime.</p>
   {{end}}
   <dialog id="plan-maintenance" aria-labelledby="plan-maintenance-heading"{{if .Problems}} data-open-on-load{{end}}>
   <h2 id="plan-maintenance-heading">plan maintenance</h2>
+  <p class="muted">nothing is checked during the window, and the status page announces it ahead of time.</p>
   <form class="form" method="post" action="/admin/projects/{{.Project.ID}}/maintenance">
     <div class="field">
       <label for="window-title">what is planned</label>
@@ -97,24 +105,26 @@
 <section aria-labelledby="timeline-heading">
   <h2 id="timeline-heading">timeline</h2>
   {{if .Events}}
-  <ol class="timeline">
+  <ol class="panel list">
     {{range .Events}}
-    <li>
-      <time class="meta" datetime="{{rfc3339 .AtMs}}">{{utc .AtMs}}</time>
+    <li class="list-row">
       <span><strong>{{.Title}}</strong> {{.Word}}{{if .Detail}}<span class="meta"> · {{.Detail}}</span>{{end}}</span>
+      <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Zone .AtMs}}</time>
     </li>
     {{end}}
   </ol>
   {{if .OlderID}}<p><a href="/admin/projects/{{.Project.ID}}?before={{.OlderID}}#timeline-heading">older events</a></p>{{end}}
   {{else}}
-  <p class="muted">nothing has happened yet.</p>
+  <p class="panel empty">nothing has happened yet.</p>
   {{end}}
 </section>
 
 <section aria-labelledby="danger-heading">
   <h2 id="danger-heading">delete project</h2>
-  <p class="muted">removes the project with its monitors, history and incidents.</p>
-  <button class="button danger" type="button" data-open-dialog="delete-project">{{template "icon" "trash"}}delete project</button>
+  <div class="panel list-row">
+    <span class="muted">removes the project with its monitors, history and incidents.</span>
+    <button class="button danger" type="button" data-open-dialog="delete-project">{{template "icon" "trash"}}delete project</button>
+  </div>
   <dialog id="delete-project" aria-labelledby="delete-project-heading">
     <h2 id="delete-project-heading">delete {{.Project.Name}}?</h2>
     <p>its monitors, history and incidents are deleted with it. this cannot be undone.</p>

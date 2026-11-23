@@ -2,7 +2,7 @@
 <h1>sign in</h1>
 <p class="muted">to manage your monitors and status pages.</p>
 <form class="form" method="post" action="/admin/login">
-  {{with .Problem}}<p class="problem" role="alert">{{.}}</p>{{end}}
+  {{with .Problem}}{{template "error" .}}{{end}}
   <div class="field">
     <label for="username">username</label>
     <input id="username" name="username" value="{{.Username}}" autocomplete="username" required maxlength="64" autofocus>

@@ -31,7 +31,8 @@ type settingsPage struct {
 	NewChannel store.AlertChannel
 	Problems   map[string]string
 	// Notice reports the result of the last action, such as a test alert.
-	Notice string
+	Notice       string
+	NoticeFailed bool
 }
 
 func (s *Server) settingsPage(r *http.Request) (settingsPage, error) {
@@ -243,6 +244,7 @@ func (s *Server) handleTestChannel(w http.ResponseWriter, r *http.Request) {
 	page.Notice = "the test alert was delivered."
 	if err := alert.Deliver(ctx, s.mailer, channel, event, time.Second); err != nil {
 		status = http.StatusBadGateway
+		page.NoticeFailed = true
 		page.Notice = "the test alert could not be delivered: " + err.Error() + "."
 	}
 	s.render(w, r, status, "settings.html", page)

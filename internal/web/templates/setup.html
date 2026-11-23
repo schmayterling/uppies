@@ -2,7 +2,7 @@
 <h1>welcome</h1>
 <p class="muted">create the admin account to get started. you only do this once.</p>
 <form class="form" method="post" action="/admin/setup">
-  {{with .Problem}}<p class="problem" role="alert">{{.}}</p>{{end}}
+  {{with .Problem}}{{template "error" .}}{{end}}
   <div class="field">
     <label for="username">username</label>
     <input id="username" name="username" value="{{.Username}}" autocomplete="username" required maxlength="64" autofocus>

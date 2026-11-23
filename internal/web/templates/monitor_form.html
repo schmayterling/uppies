@@ -2,12 +2,11 @@
 <nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">projects</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / {{if .Editing}}{{.Monitor.Name}}{{else}}new monitor{{end}}</nav>
 <h1>{{if .Editing}}edit monitor{{else}}new monitor{{end}}</h1>
 {{with .PushURL}}
-<section class="card" aria-labelledby="push-heading">
-  <h2 id="push-heading">where the job reports in</h2>
+<div class="admonition admonition-info">{{template "icon" "info"}}<div>
   <p>have the job request this address each time it finishes. if no request arrives within the time between checks, the monitor goes down.</p>
   <p><code class="target">{{.}}</code></p>
   <p class="hint">for example: curl -fsS {{.}}</p>
-</section>
+</div></div>
 {{end}}
 <form class="form narrow" method="post" action="{{if .Editing}}/admin/monitors/{{.Monitor.ID}}{{else}}/admin/projects/{{.Project.ID}}/monitors{{end}}">
   <div class="field">

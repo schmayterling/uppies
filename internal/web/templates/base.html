@@ -65,6 +65,11 @@
 {{end}}
 </html>
 
+{{define "error"}}<p class="admonition admonition-danger" role="alert">{{template "icon" "circle-x"}}<span>{{.}}</span></p>{{end}}
+{{define "warning"}}<p class="admonition admonition-warning">{{template "icon" "info"}}<span>{{.}}</span></p>{{end}}
+{{define "info"}}<p class="admonition admonition-info">{{template "icon" "info"}}<span>{{.}}</span></p>{{end}}
+{{define "success"}}<p class="admonition admonition-success" role="status">{{template "icon" "circle-check"}}<span>{{.}}</span></p>{{end}}
+
 {{define "icon"}}<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#{{.}}"/></svg>{{end}}
 
 {{define "mark"}}<svg class="mark mark-{{.}}" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">{{if eq . "ok"}}<circle cx="6" cy="6" r="5"/>{{else if eq . "warn"}}<path d="M6 1 11.5 11H.5Z"/>{{else if eq . "down"}}<rect x="1" y="1" width="10" height="10" rx="2"/>{{else}}<circle class="hollow" cx="6" cy="6" r="4"/>{{end}}</svg>{{end}}

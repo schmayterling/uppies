@@ -5,7 +5,7 @@
 
 {{if not .Incident.Published}}
 <form method="post" action="/admin/incidents/{{.Incident.ID}}/publish" class="form narrow">
-  <p class="hint">publishing shows this incident and every update below on the status page.</p>
+  {{template "warning" "this is a draft. only you can see it. publishing shows it and every update below on the status page."}}
   <div class="actions"><button class="button" type="submit">publish incident</button></div>
 </form>
 {{end}}
