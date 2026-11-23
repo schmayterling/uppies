@@ -31,6 +31,9 @@ type Project struct {
 	NavbarLink  string // "status", "list" or "homepage"
 	CustomCSS   string
 	FooterText  string
+	// Announcement is a plain text notice at the top of this status page.
+	Announcement      string
+	AnnouncementColor string
 	// ShowPoweredBy keeps the "powered by uppies" line in the footer.
 	ShowPoweredBy bool
 	// NoIndex asks search engines not to list the page.
@@ -55,13 +58,14 @@ var GraphFills = []string{"gradient", "filled", "none"}
 
 const projectColumns = `id, slug, name, tagline, homepage_url, accent_hue, theme, show_face, lookback_days,
 	custom_css, footer_text, show_powered_by, noindex, timezone, domain, surface, corners, font, backfill,
-	nav_links, hide_quiet_days, graph_fill, navbar_brand, navbar_link`
+	nav_links, hide_quiet_days, graph_fill, navbar_brand, navbar_link, announcement, announcement_color`
 
 func scanProject(row rowScanner) (Project, error) {
 	var p Project
 	err := row.Scan(&p.ID, &p.Slug, &p.Name, &p.Tagline, &p.HomepageURL, &p.AccentHue, &p.Theme,
 		&p.ShowFace, &p.HistoryDays, &p.CustomCSS, &p.FooterText, &p.ShowPoweredBy, &p.NoIndex, &p.Timezone, &p.Domain,
-		&p.Surface, &p.Corners, &p.Font, &p.Backfill, &p.NavLinks, &p.HideQuietDays, &p.GraphFill, &p.NavbarBrand, &p.NavbarLink)
+		&p.Surface, &p.Corners, &p.Font, &p.Backfill, &p.NavLinks, &p.HideQuietDays, &p.GraphFill, &p.NavbarBrand, &p.NavbarLink,
+		&p.Announcement, &p.AnnouncementColor)
 	return p, err
 }
 
@@ -232,11 +236,12 @@ func updateProject(ctx context.Context, exec execSQL, p Project) error {
 		update projects set name = ?, tagline = ?, homepage_url = ?, accent_hue = ?, theme = ?,
 			show_face = ?, lookback_days = ?, custom_css = ?, footer_text = ?, show_powered_by = ?,
 			noindex = ?, timezone = ?, domain = ?, surface = ?, corners = ?, font = ?, backfill = ?,
-			nav_links = ?, hide_quiet_days = ?, graph_fill = ?, navbar_brand = ?, navbar_link = ?
+			nav_links = ?, hide_quiet_days = ?, graph_fill = ?, navbar_brand = ?, navbar_link = ?,
+			announcement = ?, announcement_color = ?
 		where id = ?`,
 		p.Name, p.Tagline, p.HomepageURL, p.AccentHue, p.Theme, p.ShowFace, p.HistoryDays, p.CustomCSS,
 		p.FooterText, p.ShowPoweredBy, p.NoIndex, p.Timezone, p.Domain, p.Surface, p.Corners, p.Font, p.Backfill,
-		p.NavLinks, p.HideQuietDays, p.GraphFill, p.NavbarBrand, p.NavbarLink, p.ID)
+		p.NavLinks, p.HideQuietDays, p.GraphFill, p.NavbarBrand, p.NavbarLink, p.Announcement, p.AnnouncementColor, p.ID)
 	if isUnique(err) {
 		return ErrDomainTaken
 	}

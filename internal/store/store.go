@@ -496,6 +496,11 @@ alter table page_monitors add column exclude_from_status integer not null defaul
 alter table projects add column navbar_link text not null default 'status'
 	check (navbar_link in ('status', 'list', 'homepage'));
 `,
+	// Step 24 lets a status page pin a message above its overall status.
+	`
+alter table projects add column announcement text not null default '' check (length(announcement) <= 1000);
+alter table projects add column announcement_color text not null default '' check (announcement_color in ('', 'blue', 'green', 'amber', 'red', 'neutral', 'accent'));
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

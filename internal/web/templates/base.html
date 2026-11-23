@@ -155,7 +155,9 @@
     {{template "nav-links" .NavLinks}}
     {{if ne .Project.NavbarLink "homepage"}}{{with .Project.HomepageURL}}<a href="{{.}}" rel="noopener">back to {{$.First.Project.Name}}</a>{{end}}{{end}}
   </nav>
-</header>{{end}}{{end}}
+</header>
+{{if .Project.Announcement}}<aside class="page-announcement announcement-{{or .Project.AnnouncementColor "blue"}}" role="note" aria-label="announcement">{{.Project.Announcement}}</aside>{{end}}
+{{end}}{{end}}
 
 {{/* the detail view of a monitor: its numbers, its last day of response times and its uptime bars. it takes a monitorDetail and the lookback in days. */}}
 {{define "monitor-detail"}}{{with .First}}

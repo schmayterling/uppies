@@ -11,7 +11,7 @@ import (
 //go:embed schema/*.sql
 var backendSchemas embed.FS
 
-const backendSchemaVersion = 23
+const backendSchemaVersion = 24
 
 const schemaTable = `create table if not exists uppies_schema (
 	id integer primary key check (id = 1),
@@ -63,32 +63,34 @@ func (s *Store) applyBackendSchema(ctx context.Context, q queries) error {
 	if err := q.QueryRowContext(ctx, "select version from uppies_schema where id = 1").Scan(&version); err != nil {
 		return err
 	}
-	switch version {
-	case backendSchemaVersion:
-		return nil
-	case 22:
-		column := "column "
-		if s.Backend() == MariaDB {
-			column += "if not exists "
-		}
-		definition := "text not null default 'status' check (navbar_link in ('status', 'list', 'homepage'))"
-		if s.Backend() == Postgres || s.Backend() == TursoPG {
-			definition = `text collate "C" not null default 'status' check (navbar_link in ('status', 'list', 'homepage'))`
-		}
-		if _, err := q.ExecContext(ctx, "alter table projects add "+column+"navbar_link "+definition); err != nil {
-			return fmt.Errorf("migrate navbar link: %w", err)
-		}
-		_, err := q.ExecContext(ctx, "update uppies_schema set version = ? where id = 1", backendSchemaVersion)
-		return err
-	case 0:
-	default:
-		return fmt.Errorf("schema version %d is unsupported for %s by this build (expected %d)", version, s.Backend(), backendSchemaVersion)
-	}
-
-	filename := map[Backend]string{
-		Postgres: "schema/postgres.sql", TursoPG: "schema/postgres.sql",
-		MariaDB: "schema/mariadb.sql", TursoSQLite: "schema/turso.sql",
+	dialect := map[Backend]string{
+		Postgres: "postgres", TursoPG: "postgres",
+		MariaDB: "mariadb", TursoSQLite: "turso",
 	}[s.Backend()]
+	for version != backendSchemaVersion {
+		var filename string
+		target := backendSchemaVersion
+		switch {
+		case version == 0:
+			filename = "schema/" + dialect + ".sql"
+		case version >= 22 && version < backendSchemaVersion:
+			target = version + 1
+			filename = fmt.Sprintf("schema/v%d_%s.sql", target, dialect)
+		default:
+			return fmt.Errorf("schema version %d is unsupported for %s by this build (expected %d)", version, s.Backend(), backendSchemaVersion)
+		}
+		if err := applySchemaFile(ctx, q, filename); err != nil {
+			return err
+		}
+		if _, err := q.ExecContext(ctx, "update uppies_schema set version = ? where id = 1", target); err != nil {
+			return err
+		}
+		version = target
+	}
+	return nil
+}
+
+func applySchemaFile(ctx context.Context, q queries, filename string) error {
 	body, err := backendSchemas.ReadFile(filename)
 	if err != nil {
 		return err
@@ -98,8 +100,7 @@ func (s *Store) applyBackendSchema(ctx context.Context, q queries) error {
 			return fmt.Errorf("%s statement %d: %w", filename, i+1, err)
 		}
 	}
-	_, err = q.ExecContext(ctx, "update uppies_schema set version = ? where id = 1", backendSchemaVersion)
-	return err
+	return nil
 }
 
 func (s *Store) verifyTursoPGForeignKeys(ctx context.Context) error {

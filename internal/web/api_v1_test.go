@@ -220,9 +220,10 @@ func TestAPIStatusPageCRUDAndPagination(t *testing.T) {
 	s.api(t, http.MethodPatch, path, token, `{"navbar_link":"homepage"}`, http.StatusUnprocessableEntity)
 	s.api(t, http.MethodPatch, path, token, `{"navbar_link":"invalid"}`, http.StatusUnprocessableEntity)
 	s.api(t, http.MethodPatch, path, token, `{"theme":"dark","timezone":"Asia/Manila","show_face":false,"navbar_link":"homepage","homepage_url":"https://example.test/docs"}`, http.StatusNoContent)
+	s.api(t, http.MethodPatch, path, token, `{"announcement":"Maintenance tonight","announcement_color":"green"}`, http.StatusNoContent)
 	s.api(t, http.MethodPatch, path, token, `{"name":"Renamed"}`, http.StatusNoContent)
 	_, result := s.api(t, http.MethodGet, path, token, "", http.StatusOK)
-	for _, want := range []string{`"name":"Renamed"`, `"theme":"dark"`, `"timezone":"Asia/Manila"`, `"show_face":false`, `"navbar_link":"homepage"`, `"homepage_url":"https://example.test/docs"`} {
+	for _, want := range []string{`"name":"Renamed"`, `"theme":"dark"`, `"timezone":"Asia/Manila"`, `"show_face":false`, `"navbar_link":"homepage"`, `"homepage_url":"https://example.test/docs"`, `"announcement":"Maintenance tonight"`, `"announcement_color":"green"`} {
 		if !strings.Contains(result, want) {
 			t.Errorf("status page after a partial update is missing %s", want)
 		}

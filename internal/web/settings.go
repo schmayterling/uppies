@@ -9,18 +9,24 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"uppies/internal/alert"
 	"uppies/internal/store"
 )
 
+const announcementLimit = 1000
+
+var announcementColors = []string{"blue", "green", "amber", "red", "neutral", "accent"}
+
 type settingsPage struct {
-	Chrome    chrome
-	Project   store.Project
-	Zones     []string
-	Themes    []string
-	Backfills []string
-	Swatches  []int
+	AnnouncementColors []string
+	Chrome             chrome
+	Project            store.Project
+	Zones              []string
+	Themes             []string
+	Backfills          []string
+	Swatches           []int
 	// CustomHue is true when the accent is not one of the swatches.
 	CustomHue bool
 	Surfaces  []string
@@ -37,13 +43,14 @@ type settingsPage struct {
 
 func (s *Server) settingsPage(r *http.Request) (settingsPage, error) {
 	page := settingsPage{
-		Themes:     themes,
-		Backfills:  backfills,
-		Swatches:   accentSwatches,
-		Surfaces:   surfaces,
-		Corners:    cornerStyles,
-		GraphFills: scopedGraphFills,
-		Fonts:      fonts,
+		AnnouncementColors: announcementColors,
+		Themes:             themes,
+		Backfills:          backfills,
+		Swatches:           accentSwatches,
+		Surfaces:           surfaces,
+		Corners:            cornerStyles,
+		GraphFills:         scopedGraphFills,
+		Fonts:              fonts,
 	}
 	id, err := pathID(r)
 	if err != nil {
@@ -127,6 +134,13 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	p.HideQuietDays = form.Get("hide_quiet_days") == "on"
 	p.CustomCSS = form.Get("custom_css")
 	p.FooterText = strings.TrimSpace(form.Get("footer_text"))
+	if form.Has("announcement") {
+		p.Announcement = strings.TrimSpace(strings.ReplaceAll(form.Get("announcement"), "\r", ""))
+		if utf8.RuneCountInString(p.Announcement) > announcementLimit || strings.ContainsRune(p.Announcement, 0) {
+			problems["announcement"] = "use up to 1000 characters of plain text."
+		}
+	}
+	p.AnnouncementColor = choice(form, "announcement_color", announcementColors, p.AnnouncementColor, problems)
 	p.NavLinks = strings.TrimSpace(strings.ReplaceAll(form.Get("nav_links"), "\r", ""))
 	if _, problem := parseNavLinks(p.NavLinks); problem != "" {
 		problems["nav_links"] = problem

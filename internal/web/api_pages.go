@@ -13,30 +13,32 @@ import (
 )
 
 type apiPage struct {
-	ID            string `json:"id"`
-	Slug          string `json:"slug"`
-	Name          string `json:"name"`
-	Tagline       string `json:"tagline"`
-	HomepageURL   string `json:"homepage_url"`
-	AccentHue     int    `json:"accent_hue"`
-	Theme         string `json:"theme"`
-	ShowFace      bool   `json:"show_face"`
-	HistoryDays   int    `json:"history_days"`
-	Backfill      string `json:"backfill"`
-	NavLinks      string `json:"nav_links"`
-	NavbarBrand   string `json:"navbar_brand"`
-	NavbarLink    string `json:"navbar_link"`
-	CustomCSS     string `json:"custom_css"`
-	FooterText    string `json:"footer_text"`
-	ShowPoweredBy bool   `json:"show_powered_by"`
-	NoIndex       bool   `json:"noindex"`
-	Timezone      string `json:"timezone"`
-	Surface       string `json:"surface"`
-	Corners       string `json:"corners"`
-	Font          string `json:"font"`
-	Domain        string `json:"domain"`
-	HideQuietDays bool   `json:"hide_quiet_days"`
-	GraphFill     string `json:"graph_fill"`
+	ID                string `json:"id"`
+	Slug              string `json:"slug"`
+	Name              string `json:"name"`
+	Tagline           string `json:"tagline"`
+	HomepageURL       string `json:"homepage_url"`
+	AccentHue         int    `json:"accent_hue"`
+	Theme             string `json:"theme"`
+	ShowFace          bool   `json:"show_face"`
+	HistoryDays       int    `json:"history_days"`
+	Backfill          string `json:"backfill"`
+	NavLinks          string `json:"nav_links"`
+	NavbarBrand       string `json:"navbar_brand"`
+	NavbarLink        string `json:"navbar_link"`
+	CustomCSS         string `json:"custom_css"`
+	FooterText        string `json:"footer_text"`
+	Announcement      string `json:"announcement"`
+	AnnouncementColor string `json:"announcement_color"`
+	ShowPoweredBy     bool   `json:"show_powered_by"`
+	NoIndex           bool   `json:"noindex"`
+	Timezone          string `json:"timezone"`
+	Surface           string `json:"surface"`
+	Corners           string `json:"corners"`
+	Font              string `json:"font"`
+	Domain            string `json:"domain"`
+	HideQuietDays     bool   `json:"hide_quiet_days"`
+	GraphFill         string `json:"graph_fill"`
 }
 
 func (p apiPage) cursor() string { return p.ID }
@@ -46,7 +48,8 @@ func pageJSON(p store.Project) apiPage {
 		ID: strconv.FormatInt(p.ID, 10), Slug: p.Slug, Name: p.Name,
 		Tagline: p.Tagline, HomepageURL: p.HomepageURL, AccentHue: p.AccentHue, Theme: p.Theme, ShowFace: p.ShowFace,
 		HistoryDays: p.HistoryDays, Backfill: p.Backfill, NavLinks: p.NavLinks, NavbarBrand: p.NavbarBrand, NavbarLink: p.NavbarLink, CustomCSS: p.CustomCSS,
-		FooterText: p.FooterText, ShowPoweredBy: p.ShowPoweredBy, NoIndex: p.NoIndex, Timezone: p.Timezone,
+		FooterText: p.FooterText, Announcement: p.Announcement, AnnouncementColor: p.AnnouncementColor,
+		ShowPoweredBy: p.ShowPoweredBy, NoIndex: p.NoIndex, Timezone: p.Timezone,
 		Surface: p.Surface, Corners: p.Corners, Font: p.Font, Domain: p.Domain, HideQuietDays: p.HideQuietDays, GraphFill: p.GraphFill,
 	}
 }
@@ -95,28 +98,30 @@ func (s *Server) apiCreatePage(w http.ResponseWriter, r *http.Request) {
 }
 
 type pagePatch struct {
-	Name          *string `json:"name"`
-	Tagline       *string `json:"tagline"`
-	HomepageURL   *string `json:"homepage_url"`
-	AccentHue     *int    `json:"accent_hue"`
-	Theme         *string `json:"theme"`
-	ShowFace      *bool   `json:"show_face"`
-	HistoryDays   *int    `json:"history_days"`
-	Backfill      *string `json:"backfill"`
-	NavLinks      *string `json:"nav_links"`
-	NavbarBrand   *string `json:"navbar_brand"`
-	NavbarLink    *string `json:"navbar_link"`
-	CustomCSS     *string `json:"custom_css"`
-	FooterText    *string `json:"footer_text"`
-	ShowPoweredBy *bool   `json:"show_powered_by"`
-	NoIndex       *bool   `json:"noindex"`
-	Timezone      *string `json:"timezone"`
-	Surface       *string `json:"surface"`
-	Corners       *string `json:"corners"`
-	Font          *string `json:"font"`
-	Domain        *string `json:"domain"`
-	HideQuietDays *bool   `json:"hide_quiet_days"`
-	GraphFill     *string `json:"graph_fill"`
+	Name              *string `json:"name"`
+	Tagline           *string `json:"tagline"`
+	HomepageURL       *string `json:"homepage_url"`
+	AccentHue         *int    `json:"accent_hue"`
+	Theme             *string `json:"theme"`
+	ShowFace          *bool   `json:"show_face"`
+	HistoryDays       *int    `json:"history_days"`
+	Backfill          *string `json:"backfill"`
+	NavLinks          *string `json:"nav_links"`
+	NavbarBrand       *string `json:"navbar_brand"`
+	NavbarLink        *string `json:"navbar_link"`
+	CustomCSS         *string `json:"custom_css"`
+	FooterText        *string `json:"footer_text"`
+	Announcement      *string `json:"announcement"`
+	AnnouncementColor *string `json:"announcement_color"`
+	ShowPoweredBy     *bool   `json:"show_powered_by"`
+	NoIndex           *bool   `json:"noindex"`
+	Timezone          *string `json:"timezone"`
+	Surface           *string `json:"surface"`
+	Corners           *string `json:"corners"`
+	Font              *string `json:"font"`
+	Domain            *string `json:"domain"`
+	HideQuietDays     *bool   `json:"hide_quiet_days"`
+	GraphFill         *string `json:"graph_fill"`
 }
 
 func (input pagePatch) apply(p *store.Project) error {
@@ -134,6 +139,7 @@ func (input pagePatch) apply(p *store.Project) error {
 		{"nav_links", input.NavLinks, &p.NavLinks, 0, 2000, false},
 		{"custom_css", input.CustomCSS, &p.CustomCSS, 0, 20_000, true},
 		{"footer_text", input.FooterText, &p.FooterText, 0, 500, false},
+		{"announcement", input.Announcement, &p.Announcement, 0, announcementLimit, false},
 		{"timezone", input.Timezone, &p.Timezone, 1, 64, false},
 		{"domain", input.Domain, &p.Domain, 0, 253, false},
 	} {
@@ -159,6 +165,7 @@ func (input pagePatch) apply(p *store.Project) error {
 		{"backfill", input.Backfill, &p.Backfill, backfills},
 		{"navbar_brand", input.NavbarBrand, &p.NavbarBrand, navbarBrands},
 		{"navbar_link", input.NavbarLink, &p.NavbarLink, navbarLinks},
+		{"announcement_color", input.AnnouncementColor, &p.AnnouncementColor, append([]string{""}, announcementColors...)},
 		{"surface", input.Surface, &p.Surface, surfaces},
 		{"corners", input.Corners, &p.Corners, cornerStyles},
 		{"font", input.Font, &p.Font, fonts},

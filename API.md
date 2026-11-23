@@ -129,6 +129,7 @@ any subset of these settings.
 | `theme`, `surface`, `corners`, `font` | `auto`, `light` or `dark`. `neutral` or `paper`. `sharp`, `soft` or `round`. `system`, `rounded`, `serif` or `mono`. |
 | `navbar_brand` | `icon`, `icon-name` or `name`. |
 | `navbar_link` | `status` (default), `list` or `homepage`. `homepage` requires a `homepage_url`. |
+| `announcement`, `announcement_color` | Pinned plain text up to 1,000 characters. An empty message hides it. Choose `blue`, `green`, `amber`, `red`, `neutral`, `accent`, or an empty string for blue. |
 | `accent_hue`, `history_days` | Integers 0–360 and 7–365 respectively. |
 | `backfill`, `graph_fill` | `none`, `up`, `degraded` or `down`. `gradient`, `filled`, `none` or an empty string to inherit. |
 | `show_face`, `hide_quiet_days`, `show_powered_by`, `noindex` | Booleans. |

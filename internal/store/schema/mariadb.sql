@@ -1,4 +1,4 @@
--- Fresh Uppies schema, version 23.
+-- Fresh Uppies schema, version 24.
 create table if not exists projects (
 	id bigint auto_increment primary key,
 	slug varchar(65) not null unique check (char_length(slug) between 1 and 64),
@@ -27,6 +27,8 @@ create table if not exists projects (
 	position bigint not null default 0,
 	navbar_brand text not null default 'icon-name' check (navbar_brand in ('icon', 'icon-name', 'name')),
 	navbar_link text not null default 'status' check (navbar_link in ('status', 'list', 'homepage')),
+	announcement text not null default '' check (char_length(announcement) <= 1000),
+	announcement_color text not null default '' check (announcement_color in ('', 'blue', 'green', 'amber', 'red', 'neutral', 'accent')),
 	-- Empty domains do not participate in the unique index.
 	unique_domain varchar(254) as (nullif(domain, '')) virtual invisible,
 	unique key projects_domain (unique_domain),

@@ -549,7 +549,8 @@ input[type="checkbox"] { flex: none; inline-size: var(--icon-size); block-size: 
 .problem { margin: 0; color: var(--status-danger); font-size: var(--text-sm); }
 /* admonitions: a message that stands apart from the form or page around it.
    the tint is mixed in oklab, which keeps a grey background from shifting hue. */
-.admonition {
+.admonition,
+.page-announcement {
   --tone: var(--status-info);
   display: flex;
   align-items: flex-start;
@@ -565,9 +566,12 @@ input[type="checkbox"] { flex: none; inline-size: var(--icon-size); block-size: 
 .admonition > .icon { color: var(--tone); margin-block-start: var(--space-0-5); }
 .admonition p { margin: 0 0 var(--space-1); }
 .admonition p:last-child { margin: 0; }
-.admonition-danger { --tone: var(--status-danger); }
-.admonition-warning { --tone: var(--status-warning); }
-.admonition-success { --tone: var(--status-success); }
+.admonition-danger, .announcement-red { --tone: var(--status-danger); }
+.admonition-warning, .announcement-amber { --tone: var(--status-warning); }
+.admonition-success, .announcement-green { --tone: var(--status-success); }
+.announcement-neutral { --tone: var(--muted); }
+.announcement-accent { --tone: var(--accent); }
+.page-announcement { display: block; white-space: pre-wrap; border-inline-start: var(--focus-width) solid var(--tone); }
 /* an admonition keeps its distance from whatever it follows: a heading, a line of text or a row of facts */
 .content > .admonition, .content > form > .admonition, .settings > .admonition, .settings > form > .admonition { margin-block: var(--space-4); }
 .channel { display: flex; gap: var(--space-2); align-items: baseline; min-inline-size: 0; }

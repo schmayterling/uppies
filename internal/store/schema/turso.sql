@@ -1,4 +1,4 @@
--- Fresh Uppies schema, version 23.
+-- Fresh Uppies schema, version 24.
 create table if not exists projects (
 	id integer primary key,
 	slug text not null unique check (length(slug) between 1 and 64),
@@ -26,7 +26,9 @@ create table if not exists projects (
 	graph_fill text not null default '' check (graph_fill in ('', 'gradient', 'filled', 'none')),
 	position integer not null default 0,
 	navbar_brand text not null default 'icon-name' check (navbar_brand in ('icon', 'icon-name', 'name')),
-	navbar_link text not null default 'status' check (navbar_link in ('status', 'list', 'homepage'))
+	navbar_link text not null default 'status' check (navbar_link in ('status', 'list', 'homepage')),
+	announcement text not null default '' check (length(announcement) <= 1000),
+	announcement_color text not null default '' check (announcement_color in ('', 'blue', 'green', 'amber', 'red', 'neutral', 'accent'))
 ) strict;
 
 create unique index if not exists projects_domain on projects(domain) where domain <> '';
