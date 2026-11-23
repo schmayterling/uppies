@@ -128,12 +128,12 @@
       <select id="kind" name="kind" aria-describedby="kind-hint">
         {{range .ChannelKinds}}<option value="{{.}}"{{if eq . $.NewChannel.Kind}} selected{{end}}>{{.}}</option>{{end}}
       </select>
-      <p class="hint" id="kind-hint">webhook sends json with every detail. discord and slack send one line of text to an incoming webhook.</p>
+      <p class="hint" id="kind-hint">webhook sends json with every detail. discord and slack send one line of text to an incoming webhook. email needs uppies to be started with an smtp server.</p>
       {{with index .Problems "kind"}}<p class="problem">{{.}}</p>{{end}}
     </div>
     <div class="field">
-      <label for="url">url</label>
-      <input id="url" name="url" type="url" value="{{.NewChannel.URL}}" required maxlength="2048" autocapitalize="none" spellcheck="false"{{if index .Problems "url"}} aria-invalid="true" aria-describedby="url-problem"{{end}}>
+      <label for="url">url or email address</label>
+      <input id="url" name="url" value="{{.NewChannel.URL}}" required maxlength="2048" autocapitalize="none" spellcheck="false"{{if index .Problems "url"}} aria-invalid="true" aria-describedby="url-problem"{{end}}>
       {{with index .Problems "url"}}<p class="problem" id="url-problem">{{.}}</p>{{end}}
     </div>
     <div class="actions"><button class="button" type="submit">add channel</button></div>

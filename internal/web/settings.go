@@ -169,9 +169,13 @@ func (s *Server) handleCreateChannel(w http.ResponseWriter, r *http.Request) {
 	if !slices.Contains(store.AlertChannelKinds, channel.Kind) {
 		problems["kind"] = "choose a kind."
 	}
+	validate := alert.ValidateURL
+	if channel.Kind == "email" {
+		validate = alert.ValidateEmail
+	}
 	if len(channel.URL) > 2048 {
-		problems["url"] = "the url is too long."
-	} else if err := alert.ValidateURL(channel.URL); err != nil {
+		problems["url"] = "that is too long."
+	} else if err := validate(channel.URL); err != nil {
 		problems["url"] = err.Error() + "."
 	}
 	if len(problems) > 0 {
@@ -237,7 +241,7 @@ func (s *Server) handleTestChannel(w http.ResponseWriter, r *http.Request) {
 	}
 	status := http.StatusOK
 	page.Notice = "the test alert was delivered."
-	if err := alert.Send(ctx, channel, event, time.Second); err != nil {
+	if err := alert.Deliver(ctx, s.mailer, channel, event, time.Second); err != nil {
 		status = http.StatusBadGateway
 		page.Notice = "the test alert could not be delivered: " + err.Error() + "."
 	}

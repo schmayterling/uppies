@@ -40,7 +40,7 @@ func newSite(t *testing.T) *site {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv, err := New(st, slog.New(slog.NewTextHandler(io.Discard, nil)), func() {})
+	srv, err := New(st, slog.New(slog.NewTextHandler(io.Discard, nil)), func() {}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,6 +246,10 @@ func TestAlertChannelsAreManagedFromSettings(t *testing.T) {
 	resp = s.post(t, s.admin, settings+"/channels", url.Values{"kind": {"slack"}, "url": {"ftp://example.com"}}, nil)
 	if resp.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("add with an ftp url: got %d, want 422", resp.StatusCode)
+	}
+	resp = s.post(t, s.admin, settings+"/channels", url.Values{"kind": {"email"}, "url": {chat.URL}}, nil)
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("add an email channel with a url: got %d, want 422", resp.StatusCode)
 	}
 	resp = s.post(t, s.admin, settings+"/channels", url.Values{"kind": {"slack"}, "url": {chat.URL}}, nil)
 	if resp.StatusCode != http.StatusSeeOther {

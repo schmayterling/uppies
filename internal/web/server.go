@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"uppies/internal/alert"
 	"uppies/internal/store"
 )
 
@@ -31,17 +32,21 @@ type Server struct {
 	log   *slog.Logger
 	// monitorsChanged tells the check engine that monitors were added, edited or removed.
 	monitorsChanged func()
-	pages           map[string]*template.Template
-	logins          *loginLimiter
-	now             func() time.Time
+	// mailer sends test emails. It is nil when no SMTP server is configured.
+	mailer *alert.Mailer
+	pages  map[string]*template.Template
+	logins *loginLimiter
+	now    func() time.Time
 }
 
-// New builds the server. monitorsChanged is called after every monitor change.
-func New(st *store.Store, log *slog.Logger, monitorsChanged func()) (*Server, error) {
+// New builds the server. monitorsChanged is called after every monitor
+// change. mailer may be nil.
+func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *alert.Mailer) (*Server, error) {
 	s := &Server{
 		store:           st,
 		log:             log,
 		monitorsChanged: monitorsChanged,
+		mailer:          mailer,
 		pages:           make(map[string]*template.Template),
 		logins:          newLoginLimiter(),
 		now:             time.Now,

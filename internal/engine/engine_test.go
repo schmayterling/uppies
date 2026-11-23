@@ -69,7 +69,7 @@ func TestCheckOnceFollowsAnOutageFromStartToRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := New(st, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	e := New(st, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
 	steps := []struct {
 		healthy    bool
 		wantStatus health.Status
@@ -145,7 +145,7 @@ func TestCheckOnceDoesNotRecordACancelledCheck(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	e := New(st, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	e := New(st, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
 	time.AfterFunc(50*time.Millisecond, cancel)
 	if _, _, err := e.checkOnce(ctx, m); err == nil {
 		t.Fatal("got no error from a cancelled check, want the context error")

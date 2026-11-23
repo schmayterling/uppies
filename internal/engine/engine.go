@@ -32,19 +32,22 @@ const (
 
 // Engine owns one goroutine per active monitor.
 type Engine struct {
-	store  *store.Store
-	log    *slog.Logger
+	store *store.Store
+	log   *slog.Logger
+	// mailer sends email alerts. It is nil when no SMTP server is configured.
+	mailer *alert.Mailer
 	slots  chan struct{}
 	reload chan struct{}
 	// alerts tracks deliveries in flight so that shutdown can wait for them.
 	alerts sync.WaitGroup
 }
 
-// New returns an engine that reads monitors from st.
-func New(st *store.Store, log *slog.Logger) *Engine {
+// New returns an engine that reads monitors from st. mailer may be nil.
+func New(st *store.Store, log *slog.Logger, mailer *alert.Mailer) *Engine {
 	return &Engine{
 		store:  st,
 		log:    log,
+		mailer: mailer,
 		slots:  make(chan struct{}, maxConcurrentChecks),
 		reload: make(chan struct{}, 1),
 	}
@@ -289,7 +292,7 @@ func (e *Engine) sendAlerts(ctx context.Context, m store.Monitor, event alert.Ev
 		e.alerts.Go(func() {
 			sendCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), alertDeadline)
 			defer cancel()
-			if err := alert.Send(sendCtx, channel, event, alertRetryWait); err != nil {
+			if err := alert.Deliver(sendCtx, e.mailer, channel, event, alertRetryWait); err != nil {
 				e.log.Error("send alert", "channel_id", channel.ID, "kind", channel.Kind, "monitor_id", m.ID, "error", err)
 			}
 		})

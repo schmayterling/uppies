@@ -3,14 +3,14 @@ package store
 import "context"
 
 // AlertChannelKinds are the payload formats an alert can be sent in.
-var AlertChannelKinds = []string{"webhook", "discord", "slack"}
+var AlertChannelKinds = []string{"webhook", "discord", "slack", "email"}
 
-// AlertChannel is a URL that is told when a project's monitors go down or recover.
+// AlertChannel is a place that is told when a project's monitors go down or recover.
 type AlertChannel struct {
 	ID        int64
 	ProjectID int64
 	Kind      string // one of AlertChannelKinds
-	URL       string
+	URL       string // the address to post to, or the recipient for the email kind
 }
 
 // CreateAlertChannel adds a channel to a project and returns its id.
