@@ -29,7 +29,7 @@
 </section>
 
 <section aria-labelledby="list-heading">
-  <div class="title-row">
+  <div class="title-row title-ruled">
     <h2 id="list-heading">{{if eq .Total 1}}1 incident{{else}}{{.Total}} incidents{{end}} in {{.Year}}</h2>
   </div>
   {{if .Days}}{{template "days" (pair .Days .Zone)}}{{else}}<p class="muted">no incidents were reported in {{.Year}}.</p>{{end}}
