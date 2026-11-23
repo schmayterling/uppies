@@ -11,19 +11,19 @@
   {{template "table-query" "search monitors"}}
   <div class="table-filters">
     <div class="field">
-      <label for="filter-state">state</label>
+      <label class="visually-hidden" for="filter-state">state</label>
       <select id="filter-state" data-table-filter="state">
         <option value="">all states</option><option value="ok">operational</option><option value="down">down</option><option value="paused">paused</option><option value="none">waiting</option>
       </select>
     </div>
     <div class="field">
-      <label for="filter-kind">type</label>
+      <label class="visually-hidden" for="filter-kind">type</label>
       <select id="filter-kind" data-table-filter="kind">
         <option value="">all types</option>{{range .Kinds}}<option value="{{.}}">{{.}}</option>{{end}}
       </select>
     </div>
     <div class="field">
-      <label for="filter-page">status page</label>
+      <label class="visually-hidden" for="filter-page">status page</label>
       <select id="filter-page" data-table-filter="page">
         <option value="">all status pages</option><option value="none">on no status page</option>
         {{range .Chrome.Nav.Projects}}<option value="{{.ID}}">{{.Name}}</option>{{end}}

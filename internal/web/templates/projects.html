@@ -11,13 +11,13 @@
   {{template "table-query" "search status pages"}}
   <div class="table-filters">
     <div class="field">
-      <label for="filter-state">state</label>
+      <label class="visually-hidden" for="filter-state">state</label>
       <select id="filter-state" data-table-filter="state">
         <option value="">all states</option><option value="ok">all up</option><option value="down">problems</option><option value="none">waiting</option>
       </select>
     </div>
     <div class="field">
-      <label for="filter-coverage">monitors</label>
+      <label class="visually-hidden" for="filter-coverage">monitors</label>
       <select id="filter-coverage" data-table-filter="coverage">
         <option value="">any count</option><option value="populated">with monitors</option><option value="empty">without monitors</option>
       </select>

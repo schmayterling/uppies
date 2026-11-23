@@ -85,7 +85,7 @@
 <input type="search" id="table-query" placeholder="{{.}}" aria-controls="searched-table" autocomplete="off">
 {{end}}
 
-{{define "table-filter-reset"}}<button class="button quiet" type="button" data-clear-table hidden>clear search and filters</button>{{end}}
+{{define "table-filter-reset"}}<button class="button quiet" type="button" data-clear-table aria-label="clear search and filters" hidden>clear</button>{{end}}
 
 {{define "error"}}<p class="admonition admonition-danger" role="alert">{{template "icon" "circle-x"}}<span>{{.}}</span></p>{{end}}
 {{define "warning"}}<p class="admonition admonition-warning">{{template "icon" "info"}}<span>{{.}}</span></p>{{end}}
