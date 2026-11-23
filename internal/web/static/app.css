@@ -158,9 +158,13 @@ dialog .form, dialog form.actions { margin-block-start: var(--space-4); }
 /* settings: one narrow column of bordered groups. each row has its label and
    help on the left and its control on the right, after the settings of mux. */
 .settings { inline-size: 100%; }
-.tabs { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-block: var(--space-3) var(--space-2); }
-.tabs a { display: inline-flex; align-items: center; min-block-size: var(--control-height); padding-inline: var(--space-2); border-radius: var(--radius-control); color: var(--muted); text-decoration: none; }
-.tabs a:hover { background: var(--hover); color: var(--ink); }
+/* tabs: one rule under the bar, and the open tab carries it in ink */
+.tabs { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-block: var(--space-4) var(--space-2); border-block-end: 1px solid var(--border); }
+.tabs a { display: inline-flex; align-items: center; min-block-size: calc(var(--control-height) + var(--space-1)); margin-block-end: -1px; border-block-end: 2px solid transparent; color: var(--muted); font-weight: var(--weight-semibold); text-decoration: none; }
+.tabs a:hover { color: var(--ink); border-block-end-color: var(--border-strong); }
+.tabs a[aria-current] { color: var(--ink); border-block-end-color: var(--ink); }
+.pane[hidden] { display: none; }
+.pane > .group-title:first-child { margin-block-start: var(--space-4); }
 .group-title { margin: var(--space-5) 0 var(--space-2); color: var(--muted); font-size: var(--text-sm); font-weight: var(--weight-regular); scroll-margin-block-start: var(--space-4); }
 .group-title h2 { color: inherit; font: inherit; }
 .group { border: 1px solid var(--border); border-radius: var(--radius-card); }

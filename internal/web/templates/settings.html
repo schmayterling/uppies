@@ -3,13 +3,14 @@
 <div class="settings">
 <h1>settings</h1>
 <nav class="tabs" aria-label="settings sections">
-  <a href="#general">general</a><a href="#look">look</a><a href="#images">logo</a><a href="#alerts">alerts</a><a href="#advanced">advanced</a>
+  <a href="#pane-general" data-tab="general">general</a><a href="#pane-look" data-tab="look">look</a><a href="#pane-images" data-tab="images">logo</a><a href="#pane-alerts" data-tab="alerts">alerts</a><a href="#pane-advanced" data-tab="advanced">advanced</a><a href="#pane-badge" data-tab="badge">badge</a>
 </nav>
 {{with .Notice}}{{if $.NoticeFailed}}{{template "error" .}}{{else}}{{template "success" .}}{{end}}{{end}}
 {{if .Problems}}{{template "error" "some settings were not saved. the fields with a problem are marked below."}}{{end}}
 
 <form method="post" action="/admin/projects/{{.Project.ID}}/settings">
-  <h2 class="group-title" id="general">general</h2>
+  <div class="pane" id="pane-general" data-pane="general">
+  <h2 class="group-title">general</h2>
   <div class="group">
     <div class="srow">
       <label class="srow-copy" for="name"><span>name</span><small>shown at the top of the status page.</small></label>
@@ -43,7 +44,10 @@
     </div>
   </div>
 
-  <h2 class="group-title" id="look">look</h2>
+  <div class="savebar"><button class="button" type="submit">save settings</button><a class="button quiet" href="/s/{{.Project.Slug}}">{{template "icon" "external-link"}}view status page</a></div>
+  </div>
+  <div class="pane" id="pane-look" data-pane="look">
+  <h2 class="group-title">look</h2>
   <div class="group">
     <div class="srow">
       <div class="srow-copy" id="theme-label"><span>theme</span><small>auto follows the visitor's device.</small></div>
@@ -95,7 +99,10 @@
     </label>
   </div>
 
-  <h2 class="group-title" id="advanced">advanced</h2>
+  <div class="savebar"><button class="button" type="submit">save settings</button><a class="button quiet" href="/s/{{.Project.Slug}}">{{template "icon" "external-link"}}view status page</a></div>
+  </div>
+  <div class="pane" id="pane-advanced" data-pane="advanced">
+  <h2 class="group-title">advanced</h2>
   <div class="group">
     <label class="srow">
       <span class="srow-copy"><span>powered by uppies</span><small>a short credit in the footer and the browser tab.</small></span>
@@ -117,9 +124,11 @@
     </div>
   </div>
   <div class="savebar"><button class="button" type="submit">save settings</button><a class="button quiet" href="/s/{{.Project.Slug}}">{{template "icon" "external-link"}}view status page</a></div>
+  </div>
 </form>
 
-<h2 class="group-title" id="images">logo and favicon</h2>
+<div class="pane" id="pane-images" data-pane="images">
+<h2 class="group-title">logo and favicon</h2>
 <form method="post" action="/admin/projects/{{.Project.ID}}/images" enctype="multipart/form-data">
   <div class="group">
     <div class="srow">
@@ -143,8 +152,10 @@
   </div>
   <div class="savebar"><button class="button" type="submit">save images</button></div>
 </form>
+</div>
 
-<div class="title-row group-title" id="alerts">
+<div class="pane" id="pane-alerts" data-pane="alerts">
+<div class="title-row group-title">
   <h2>alerts</h2>
   <button class="button quiet" type="button" data-open-dialog="add-channel">{{template "icon" "plus"}}add channel</button>
 </div>
@@ -181,13 +192,16 @@
     <div class="actions"><button class="button" type="submit">add channel</button><button class="button quiet" type="button" data-close-dialog>cancel</button></div>
   </form>
 </dialog>
+</div>
 
-<h2 class="group-title" id="badge">badge</h2>
+<div class="pane" id="pane-badge" data-pane="badge">
+<h2 class="group-title">badge</h2>
 <div class="group">
   <div class="srow">
     <span class="srow-copy"><span>status badge</span><small>a small image of the current state, for a readme or another site.</small></span>
     <span class="srow-control"><a href="/s/{{.Project.Slug}}/badge.svg"><img src="/s/{{.Project.Slug}}/badge.svg" alt="the status badge"></a></span>
   </div>
+</div>
 </div>
 </div>
 {{end}}
