@@ -162,7 +162,7 @@
 {{/* The row's daily cells and uptime, paired with the lookback in days. */}}
 {{define "uptime-strip"}}{{with .First}}
 <div class="strip{{if gt $.Second 120}} strip-dense{{end}}" role="img" aria-label="uptime over the last {{$.Second}} days: {{.Uptime}}">
-  {{range .Days}}<span class="day day-{{.State}}" data-tip="{{.Label}}"></span>{{end}}
+  {{range .Days}}<span class="day day-{{.State}}" data-tip="{{.Label}}" tabindex="-1"></span>{{end}}
 </div>
 <div class="strip-legend meta">
   {{if gt $.Second 30}}<span class="wide-only">{{$.Second}} days ago</span><span class="narrow-only">30 days ago</span>

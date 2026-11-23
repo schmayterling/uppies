@@ -713,6 +713,14 @@ code { font-family: var(--font-mono); font-size: var(--text-sm); }
 .day:nth-last-child(-n+10):hover::after { inset-inline-start: auto; inset-inline-end: 0; translate: 0 0; }
 .day-warn::after, .day-down::after { inset-block-end: calc(100% + var(--space-1-5)); }
 .strip { position: relative; }
+.index-uptime .day { position: static; }
+.index-uptime .day:hover::after {
+  inset-inline: 0 auto;
+  inline-size: max-content;
+  max-inline-size: 100%;
+  white-space: normal;
+  translate: 0 0;
+}
 .table-scroll:has(.day:hover) { overflow: visible; }
 /* one unseen column per day lies over the line, so each day has a tooltip like the bars do */
 .spark-box { position: relative; }
