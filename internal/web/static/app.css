@@ -70,14 +70,19 @@ strong { font-weight: var(--weight-semibold); }
 .sidebar-head { display: flex; align-items: center; justify-content: space-between; }
 .sidebar .wordmark { display: flex; align-items: center; min-block-size: var(--row-height); padding-inline: var(--space-2); }
 
-/* collapsed, the sidebar is a rail of icons. labels hide and titles name each entry. */
+/* collapsed, the sidebar is a rail of icons. nothing may move or wrap while
+   it slides: every label stays on one line and only fades, the sidebar clips
+   what no longer fits, and each icon sits at the same place in both states
+   (12px sidebar padding + 8px item padding centres a 16px icon in the 56px rail). */
 :root { --rail-width: 56px; }
+.sidebar { overflow-x: hidden; }
+.nav-item, .nav-heading, .sidebar .wordmark { white-space: nowrap; }
+.nav-label { transition: opacity var(--motion-fast) var(--ease-out); }
+.sidebar-head .icon-button { flex: none; margin-inline-start: auto; }
 [data-sidebar="rail"] .shell { grid-template-columns: var(--rail-width) minmax(0, 1fr); }
-[data-sidebar="rail"] .nav-label { display: none; }
-[data-sidebar="rail"] .sidebar { padding-inline: var(--space-2); align-items: stretch; }
-[data-sidebar="rail"] .sidebar-head { justify-content: center; }
-[data-sidebar="rail"] .sidebar .wordmark { display: none; }
-[data-sidebar="rail"] .nav-item { justify-content: center; padding: 0; }
+[data-sidebar="rail"] .nav-label { opacity: 0; pointer-events: none; }
+[data-sidebar="rail"] .sidebar .wordmark { position: absolute; }
+[data-sidebar="rail"] .sidebar-head .icon-button { margin-inline: auto; }
 .nav-divider { margin: var(--space-3) var(--space-2); border: 0; border-block-start: 1px solid var(--border); }
 .nav-logo { flex: none; inline-size: var(--icon-size); block-size: var(--icon-size); border-radius: var(--radius-inner); object-fit: contain; }
 
@@ -244,9 +249,8 @@ table.dense tbody th a:hover { text-decoration: underline; }
 
 @media (max-width: 860px) {
   .sidebar-head .icon-button { display: none; }
-  [data-sidebar="rail"] .nav-label { display: revert; }
-  [data-sidebar="rail"] .sidebar .wordmark { display: flex; }
-  [data-sidebar="rail"] .nav-item { justify-content: flex-start; padding: 0 var(--space-2); }
+  [data-sidebar="rail"] .nav-label { opacity: 1; pointer-events: auto; }
+  [data-sidebar="rail"] .sidebar .wordmark { position: static; }
   .shell { grid-template-columns: minmax(0, 1fr); }
   .sidebar { position: static; block-size: auto; border-inline-end: 0; border-block-end: 1px solid var(--border); }
   .content { padding: var(--space-4); }
@@ -486,7 +490,7 @@ input[type="file"] { padding: var(--space-1); }
 .tl-updates .update-body { margin: var(--space-1) 0 0; }
 
 /* the incident map: a year of days, one column per week */
-.heat-scroll { overflow-x: auto; padding-block: var(--space-6) var(--space-1); }
+.heat-scroll { overflow-x: auto; padding-block: var(--space-5) var(--space-1); }
 .heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); grid-auto-columns: minmax(var(--space-2), 1fr); gap: var(--space-0-5); min-inline-size: 560px; }
 .heat-cell { position: relative; aspect-ratio: 1; border-radius: var(--space-0-5); background: var(--active); }
 .heat-blank { background: none; }
@@ -512,6 +516,8 @@ input[type="file"] { padding: var(--space-1); }
 }
 .heat-cell:nth-child(-n+70):hover::after { inset-inline-start: 0; translate: 0 0; }
 .heat-cell:nth-last-child(-n+70):hover::after { inset-inline-start: auto; inset-inline-end: 0; translate: 0 0; }
+.heat-months { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(var(--space-2), 1fr); gap: var(--space-0-5); min-inline-size: 560px; margin-block-end: var(--space-1); color: var(--muted); font-size: var(--text-xs); }
+.heat-months span { white-space: nowrap; overflow: visible; }
 .heat-legend { display: flex; align-items: center; gap: var(--space-1-5); margin-block-start: var(--space-2); }
 .heat-legend .heat-cell { inline-size: var(--space-3); margin-inline-start: var(--space-2); }
 
