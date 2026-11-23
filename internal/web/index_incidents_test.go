@@ -1,0 +1,142 @@
+package web
+
+import (
+	"bytes"
+	"fmt"
+	"html/template"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"uppies/internal/store"
+)
+
+func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) {
+	ctx := t.Context()
+	check := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	st, err := store.Open(ctx, filepath.Join(t.TempDir(), "test.db"))
+	check(err)
+	t.Cleanup(func() {
+		if err := st.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	s, err := New(st, slog.New(slog.NewTextHandler(t.Output(), nil)), nil, nil)
+	check(err)
+
+	// Exercise the handler and templates without relying on the production route registration.
+	archive, err := template.New("base.html").Funcs(templateFuncs).Funcs(template.FuncMap{
+		"assetURL":       func(name string) string { return "/static/" + name },
+		"sidebarSymbols": func() template.HTML { return "" },
+	}).ParseFS(templateFiles, "templates/base.html", "templates/index_incidents_archive.html", "templates/index_incidents.html")
+	check(err)
+	s.pages["index_incidents_archive.html"] = archive
+
+	getArchive := func(path string, wantStatus int) string {
+		t.Helper()
+		w := httptest.NewRecorder()
+		s.handleIndexIncidents(w, httptest.NewRequest(http.MethodGet, path, nil))
+		if w.Code != wantStatus {
+			t.Fatalf("%s: status = %d, want %d", path, w.Code, wantStatus)
+		}
+		return w.Body.String()
+	}
+	checkHTML := func(page string, want, unwanted []string) {
+		t.Helper()
+		for _, text := range want {
+			if !strings.Contains(page, text) {
+				t.Errorf("missing %q", text)
+			}
+		}
+		for _, text := range unwanted {
+			if strings.Contains(page, text) {
+				t.Errorf("unexpected %q", text)
+			}
+		}
+	}
+
+	started := time.Date(2025, time.December, 31, 23, 30, 0, 0, time.UTC).UnixMilli()
+	_, err = st.CreateFirstUser(ctx, "admin", "test hash", started)
+	check(err)
+	instance, err := st.Instance(ctx)
+	check(err)
+	const origin = "https://status.example.test"
+	instance.PublicURL = origin
+	check(st.SaveInstance(ctx, instance))
+
+	empty := getArchive("/incidents", http.StatusOK)
+	checkHTML(empty, []string{"no published incidents to show.", "href=\"/status-pages\""}, []string{"older incidents"})
+
+	core, err := st.CreateProject(ctx, "core", "Core & Checkout", started)
+	check(err)
+	edge, err := st.CreateProject(ctx, "edge", "Edge", started)
+	check(err)
+	project, err := st.ProjectByID(ctx, core)
+	check(err)
+	project.Timezone = "Asia/Manila"
+	check(st.UpdateProject(ctx, project))
+
+	create := func(projectID int64, title, status string, at int64, published bool) int64 {
+		t.Helper()
+		id, err := st.CreateIncident(ctx, store.Incident{
+			ProjectID: projectID, Title: title, Impact: "major", Status: status,
+			StartedAtMs: at, Published: published,
+		}, "incident update body", at+2*time.Hour.Milliseconds())
+		check(err)
+		return id
+	}
+	create(edge, "Older ongoing incident", "investigating", started-time.Hour.Milliseconds(), true)
+	create(core, "Checkout <orders>", "resolved", started, true)
+	archiveBoundary := create(core, "First tied incident", "resolved", started, true)
+	for i := range 18 {
+		create(core, fmt.Sprintf("Tied incident %02d", i), "resolved", started, true)
+	}
+	create(edge, "Active network incident", "monitoring", started, true)
+	create(edge, "Unpublished incident", "investigating", started+1, false)
+
+	for _, path := range []string{"/", "/status-pages?before=0.1"} {
+		history, err := s.loadIndexIncidentHistory(httptest.NewRequest(http.MethodGet, path, nil))
+		check(err)
+		if len(history.Incidents) != 5 {
+			t.Fatalf("%s: preview has %d incidents, want 5", path, len(history.Incidents))
+		}
+		var page bytes.Buffer
+		check(archive.ExecuteTemplate(&page, "index-incidents", history))
+		checkHTML(page.String(), []string{
+			"href=\"/incidents\">full incident history",
+			"href=\"/s/core/history?year=2026\"", "Core &amp; Checkout",
+			"href=\"/s/edge/history?year=2025\"", "Active network incident", "monitoring",
+		}, []string{"Unpublished incident", "incident update body", "Older ongoing incident"})
+	}
+
+	olderURL := fmt.Sprintf("/incidents?before=%d.%d", started, archiveBoundary)
+	first := getArchive("/incidents?before=invalid&utm_source=test", http.StatusOK)
+	checkHTML(first, []string{
+		"href=\"" + olderURL + "\"",
+		"rel=\"canonical\" href=\"" + origin + "/incidents\"",
+		"Active network incident", "First tied incident",
+	}, []string{"Unpublished incident", "Checkout &lt;orders&gt;", "Older ongoing incident"})
+
+	older := getArchive(olderURL, http.StatusOK)
+	checkHTML(older, []string{
+		"rel=\"canonical\" href=\"" + origin + olderURL + "\"",
+		"href=\"/incidents\">newest incidents",
+		"Checkout &lt;orders&gt;", "Older ongoing incident",
+		"started <time datetime=\"2025-12-31T23:30:00Z\"",
+		"resolved <time datetime=\"2026-01-01T01:30:00Z\"",
+	}, []string{"First tied incident", "older incidents", "incident update body"})
+
+	instance.PublicList = false
+	check(st.SaveInstance(ctx, instance))
+	hidden := getArchive(olderURL, http.StatusNotFound)
+	checkHTML(hidden, nil, []string{"Checkout", "Edge", "Older ongoing incident"})
+}

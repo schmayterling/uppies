@@ -1,0 +1,29 @@
+{{define "index-incidents"}}
+<section aria-labelledby="index-incidents-heading">
+  <div class="title-row">
+    <h2 id="index-incidents-heading">recent incidents</h2>
+    <a class="meta" href="/incidents">full incident history</a>
+  </div>
+  {{template "index-incident-rows" .}}
+</section>
+{{end}}
+
+{{define "index-incident-rows"}}
+{{if .Incidents}}
+<ol class="rows">
+  {{range .Incidents}}
+  <li>
+    <div class="row">
+      <div class="index-copy">
+        <strong class="index-name">{{.Title}}</strong>
+        <span class="index-tagline"><a href="/s/{{.ProjectSlug}}/history?year={{.ProjectYear}}" aria-label="{{.ProjectName}} incident history">{{.ProjectName}}</a> · {{.Status}} · {{.Impact}} impact</span>
+        <span class="meta">started <time datetime="{{rfc3339 .StartedAtMs}}">{{utc .StartedAtMs}}</time>{{if .ResolvedAtMs.Valid}} · resolved <time datetime="{{rfc3339 .ResolvedAtMs.Int64}}">{{utc .ResolvedAtMs.Int64}}</time>{{end}}</span>
+      </div>
+    </div>
+  </li>
+  {{end}}
+</ol>
+{{else}}
+<p class="muted">no published incidents to show.</p>
+{{end}}
+{{end}}

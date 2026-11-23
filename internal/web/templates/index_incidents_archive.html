@@ -1,0 +1,14 @@
+{{define "head"}}<link rel="stylesheet" href="/theme.css">{{end}}
+{{define "main"}}
+<header class="page-head">
+  <nav class="site-links" aria-label="site links"><a href="/status-pages">back to status pages</a></nav>
+  <h1>incident history</h1>
+</header>
+{{template "index-incident-rows" .IncidentHistory}}
+{{if or .HasCursor .IncidentHistory.Older}}
+<nav class="actions pager" aria-label="pages of the incident history">
+  {{if .HasCursor}}<a class="button quiet" href="/incidents">newest incidents</a>{{end}}
+  {{with .IncidentHistory.Older}}<a class="button quiet" href="/incidents?before={{.}}">older incidents</a>{{end}}
+</nav>
+{{end}}
+{{end}}
