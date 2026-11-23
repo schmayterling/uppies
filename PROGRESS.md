@@ -32,6 +32,7 @@ Each line names how it was verified.
 - Schema version 2: status page settings on projects, a `public` flag on monitors, and the `alert_channels` table. Verified by a test that upgrades a version 1 file and by starting the new binary on the version 1 demo database (2 projects and 201 rollups kept).
 - Project settings page: alert channels (add, remove, send test) and status page settings (name, tagline, homepage, theme, accent hue, days of history, face, custom CSS). Verified by handler tests and the manual run. The themed status page was captured once at 1280 wide.
 - Schema version 3 and the settings that use it: footer text, a switch for the "powered by" line, a switch that asks search engines not to list the page, a timezone for incident times, and a custom domain whose front page is the status page. Verified by store and handler tests, and by a manual run on 2026-11-23 on the demo database (upgraded from version 2, 2 projects kept).
+- Logo and favicon uploads (schema version 4, `internal/web/images.go`): up to 512 KB each, the type is read from the file's bytes, and images are served sandboxed so that a script inside an SVG cannot run. Verified by store and handler tests, and by uploading an SVG to the demo database with the real binary on 2026-11-23 (a text file was refused with 422).
 - Status badge at `/s/<address>/badge.svg`. Verified by a handler test and by rendering it once in a browser.
 - Status page rendered and measured at 1280 and 390 CSS pixels wide in the light theme: no horizontal overflow, 90 day cells on wide screens and 30 on narrow ones. The dark theme was looked at once before the last style fixes and not measured.
 
@@ -64,7 +65,8 @@ Each line names how it was verified.
 - 2026-11-23: Times on the status page are shown with a numeric offset such as `+08:00`, not a zone abbreviation. Abbreviations are ambiguous: "PST" is both Pacific and Philippine time.
 - 2026-11-23: The daily uptime bars count UTC days whatever timezone a project sets. Per-zone days would need rollups per zone.
 - 2026-11-23: Badge colours are fixed hex values because a badge is shown on other sites, where the page's stylesheet does not apply.
-- 2026-11-23: Logos and favicons are postponed. They need either file uploads or a wider content security policy for images, and that choice is still open.
+- 2026-11-23: Logos and favicons are uploaded files stored in the database, chosen by the user over allowing image URLs from other sites. The page stays self-contained and the content security policy stays strict.
+- 2026-11-23: Custom scripts and tracking codes on status pages are not planned. A status page runs no script at all, and that rule is worth more than analytics.
 
 ## Do not repeat
 
@@ -75,17 +77,8 @@ Each line names how it was verified.
 
 ## Next
 
-In this order, one signed commit per step:
-
-1. Scheduled maintenance windows that mute alerts and do not count as downtime.
-1. Logo and favicon per status page, and documented class names for custom CSS.
-1. Alert message templates.
-2. Email alerts over SMTP.
-3. Config file mode: monitors, projects and alert channels from YAML, read-only in the UI.
-4. REST API with keys.
-5. More monitor kinds: ping, DNS, push for cron jobs, and certificate expiry warnings.
-6. Timeline ranges on the status page (24 hours, 7 days, 30 days), which needs hourly rollups.
-7. A Dockerfile and a release build.
+`ROADMAP.md` holds the planned order. The first item is email alerts over SMTP,
+then maintenance windows. Work one item at a time, one signed commit per step.
 
 ## Open risks
 

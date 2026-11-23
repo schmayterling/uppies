@@ -20,7 +20,7 @@ and several planned features are missing (see "Not built yet").
 - Sends an alert when a monitor goes down and when it recovers, to a plain
   webhook (JSON), Discord or Slack. The alert says what failed, why, and on
   recovery for how long.
-- Lets you shape each status page: tagline, link to your homepage, accent
+- Lets you shape each status page: logo, favicon, tagline, link to your homepage, accent
   colour, light or dark theme, 30, 60 or 90 days of history, timezone, footer
   text, your own CSS, and which monitors are shown. A page can live on its own
   domain, drop the "powered by" line and ask search engines to stay away.
@@ -59,13 +59,14 @@ session cookie is marked secure.
 go build ./... && go vet ./... && go test -race ./...
 ```
 
-`PROGRESS.md` records what is done, what is verified and what comes next.
+`PROGRESS.md` records what is done and how it was verified. `ROADMAP.md` is
+the planned order of work.
 
 ## Not built yet
 
-Email alerts, scheduled maintenance, the config file mode, the REST API, ping,
-DNS and push monitors, certificate expiry warnings, logos and favicons for
-status pages, alert message templates, other languages, and a Docker image.
+Email alerts, scheduled maintenance, certificate expiry warnings, ping, DNS
+and push monitors, the REST API, the config file mode and a Docker image.
+[ROADMAP.md](ROADMAP.md) has the full list and the order.
 
 ## License
 
