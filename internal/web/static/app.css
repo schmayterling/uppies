@@ -344,7 +344,7 @@ input[type="checkbox"].switch:checked::before { translate: calc(var(--switch-wid
 .list form { margin: 0; }
 .panel.list-row { align-items: center; }
 table.dense .cell-note { margin-block-start: var(--space-0-5); }
-table.dense tbody th .cell-note { padding-inline-start: calc(var(--icon-size) + var(--space-2)); }
+/* the icon is part of the name, so what stands under the name starts at the name line's left edge */
 /* a name is centred in its row, and what stands under it sits close to it:
    the link is taller than its text so that it stays an easy target */
 table.dense tbody th a.with-icon { align-items: center; }
