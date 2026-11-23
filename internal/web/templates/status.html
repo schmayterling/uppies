@@ -9,7 +9,7 @@
   {{with .Project.Tagline}}<p class="muted">{{.}}</p>{{end}}
 </header>
 
-<section class="banner banner-{{.BannerState}}" aria-label="current status">
+<section class="banner banner-{{.BannerState}}" role="status" aria-label="current status">
   {{if .Project.ShowFace}}{{template "status-icon" .BannerIcon}}{{end}}
   <p class="banner-text">{{.BannerText}}</p>
 </section>

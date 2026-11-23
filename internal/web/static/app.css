@@ -73,8 +73,9 @@ p.hint, p.muted { max-inline-size: 75ch; }
 .auth-brand { display: flex; align-items: center; gap: var(--space-3); margin: 0 0 var(--space-5); }
 .auth-brand .wordmark { font-size: var(--text-title); letter-spacing: var(--tracking-heading); }
 .auth-card .form { margin-block-start: var(--space-5); }
-.auth-card input { min-block-size: calc(var(--control-height) + var(--space-1)); }
-.button.wide { inline-size: 100%; block-size: calc(var(--control-height) + var(--space-1)); }
+/* the sign-in form is often used on a phone, so its fields and button are touch sized for every pointer */
+.auth-card input { min-block-size: var(--control-height-touch); font-size: var(--text-body); }
+.button.wide { inline-size: 100%; block-size: var(--control-height-touch); font-size: var(--text-body); }
 .auth-foot { margin: 0; }
 .auth-card h1 { margin-block-end: var(--space-1); }
 .index-list { margin-block-start: var(--space-4); }
@@ -585,6 +586,10 @@ code { font-family: var(--font-mono); font-size: var(--text-sm); }
   border-radius: var(--radius-card);
   background: var(--surface);
 }
+/* the banner takes the colour of the state it reports, so an outage does not look like a calm day */
+.banner-ok { border-color: color-mix(in oklab, var(--status-success) 50%, var(--border)); }
+.banner-warn { border-color: var(--status-warning); background: color-mix(in oklab, var(--status-warning) 8%, var(--surface)); }
+.banner-down { border-color: var(--status-danger); background: color-mix(in oklab, var(--status-danger) 8%, var(--surface)); }
 .banner-text { margin: 0; font-size: var(--text-title); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-heading); }
 /* a round status icon is as tall as the text it stands beside */
 .status-icon { flex: none; inline-size: 1em; block-size: 1em; fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
