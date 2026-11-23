@@ -153,7 +153,16 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("POST /admin/incidents/{id}/publish", s.handlePublishIncident)
 	admin("POST /admin/incidents/{id}/delete", s.handleDeleteIncident)
 
+	s.registerAPI(mux)
 	crossOrigin := http.NewCrossOriginProtection()
+	crossOrigin.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isAPIPath(r.URL.Path) {
+			w.Header().Set("Cache-Control", "no-store")
+			s.apiError(w, r, http.StatusForbidden, "cross_origin", "Cross-origin writes are not allowed.")
+			return
+		}
+		http.Error(w, crossOrigin.Check(r).Error(), http.StatusForbidden)
+	}))
 	// Scheduled jobs are not browsers, and the token already proves who calls.
 	crossOrigin.AddInsecureBypassPattern("POST /push/{token}")
 	return crossOrigin.Handler(securityHeaders(limitBody(mux))), nil

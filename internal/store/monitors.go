@@ -136,7 +136,16 @@ func (s *Store) CreateProject(ctx context.Context, slug, name string, nowMs int6
 
 // Projects lists all projects in the order the admin gave them.
 func (s *Store) Projects(ctx context.Context) ([]Project, error) {
-	rows, err := s.db.QueryContext(ctx, "select "+projectColumns+" from projects order by position, id")
+	return s.projects(ctx, "select "+projectColumns+" from projects order by position, id")
+}
+
+// ProjectsAfter lists the next projects in ID order.
+func (s *Store) ProjectsAfter(ctx context.Context, after int64, limit int) ([]Project, error) {
+	return s.projects(ctx, "select "+projectColumns+" from projects where id > ? order by id limit ?", after, limit)
+}
+
+func (s *Store) projects(ctx context.Context, query string, args ...any) ([]Project, error) {
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -176,13 +185,36 @@ var ErrDomainTaken = errors.New("domain already in use")
 // UpdateProject changes a project's name and status page settings. The slug
 // stays. It returns ErrDomainTaken when the domain belongs to another project.
 func (s *Store) UpdateProject(ctx context.Context, p Project) error {
+	return updateProject(ctx, s.db.ExecContext, p)
+}
+
+// EditProject applies changes to the current settings in one transaction.
+func (s *Store) EditProject(ctx context.Context, id int64, edit func(*Project) error) error {
+	return s.write(ctx, func(tx *sql.Tx) error {
+		p, err := scanProject(tx.QueryRowContext(ctx, "select "+projectColumns+" from projects where id = ?", id))
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if err := edit(&p); err != nil {
+			return err
+		}
+		return updateProject(ctx, tx.ExecContext, p)
+	})
+}
+
+type execSQL func(context.Context, string, ...any) (sql.Result, error)
+
+func updateProject(ctx context.Context, exec execSQL, p Project) error {
 	// Callers that do not set a look get the default one.
 	p.Surface = cmp.Or(p.Surface, "neutral")
 	p.Corners = cmp.Or(p.Corners, "soft")
 	p.Font = cmp.Or(p.Font, "system")
 	p.Backfill = cmp.Or(p.Backfill, "none")
 	p.NavbarBrand = cmp.Or(p.NavbarBrand, "icon-name")
-	res, err := s.db.ExecContext(ctx, `
+	res, err := exec(ctx, `
 		update projects set name = ?, tagline = ?, homepage_url = ?, accent_hue = ?, theme = ?,
 			show_face = ?, lookback_days = ?, custom_css = ?, footer_text = ?, show_powered_by = ?,
 			noindex = ?, timezone = ?, domain = ?, surface = ?, corners = ?, font = ?, backfill = ?,
@@ -209,10 +241,13 @@ func (s *Store) ProjectByDomain(ctx context.Context, domain string) (Project, er
 	return s.project(ctx, "select "+projectColumns+" from projects where domain = ?", domain)
 }
 
-// DeleteProject removes a project with its monitors, history and incidents.
+// DeleteProject removes a project and its page-specific data.
 func (s *Store) DeleteProject(ctx context.Context, id int64) error {
-	_, err := s.db.ExecContext(ctx, "delete from projects where id = ?", id)
-	return err
+	res, err := s.db.ExecContext(ctx, "delete from projects where id = ?", id)
+	if err != nil {
+		return err
+	}
+	return requireOneRow(res)
 }
 
 // CreateMonitor adds a monitor in the unknown state and returns its id.

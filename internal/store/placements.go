@@ -3,6 +3,9 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
+
+	"modernc.org/sqlite"
 )
 
 // Placement puts a monitor on a status page: where in the page's list it
@@ -101,6 +104,9 @@ func (s *Store) SetPlacements(ctx context.Context, projectID int64, placements [
 // the list leaves out is added at the end.
 func (s *Store) SetPageLayout(ctx context.Context, projectID int64, categories []string, placements []Placement) error {
 	return s.write(ctx, func(tx *sql.Tx) error {
+		if err := requireProject(ctx, tx, projectID); err != nil {
+			return err
+		}
 		for _, table := range []string{"page_monitors", "page_categories"} {
 			// The table names are the two literals above, not input.
 			if _, err := tx.ExecContext(ctx, "delete from "+table+" where project_id = ?", projectID); err != nil {
@@ -131,12 +137,68 @@ func (s *Store) SetPageLayout(ctx context.Context, projectID int64, categories [
 		}
 		defer insert.Close()
 		for i, p := range placements {
-			if _, err := insert.ExecContext(ctx, projectID, p.MonitorID, i+1, p.Category, displayOrDefault(p.Display), p.GraphFill); err != nil {
+			_, err := insert.ExecContext(ctx, projectID, p.MonitorID, i+1, p.Category, displayOrDefault(p.Display), p.GraphFill)
+			if sqliteErr, ok := errors.AsType[*sqlite.Error](err); ok && sqliteErr.Code() == sqliteConstraintForeignKey {
+				return ErrUnknownMonitor
+			}
+			if err != nil {
 				return err
 			}
 		}
 		return nil
 	})
+}
+
+const sqliteConstraintForeignKey = 787 // SQLITE_CONSTRAINT_FOREIGNKEY
+
+// ErrUnknownMonitor means a monitor reference did not match an available monitor.
+var ErrUnknownMonitor = errors.New("unknown monitor")
+
+func requireProject(ctx context.Context, tx *sql.Tx, projectID int64) error {
+	var exists bool
+	if err := tx.QueryRowContext(ctx, "select exists (select 1 from projects where id = ?)", projectID).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// PageLayout reads the ordered categories and placements in one snapshot.
+func (s *Store) PageLayout(ctx context.Context, projectID int64) ([]string, []Placement, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		select 0 as kind, 0 as position, '' as name, 0 as monitor_id, '' as display, '' as graph_fill from projects where id = ?1
+		union all
+		select 1, position, name, 0, '', '' from page_categories where project_id = ?1
+		union all
+		select 2, position, category, monitor_id, display, graph_fill from page_monitors where project_id = ?1
+		order by kind, position, name, monitor_id`, projectID)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, nil, err
+		}
+		return nil, nil, ErrNotFound
+	}
+	var categories []string
+	var placements []Placement
+	for rows.Next() {
+		var kind int
+		p := Placement{ProjectID: projectID}
+		if err := rows.Scan(&kind, &p.Position, &p.Category, &p.MonitorID, &p.Display, &p.GraphFill); err != nil {
+			return nil, nil, err
+		}
+		if kind == 1 {
+			categories = append(categories, p.Category)
+		} else {
+			placements = append(placements, p)
+		}
+	}
+	return categories, placements, rows.Err()
 }
 
 // PageCategories lists a status page's categories in their order.
