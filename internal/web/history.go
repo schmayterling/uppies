@@ -19,6 +19,35 @@ type dayGroup struct {
 	Incidents []incidentView
 	// Level is the worst impact of the day's incidents, 0 for a quiet day.
 	Level int
+	// QuietDays is set on a group that stands for a run of days without
+	// incidents: how many days it covers. Date then names the whole run.
+	QuietDays int
+}
+
+// mergeQuietRuns folds each run of consecutive quiet days into one group,
+// so that a calm month reads as one line and not as thirty. The groups must
+// be newest first, as the lists build them.
+func mergeQuietRuns(groups []dayGroup) []dayGroup {
+	var merged []dayGroup
+	for _, g := range groups {
+		last := len(merged) - 1
+		if len(g.Incidents) > 0 || last < 0 || merged[last].QuietDays == 0 {
+			if len(g.Incidents) == 0 {
+				g.QuietDays = 1
+			}
+			merged = append(merged, g)
+			continue
+		}
+		run := &merged[last]
+		run.QuietDays++
+		// The run started as its newest day. Each older day moves its start back.
+		newest := run.Date
+		if before, _, found := strings.Cut(run.Date, " to "); found {
+			newest = run.Date[len(before)+len(" to "):]
+		}
+		run.Date = g.Date + " to " + newest
+	}
+	return merged
 }
 
 // worstLevel returns the highest impact level among incidents.
@@ -52,7 +81,7 @@ func yearDayGroups(incidents []incidentView, year int, now time.Time, zone *time
 		}
 		groups = append(groups, dayGroup{Date: label, Incidents: found, Level: worstLevel(found)})
 	}
-	return groups
+	return mergeQuietRuns(groups)
 }
 
 // heatCell is one day of the incident map. Level is 0 for a day without
@@ -104,7 +133,7 @@ func recentDayGroups(resolved []incidentView, now time.Time, zone *time.Location
 		label := dayLabel(today.AddDate(0, 0, -daysAgo))
 		groups = append(groups, dayGroup{Date: label, Incidents: byDay[label], Level: worstLevel(byDay[label])})
 	}
-	return groups
+	return mergeQuietRuns(groups)
 }
 
 // incidentMap builds the year's grid: one column per week, Sunday on top,

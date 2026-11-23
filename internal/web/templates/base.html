@@ -76,6 +76,9 @@
 
 {{define "days"}}<ol class="tl">
   {{range .First}}
+  {{if .QuietDays}}
+  <li class="tl-day tl-level-0 tl-calm"><span class="tl-date">{{.Date}}</span> <span class="tl-quiet">{{if eq .QuietDays 1}}no incidents{{else}}{{.QuietDays}} days without incidents{{end}}</span></li>
+  {{else}}
   <li class="tl-day tl-level-{{.Level}}">
     <h3 class="tl-date">{{.Date}}</h3>
     {{range .Incidents}}
@@ -86,10 +89,9 @@
         {{range .Updates}}<li><span class="tl-status">{{.Status}}</span> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Second .AtMs}}</time><p class="update-body">{{.Body}}</p></li>{{end}}
       </ol>
     </article>
-    {{else}}
-    <p class="tl-quiet muted">no incidents.</p>
     {{end}}
   </li>
+  {{end}}
   {{end}}
 </ol>{{end}}
 

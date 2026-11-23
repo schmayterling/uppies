@@ -11,7 +11,7 @@ func incidentAt(title, impact string, at time.Time) store.Incident {
 	return store.Incident{Title: title, Impact: impact, StartedAtMs: at.UnixMilli()}
 }
 
-func TestRecentDayGroupsKeepsQuietDays(t *testing.T) {
+func TestRecentDayGroupsFoldQuietRuns(t *testing.T) {
 	manila, err := time.LoadLocation("Asia/Manila")
 	if err != nil {
 		t.Fatal(err)
@@ -22,16 +22,25 @@ func TestRecentDayGroupsKeepsQuietDays(t *testing.T) {
 	tooOld := incidentView{Incident: incidentAt("old outage", "major", now.AddDate(0, 0, -7))}
 
 	groups := recentDayGroups([]incidentView{lateUTC, tooOld}, now, manila)
-	if len(groups) != 7 || groups[0].Date != "nov 23, 2026" || groups[6].Date != "nov 17, 2026" {
-		t.Fatalf("got %d groups from %q to %q, want 7 from nov 23 back to nov 17", len(groups), groups[0].Date, groups[len(groups)-1].Date)
+	// Seven days, newest first: today alone is quiet, nov 22 has the incident,
+	// and the five days before it fold into one run.
+	want := []struct {
+		date      string
+		quietDays int
+		incidents int
+	}{
+		{"nov 23, 2026", 1, 0},
+		{"nov 22, 2026", 0, 1},
+		{"nov 17, 2026 to nov 21, 2026", 5, 0},
 	}
-	for i, g := range groups {
-		want := 0
-		if g.Date == "nov 22, 2026" {
-			want = 1
-		}
-		if len(g.Incidents) != want {
-			t.Errorf("group %d (%s): got %d incidents, want %d", i, g.Date, len(g.Incidents), want)
+	if len(groups) != len(want) {
+		t.Fatalf("got %d groups, want %d: %+v", len(groups), len(want), groups)
+	}
+	for i, w := range want {
+		g := groups[i]
+		if g.Date != w.date || g.QuietDays != w.quietDays || len(g.Incidents) != w.incidents {
+			t.Errorf("group %d: got %q with %d quiet days and %d incidents, want %q with %d and %d",
+				i, g.Date, g.QuietDays, len(g.Incidents), w.date, w.quietDays, w.incidents)
 		}
 	}
 }
@@ -75,11 +84,13 @@ func TestYearDayGroupsCanHideQuietDays(t *testing.T) {
 		{Incident: incidentAt("b", "critical", time.Date(2026, 1, 3, 9, 0, 0, 0, time.UTC))},
 	}
 	all := yearDayGroups(incidents, 2026, now, time.UTC, false)
-	if len(all) != 5 || all[0].Date != "jan 5, 2026" || all[4].Date != "jan 1, 2026" {
-		t.Fatalf("with quiet days: got %d groups, want jan 5 back to jan 1 and nothing after today", len(all))
+	// Nothing after today (jan 5). The quiet days fold into a run on each side of jan 3.
+	if len(all) != 3 || all[0].Date != "jan 4, 2026 to jan 5, 2026" || all[0].QuietDays != 2 ||
+		all[2].Date != "jan 1, 2026 to jan 2, 2026" || all[2].QuietDays != 2 {
+		t.Fatalf("with quiet days: got %+v, want a two-day run, jan 3, and another two-day run", all)
 	}
-	if all[2].Date != "jan 3, 2026" || len(all[2].Incidents) != 2 || all[2].Level != 3 || all[1].Level != 0 {
-		t.Fatalf("jan 3: got %+v, want both incidents at the critical level, and a quiet jan 4", all[2])
+	if all[1].Date != "jan 3, 2026" || len(all[1].Incidents) != 2 || all[1].Level != 3 {
+		t.Fatalf("jan 3: got %+v, want both incidents at the critical level", all[1])
 	}
 	busy := yearDayGroups(incidents, 2026, now, time.UTC, true)
 	if len(busy) != 1 || busy[0].Date != "jan 3, 2026" {
