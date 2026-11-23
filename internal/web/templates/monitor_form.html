@@ -47,6 +47,11 @@
       {{with index .Problems "name"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
     <div class="srow">
+      <label class="srow-copy" for="tags"><span>tags</span><small id="tags-hint">separate tags with commas.</small></label>
+      <div class="srow-control"><input id="tags" name="tags" value="{{.Monitor.Tags}}" maxlength="1000" aria-describedby="tags-hint{{if index .Problems "tags"}} tags-problem{{end}}"{{if index .Problems "tags"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "tags"}}<p class="problem srow-problem" id="tags-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
       <label class="srow-copy" for="kind"><span>kind</span><small>a push monitor waits for a scheduled job to report in.</small></label>
       <div class="srow-control"><select id="kind" name="kind">
         {{range .Kinds}}<option value="{{.}}"{{if eq . $.Monitor.Kind}} selected{{end}}>{{kindLabel .}}</option>{{end}}

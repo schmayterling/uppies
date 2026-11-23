@@ -38,7 +38,7 @@
     </div>
     <div class="srow">
       <label class="srow-copy" for="timezone"><span>timezone</span><small>incident times are shown in this zone. the daily bars always count utc days.</small></label>
-      <div class="srow-control"><select id="timezone" name="timezone" data-native-select required{{if index .Problems "timezone"}} aria-invalid="true" aria-describedby="timezone-problem"{{end}}>
+      <div class="srow-control"><select id="timezone" name="timezone" required{{if index .Problems "timezone"}} aria-invalid="true" aria-describedby="timezone-problem"{{end}}>
         {{range .Zones}}<option value="{{.}}"{{if eq . $.Project.Timezone}} selected{{end}}>{{.}}</option>{{end}}
       </select></div>
       {{with index .Problems "timezone"}}<p class="problem srow-problem" id="timezone-problem">{{.}}</p>{{end}}

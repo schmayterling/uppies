@@ -329,11 +329,20 @@ input[type="checkbox"].switch:checked::before { translate: calc(var(--switch-wid
 
 .list-intro { margin-block-end: var(--space-5); }
 .table-search { margin-block-end: var(--space-3); }
-.table-search .hint:empty { margin: 0; }
-.table-filters { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2) var(--space-3); margin-block-start: var(--space-2); }
-.table-filters .field { flex: 0 1 auto; min-inline-size: 0; max-inline-size: calc(var(--space-8) * 3); }
-.table-filters select { appearance: auto; padding-inline-end: var(--space-2); background: var(--surface); }
+.table-search:not([hidden]) { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.table-search > input { flex: 1 1 calc(var(--space-8) * 3); min-inline-size: 0; inline-size: auto; }
+.table-search .hint { flex: 0 0 100%; margin: 0; }
+.table-search .hint:empty { display: none; }
+.table-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); max-inline-size: 100%; }
+.table-filters .field { grid-template-columns: minmax(0, 1fr); inline-size: calc(var(--space-8) * 2 + var(--space-4)); min-inline-size: 0; max-inline-size: 100%; }
+.table-filters .select-button { background: var(--surface); }
+.table-filters .select-list { max-inline-size: calc(100vw - var(--space-4)); }
+.table-filters .select-list [role="option"] { display: block; align-content: center; overflow: hidden; text-overflow: ellipsis; }
 .table-filters .button[hidden] { display: none; }
+@media (max-width: 520px) {
+  .table-filters { inline-size: 100%; }
+  .table-filters .field { flex: 0 0 calc((100% - var(--space-3)) / 2); }
+}
 [data-filtered] .order-grip { visibility: hidden; }
 
 /* overview */
@@ -356,6 +365,8 @@ input[type="checkbox"].switch:checked::before { translate: calc(var(--switch-wid
 .list form { margin: 0; }
 .panel.list-row { align-items: center; }
 table.dense .cell-note { margin-block-start: var(--space-0-5); }
+.monitor-tags { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: var(--space-1) 0 0; padding: 0; list-style: none; }
+.monitor-tags li { max-inline-size: 22ch; overflow: hidden; padding-inline: var(--space-1-5); border-radius: var(--radius-inner); background: var(--surface); text-overflow: ellipsis; white-space: nowrap; }
 /* the icon is part of the name, so what stands under the name starts at the name line's left edge */
 /* a name is centred in its row, and what stands under it sits close to it:
    the link is taller than its text so that it stays an easy target */
@@ -384,6 +395,7 @@ table.dense th, table.dense td { padding: var(--space-1-5) var(--space-3); verti
 table.dense tbody tr:last-child > * { border-block-end: 0; }
 @media (hover: hover) { table.dense tbody tr:hover { background: var(--surface); } }
 table.dense thead th, table.dense tbody th { font-weight: var(--weight-regular); }
+table.dense thead th { position: relative; }
 table.dense tbody th a, .quiet-link { display: inline-block; min-block-size: var(--target-min); align-content: center; text-decoration: none; }
 @media (hover: hover) { table.dense tbody th a:hover { text-decoration: underline; } }
 .quiet-link { min-inline-size: var(--target-min); color: var(--muted); }
@@ -466,7 +478,7 @@ select {
 }
 @media (prefers-color-scheme: dark) { select { background-image: url("chevron-dark.svg"); } }
 /* with script, a select becomes a button and a list drawn by the page */
-.select { position: relative; display: inline-grid; inline-size: 100%; }
+.select { position: relative; display: inline-grid; grid-template-columns: minmax(0, 1fr); inline-size: 100%; }
 .srow-control > .select { inline-size: 240px; max-inline-size: 100%; }
 .select-native { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
 .select-button { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); inline-size: 100%; min-block-size: var(--control-height); padding: var(--space-1) var(--space-2); border: 1px solid var(--border-control); border-radius: var(--radius-control); background: var(--elevated); color: var(--ink); font: inherit; font-size: var(--text-ui); text-align: start; cursor: pointer; transition: border-color var(--motion-fast) var(--ease-out); }

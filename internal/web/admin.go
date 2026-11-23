@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"uppies/internal/check"
 	"uppies/internal/store"
@@ -670,6 +671,12 @@ func parseMonitorForm(form url.Values, m store.Monitor) (store.Monitor, map[stri
 	m.Target = strings.TrimSpace(form.Get("target"))
 	m.Keyword = form.Get("keyword")
 	m.Paused = form.Get("paused") == "on"
+	if form.Has("tags") {
+		m.Tags = strings.Join(monitorTags(form.Get("tags")), ", ")
+		if utf8.RuneCountInString(m.Tags) > 1000 {
+			problems["tags"] = "keep the tags to 1000 characters in total."
+		}
+	}
 
 	if m.Name == "" || len(m.Name) > 120 {
 		problems["name"] = "give the monitor a name of 1 to 120 characters."

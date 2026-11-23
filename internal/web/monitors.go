@@ -333,12 +333,32 @@ type monitorsPage struct {
 	Chrome chrome
 	Rows   []monitorListRow
 	Kinds  []string
+	Tags   []monitorTag
+}
+
+type monitorTag struct {
+	Name, Key string
+}
+
+func monitorTags(text string) []string {
+	var tags []string
+	seen := make(map[string]bool)
+	for _, part := range strings.Split(text, ",") {
+		name := strings.Join(strings.Fields(part), " ")
+		key := strings.ToLower(name)
+		if key != "" && !seen[key] {
+			tags = append(tags, name)
+			seen[key] = true
+		}
+	}
+	return tags
 }
 
 type monitorListRow struct {
 	monitorRow
 	// Pages are the status pages that show the monitor.
-	Pages []store.Project
+	Pages   []store.Project
+	TagList []monitorTag
 }
 
 func (s *Server) handleMonitors(w http.ResponseWriter, r *http.Request) {
@@ -354,9 +374,22 @@ func (s *Server) handleMonitors(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	seen := make(map[string]bool)
 	for _, row := range monitorRows(monitors) {
-		page.Rows = append(page.Rows, monitorListRow{monitorRow: row, Pages: pages[row.ID]})
+		view := monitorListRow{monitorRow: row, Pages: pages[row.ID]}
+		for _, name := range monitorTags(row.Tags) {
+			tag := monitorTag{Name: name, Key: url.QueryEscape(strings.ToLower(name))}
+			view.TagList = append(view.TagList, tag)
+			if !seen[tag.Key] {
+				page.Tags = append(page.Tags, tag)
+				seen[tag.Key] = true
+			}
+		}
+		page.Rows = append(page.Rows, view)
 	}
+	slices.SortFunc(page.Tags, func(a, b monitorTag) int {
+		return strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
+	})
 	s.render(w, r, http.StatusOK, "monitors.html", page)
 }
 

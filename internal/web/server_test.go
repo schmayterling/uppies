@@ -787,10 +787,12 @@ func TestMonitorsBelongToTheInstallAndKeepTheirOrder(t *testing.T) {
 		"retries": {"2"}, "retry_interval_s": {"20"}, "recovery_checks": {"2"},
 	}
 	// One monitor on no status page, and one on a page.
+	form.Set("tags", " Production, data   team, production, ")
 	if resp := s.post(t, s.admin, "/admin/monitors", form, nil); resp.Header.Get("Location") != "/admin/monitors" {
 		t.Fatalf("create on no page: got %d to %q, want a redirect to the list", resp.StatusCode, resp.Header.Get("Location"))
 	}
 	form.Set("name", "website")
+	form.Set("tags", "private check")
 	form.Set("page", strconv.FormatInt(projectID, 10))
 	if resp := s.post(t, s.admin, "/admin/monitors", form, nil); resp.Header.Get("Location") != fmt.Sprintf("/admin/projects/%d", projectID) {
 		t.Fatalf("create on a page: got %d to %q, want a redirect to the page", resp.StatusCode, resp.Header.Get("Location"))
@@ -813,6 +815,25 @@ func TestMonitorsBelongToTheInstallAndKeepTheirOrder(t *testing.T) {
 	if err != nil || len(monitors) != 2 {
 		t.Fatalf("monitors: got %d err=%v, want 2", len(monitors), err)
 	}
+	if monitors[0].Tags != "Production, data team" || monitors[1].Tags != "private check" {
+		t.Fatalf("monitor tags: got %q and %q", monitors[0].Tags, monitors[1].Tags)
+	}
+	if !strings.Contains(html.UnescapeString(page), `<option value="data+team">data team</option>`) {
+		t.Error("the monitor list should offer multiword tags as filter options")
+	}
+	form.Del("tags")
+	form.Set("name", monitors[0].Name)
+	edit := fmt.Sprintf("/admin/monitors/%d", monitors[0].ID)
+	if resp := s.post(t, s.admin, edit, form, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("older edit form: got %d, want 303", resp.StatusCode)
+	}
+	if updated, err := s.store.Monitor(ctx, monitors[0].ID); err != nil || updated.Tags != monitors[0].Tags {
+		t.Fatalf("older edit form lost the tags: %q, %v", updated.Tags, err)
+	}
+	form.Set("tags", strings.Repeat("x", 1001))
+	if resp := s.post(t, s.admin, edit, form, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("overlong tags: got %d, want 422", resp.StatusCode)
+	}
 	arrange := url.Values{"item": {fmt.Sprintf("m:%d", monitors[1].ID), "m:not-a-number", fmt.Sprintf("m:%d", monitors[0].ID)}}
 	if resp := s.post(t, s.admin, "/admin/monitors/order", arrange, nil); resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("arrange: got %d, want 303", resp.StatusCode)
@@ -820,8 +841,8 @@ func TestMonitorsBelongToTheInstallAndKeepTheirOrder(t *testing.T) {
 	_, page = s.get(t, s.admin, "/admin/monitors")
 	inOrder(page, []string{"website", "Acme", "database", "on none"})
 	// Only the monitor that was put on the page is public there.
-	if _, status := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(status, "website") || strings.Contains(status, "database") {
-		t.Error("the status page must show the monitor placed on it and not the other one")
+	if _, status := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(status, "website") || strings.Contains(status, "database") || strings.Contains(status, "private check") {
+		t.Error("the status page must show the placed monitor without its private tags")
 	}
 	// Deleting a status page keeps its monitors.
 	if resp := s.post(t, s.admin, fmt.Sprintf("/admin/projects/%d/delete", projectID), nil, nil); resp.StatusCode != http.StatusSeeOther {

@@ -447,6 +447,10 @@ alter table monitors drop column category;
 alter table projects add column navbar_brand text not null default 'icon-name'
 	check (navbar_brand in ('icon', 'icon-name', 'name'));
 `,
+	// Step 19 stores a monitor's comma-separated tags.
+	`
+alter table monitors add column tags text not null default '' check (length(tags) <= 1000);
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

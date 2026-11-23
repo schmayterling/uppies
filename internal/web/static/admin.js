@@ -152,7 +152,7 @@ function openSelect(box) {
   markOption(box, box.querySelector("[aria-selected=true]") || box.querySelector("[role=option]"));
 }
 
-function chooseOption(box, option) {
+function chooseOption(box, option, notify = true) {
   const select = box.querySelector("select");
   for (const other of box.querySelectorAll("[role=option]")) {
     other.setAttribute("aria-selected", String(other === option));
@@ -161,7 +161,9 @@ function chooseOption(box, option) {
   closeSelect(box);
   if (select.value !== option.dataset.value) {
     select.value = option.dataset.value;
-    select.dispatchEvent(new Event("change", { bubbles: true }));
+    if (notify) {
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
   }
 }
 
@@ -191,6 +193,7 @@ function buildSelect(select, number) {
     item.setAttribute("aria-selected", String(option.selected));
     item.dataset.value = option.value;
     item.textContent = option.textContent;
+    item.title = option.textContent;
     list.append(item);
     if (option.selected) {
       value.textContent = option.textContent;
@@ -214,7 +217,7 @@ function buildSelect(select, number) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  [...document.querySelectorAll("select:not([data-table-filter], [data-native-select])")].forEach(buildSelect);
+  [...document.querySelectorAll("select")].forEach(buildSelect);
 });
 
 document.addEventListener("click", (event) => {
@@ -643,7 +646,8 @@ document.addEventListener("DOMContentLoaded", () => {
   clear.addEventListener("click", () => {
     search.value = "";
     for (const field of fields) {
-      field.value = "";
+      const box = field.closest(".select");
+      chooseOption(box, box.querySelector("[role=option]"), false);
     }
     filter();
     search.focus();
