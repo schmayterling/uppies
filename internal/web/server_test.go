@@ -1318,6 +1318,9 @@ func TestInstancePagesAndUsers(t *testing.T) {
 	for layout, marker := range map[string]string{"rows": `class="index-rows"`, "cards": `class="index-cards"`, "compact": `class="rows index-list"`} {
 		s.post(t, s.admin, "/admin/appearance", url.Values{"theme": {"dark"}, "accent_hue": {"25"}, "list_layout": {layout}}, nil)
 		_, page := s.get(t, s.anonymous, "/")
+		if hasStrip := strings.Contains(page, `class="index-uptime"`); hasStrip != (layout == "rows") {
+			t.Errorf("front page in the %s layout has the wrong uptime strip visibility", layout)
+		}
 		for _, want := range []string{marker, "Acme", `href="/s/acme"`, "<title>acme ops status</title>", `href="https://docs.example.com/"`} {
 			if !strings.Contains(page, want) {
 				t.Errorf("front page in the %s layout is missing %q", layout, want)

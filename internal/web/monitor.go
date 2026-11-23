@@ -362,21 +362,7 @@ func (s *Server) handlePageBadge(w http.ResponseWriter, r *http.Request) {
 			s.fail(w, r, err)
 			return
 		}
-		combined := make(map[int64]store.DayRollup, days)
-		for _, monitorDays := range rollups {
-			for _, d := range monitorDays {
-				day := combined[d.DayStartMs]
-				day.DayStartMs = d.DayStartMs
-				day.CoveredMs += d.CoveredMs
-				day.DownMs += d.DownMs
-				combined[d.DayStartMs] = day
-			}
-		}
-		daily := make([]store.DayRollup, 0, len(combined))
-		for _, day := range combined {
-			daily = append(daily, day)
-		}
-		history, uptime := uptimeStrip(daily, todayStartMs, days)
+		history, uptime := projectUptimeStrip(rollups, todayStartMs, days)
 		spec = uptimeSpec(project.Name, uptime, history, page.BannerState)
 	default:
 		http.NotFound(w, r)

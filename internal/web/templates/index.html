@@ -27,7 +27,9 @@
     <span class="index-copy"><span class="index-name">{{.Name}}</span>{{with .Tagline}}<span class="index-tagline">{{.}}</span>{{end}}</span>
     <span class="index-count meta">{{.Count}}</span>
     <span class="index-state state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
-  </a></li>
+  </a>
+  {{if eq $.Layout "rows"}}<div class="index-uptime">{{template "uptime-strip" (pair . .HistoryDays)}}</div>{{end}}
+  </li>
   {{end}}
 </ul>
 {{else}}{{template "index-empty" .}}{{end}}

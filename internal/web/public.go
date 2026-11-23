@@ -137,6 +137,8 @@ type indexProject struct {
 	Count string
 	// LogoVersion is set when the project has a logo to show.
 	LogoVersion int64
+	Days        []dayCell
+	Uptime      string
 }
 
 // indexSummary sums the list up: the worst state, and a sentence that counts
@@ -262,11 +264,34 @@ func (s *Server) handlePublicList(w http.ResponseWriter, r *http.Request) {
 	} else {
 		projects = nil
 	}
+	var rollups map[int64][]store.DayRollup
+	todayStartMs := store.DayStartMs(s.now().UnixMilli())
+	if page.Layout == "rows" && len(projects) > 0 {
+		var longest int
+		for _, p := range projects {
+			longest = max(longest, p.HistoryDays)
+		}
+		rollups, err = s.store.AllDailyRollups(r.Context(), todayStartMs-int64(longest-1)*dayMs)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+	}
 	for _, p := range projects {
-		state, _ := banner(counted[p.ID], 0)
-		page.Projects = append(page.Projects, indexProject{
-			Project: p, State: state, Word: indexWords[state], Count: upCount(counted[p.ID]), LogoVersion: logos[p.ID],
-		})
+		monitors := counted[p.ID]
+		state, _ := banner(monitors, 0)
+		row := indexProject{
+			Project: p, State: state, Word: indexWords[state], Count: upCount(monitors), LogoVersion: logos[p.ID],
+		}
+		if page.Layout == "rows" {
+			pageRollups := make(map[int64][]store.DayRollup, len(monitors))
+			for _, monitor := range monitors {
+				pageRollups[monitor.ID] = rollups[monitor.ID]
+			}
+			row.Days, row.Uptime = projectUptimeStrip(pageRollups, todayStartMs, p.HistoryDays)
+			backfillDays(row.Days, p.Backfill)
+		}
+		page.Projects = append(page.Projects, row)
 	}
 	page.State, page.Summary = indexSummary(page.Projects)
 	noIndex := !instance.PublicList || (canonical.Path != "/" && instance.PublicURL == "")
@@ -616,6 +641,29 @@ func overall(monitors []store.Monitor, activeIncidents int) overallStatus {
 	default:
 		return overallUp
 	}
+}
+
+// projectUptimeStrip combines measured monitor time for each day in the page's window.
+func projectUptimeStrip(rollups map[int64][]store.DayRollup, todayStartMs int64, historyDays int) ([]dayCell, string) {
+	firstDayMs := todayStartMs - int64(historyDays-1)*dayMs
+	combined := make(map[int64]store.DayRollup, historyDays)
+	for _, monitorDays := range rollups {
+		for _, d := range monitorDays {
+			if d.DayStartMs < firstDayMs || d.DayStartMs > todayStartMs {
+				continue
+			}
+			day := combined[d.DayStartMs]
+			day.DayStartMs = d.DayStartMs
+			day.CoveredMs += d.CoveredMs
+			day.DownMs += d.DownMs
+			combined[d.DayStartMs] = day
+		}
+	}
+	daily := make([]store.DayRollup, 0, len(combined))
+	for _, day := range combined {
+		daily = append(daily, day)
+	}
+	return uptimeStrip(daily, todayStartMs, historyDays)
 }
 
 // uptimeStrip turns a monitor's daily rollups (oldest first) into one cell per

@@ -55,6 +55,95 @@ func TestPageAnnouncementIsPinnedAndClearedThroughSettings(t *testing.T) {
 	}
 }
 
+func TestPublicListRowsUseEachPagesUptimeHistory(t *testing.T) {
+	s := newSite(t)
+	ctx := t.Context()
+	today := store.DayStartMs(time.Now().UnixMilli())
+
+	short, err := s.store.CreateProject(ctx, "short", "Short window", today)
+	if err != nil {
+		t.Fatal(err)
+	}
+	long, err := s.store.CreateProject(ctx, "long", "Long window", today)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.store.CreateProject(ctx, "empty", "Empty", today); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.EditProject(ctx, short, func(p *store.Project) error {
+		p.HistoryDays = 7
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.EditProject(ctx, long, func(p *store.Project) error {
+		p.Backfill = "degraded"
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	monitor := defaultMonitor()
+	monitor.Name, monitor.Target = "API", "https://example.test"
+	api, err := s.createShown(ctx, short, monitor, today)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.PlaceMonitor(ctx, long, api); err != nil {
+		t.Fatal(err)
+	}
+	monitor.Name = "database"
+	database, err := s.store.CreateMonitor(ctx, monitor, today)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitor.Name = "optional"
+	excluded, err := s.store.CreateMonitor(ctx, monitor, today)
+	if err != nil {
+		t.Fatal(err)
+	}
+	placements := []store.Placement{{MonitorID: api}, {MonitorID: database}, {MonitorID: excluded, ExcludeFromStatus: true}}
+	if err := s.store.SetPlacements(ctx, short, placements); err != nil {
+		t.Fatal(err)
+	}
+	record := func(id, atMs, coveredMs, downMs int64, status health.Status) {
+		t.Helper()
+		result := store.CheckResult{MonitorID: id, AtMs: atMs, OK: status == health.Up, CoveredMs: coveredMs,
+			Step: health.Step{Tracker: health.Tracker{Status: status}, DownMs: downMs}}
+		if err := s.store.RecordCheck(ctx, result); err != nil {
+			t.Fatal(err)
+		}
+	}
+	record(api, today-8*dayMs, 180000, 180000, health.Down)
+	record(api, today, 180000, 0, health.Up)
+	record(database, today, 60000, 60000, health.Down)
+	record(excluded, today, 540000, 540000, health.Down)
+
+	status, home := s.get(t, s.anonymous, "/")
+	if status != http.StatusOK {
+		t.Fatalf("public list returned %d", status)
+	}
+	for _, tt := range []struct {
+		slug, uptime, tip string
+		days              int
+	}{
+		{"short", "75.00% uptime", "1 min down", 7},
+		{"long", "50.00% uptime", "no data, shown as degraded", 90},
+		{"empty", "no data yet", "no data", 90},
+	} {
+		_, after, found := strings.Cut(home, `href="/s/`+tt.slug+`"`)
+		row, _, closed := strings.Cut(after, "</li>")
+		label := fmt.Sprintf("uptime over the last %d days: %s", tt.days, tt.uptime)
+		if !found || !closed || !strings.Contains(row, label) || !strings.Contains(row, tt.tip) {
+			t.Errorf("%s row is missing its measured uptime or day tooltip", tt.slug)
+		}
+		if got := strings.Count(row, `class="day day-`); got != tt.days {
+			t.Errorf("%s row has %d days, want %d", tt.slug, got, tt.days)
+		}
+	}
+}
+
 func TestUptimePercent(t *testing.T) {
 	const day = 86_400_000
 	tests := []struct {
