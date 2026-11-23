@@ -28,6 +28,7 @@ type Project struct {
 	// NavLinks are the links of the status page's top bar, one per line as "label | url".
 	NavLinks    string
 	NavbarBrand string // "icon", "icon-name" or "name"
+	NavbarLink  string // "status", "list" or "homepage"
 	CustomCSS   string
 	FooterText  string
 	// ShowPoweredBy keeps the "powered by uppies" line in the footer.
@@ -54,13 +55,13 @@ var GraphFills = []string{"gradient", "filled", "none"}
 
 const projectColumns = `id, slug, name, tagline, homepage_url, accent_hue, theme, show_face, lookback_days,
 	custom_css, footer_text, show_powered_by, noindex, timezone, domain, surface, corners, font, backfill,
-	nav_links, hide_quiet_days, graph_fill, navbar_brand`
+	nav_links, hide_quiet_days, graph_fill, navbar_brand, navbar_link`
 
 func scanProject(row rowScanner) (Project, error) {
 	var p Project
 	err := row.Scan(&p.ID, &p.Slug, &p.Name, &p.Tagline, &p.HomepageURL, &p.AccentHue, &p.Theme,
 		&p.ShowFace, &p.HistoryDays, &p.CustomCSS, &p.FooterText, &p.ShowPoweredBy, &p.NoIndex, &p.Timezone, &p.Domain,
-		&p.Surface, &p.Corners, &p.Font, &p.Backfill, &p.NavLinks, &p.HideQuietDays, &p.GraphFill, &p.NavbarBrand)
+		&p.Surface, &p.Corners, &p.Font, &p.Backfill, &p.NavLinks, &p.HideQuietDays, &p.GraphFill, &p.NavbarBrand, &p.NavbarLink)
 	return p, err
 }
 
@@ -226,15 +227,16 @@ func updateProject(ctx context.Context, exec execSQL, p Project) error {
 	p.Font = cmp.Or(p.Font, "system")
 	p.Backfill = cmp.Or(p.Backfill, "none")
 	p.NavbarBrand = cmp.Or(p.NavbarBrand, "icon-name")
+	p.NavbarLink = cmp.Or(p.NavbarLink, "status")
 	res, err := exec(ctx, `
 		update projects set name = ?, tagline = ?, homepage_url = ?, accent_hue = ?, theme = ?,
 			show_face = ?, lookback_days = ?, custom_css = ?, footer_text = ?, show_powered_by = ?,
 			noindex = ?, timezone = ?, domain = ?, surface = ?, corners = ?, font = ?, backfill = ?,
-			nav_links = ?, hide_quiet_days = ?, graph_fill = ?, navbar_brand = ?
+			nav_links = ?, hide_quiet_days = ?, graph_fill = ?, navbar_brand = ?, navbar_link = ?
 		where id = ?`,
 		p.Name, p.Tagline, p.HomepageURL, p.AccentHue, p.Theme, p.ShowFace, p.HistoryDays, p.CustomCSS,
 		p.FooterText, p.ShowPoweredBy, p.NoIndex, p.Timezone, p.Domain, p.Surface, p.Corners, p.Font, p.Backfill,
-		p.NavLinks, p.HideQuietDays, p.GraphFill, p.NavbarBrand, p.ID)
+		p.NavLinks, p.HideQuietDays, p.GraphFill, p.NavbarBrand, p.NavbarLink, p.ID)
 	if isUnique(err) {
 		return ErrDomainTaken
 	}

@@ -491,6 +491,11 @@ create index incidents_source_monitor on incidents(source_monitor_id);
 	`
 alter table page_monitors add column exclude_from_status integer not null default 0 check (exclude_from_status in (0, 1));
 `,
+	// Step 23 makes the status page's brand link configurable.
+	`
+alter table projects add column navbar_link text not null default 'status'
+	check (navbar_link in ('status', 'list', 'homepage'));
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

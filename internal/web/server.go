@@ -104,6 +104,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	})
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
 	mux.HandleFunc("GET /{$}", s.handleIndex)
+	mux.HandleFunc("GET /status-pages", s.handlePublicList)
 	mux.HandleFunc("GET /robots.txt", s.handleRobots)
 	mux.HandleFunc("GET /sitemap.xml", s.handleSitemap)
 	mux.HandleFunc("GET /theme.css", s.handleInstanceTheme)
@@ -304,6 +305,7 @@ type chrome struct {
 	SocialImage  string
 	SiteName     string
 	NoIndex      bool
+	BrandLink    string
 }
 
 func (c chrome) DocumentTitle() string {

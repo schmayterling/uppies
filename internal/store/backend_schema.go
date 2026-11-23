@@ -11,7 +11,7 @@ import (
 //go:embed schema/*.sql
 var backendSchemas embed.FS
 
-const backendSchemaVersion = 22
+const backendSchemaVersion = 23
 
 const schemaTable = `create table if not exists uppies_schema (
 	id integer primary key check (id = 1),
@@ -66,6 +66,20 @@ func (s *Store) applyBackendSchema(ctx context.Context, q queries) error {
 	switch version {
 	case backendSchemaVersion:
 		return nil
+	case 22:
+		column := "column "
+		if s.Backend() == MariaDB {
+			column += "if not exists "
+		}
+		definition := "text not null default 'status' check (navbar_link in ('status', 'list', 'homepage'))"
+		if s.Backend() == Postgres || s.Backend() == TursoPG {
+			definition = `text collate "C" not null default 'status' check (navbar_link in ('status', 'list', 'homepage'))`
+		}
+		if _, err := q.ExecContext(ctx, "alter table projects add "+column+"navbar_link "+definition); err != nil {
+			return fmt.Errorf("migrate navbar link: %w", err)
+		}
+		_, err := q.ExecContext(ctx, "update uppies_schema set version = ? where id = 1", backendSchemaVersion)
+		return err
 	case 0:
 	default:
 		return fmt.Errorf("schema version %d is unsupported for %s by this build (expected %d)", version, s.Backend(), backendSchemaVersion)

@@ -256,6 +256,7 @@ func (s *Server) handleMonitorPage(w http.ResponseWriter, r *http.Request) {
 	page.Chrome.Description = "Current status, uptime, and response times for " + m.Name + " on " + project.Name + "."
 	origin := publicOrigin(r, instance.PublicURL)
 	path := "/monitors/" + strconv.FormatInt(m.ID, 10)
+	page.Chrome.BrandLink = navbarDestination(project, page.TZ, instance.PublicURL)
 	page.Chrome.setPublicMetadata(projectURL(origin, project, path, nil), project.Name, project.NoIndex)
 	s.render(w, r, http.StatusOK, "monitor.html", page)
 }

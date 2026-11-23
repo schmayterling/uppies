@@ -399,12 +399,12 @@ func TestNavbarBrandControlsThePublicHeader(t *testing.T) {
 	form := url.Values{
 		"name": {"Acme"}, "theme": {"auto"}, "accent_hue": {"200"}, "history_days": {"90"}, "timezone": {"UTC"},
 	}
-	brand := func(t *testing.T, path, text, asset string) {
+	brand := func(t *testing.T, path, text, asset, target string) {
 		t.Helper()
 		status, page := s.get(t, s.anonymous, path)
 		_, header, found := strings.Cut(page, `<header class="site-bar">`)
 		link, _, closed := strings.Cut(header, "</a>")
-		if status != http.StatusOK || !found || !closed || !strings.Contains(link, `aria-label="Acme"`) {
+		if status != http.StatusOK || !found || !closed || !strings.Contains(link, `aria-label="Acme"`) || !strings.Contains(link, `href="`+target+`"`) {
 			t.Fatalf("%s: a public brand link with its accessible name is missing", path)
 		}
 		visibleText := strings.TrimSpace(link[strings.LastIndexByte(link, '>')+1:])
@@ -419,7 +419,7 @@ func TestNavbarBrandControlsThePublicHeader(t *testing.T) {
 	if err := s.store.SetProjectImage(ctx, id, store.ImageLogo, "image/svg+xml", logo, 1); err != nil {
 		t.Fatal(err)
 	}
-	brand(t, "/s/acme", "Acme", "/images/logo")
+	brand(t, "/s/acme", "Acme", "/images/logo", "/s/acme")
 	for _, c := range []struct{ mode, text, asset string }{
 		{"icon", "", "/images/logo"},
 		{"name", "Acme", ""},
@@ -429,8 +429,8 @@ func TestNavbarBrandControlsThePublicHeader(t *testing.T) {
 		if got := s.post(t, s.admin, settings, form, nil).StatusCode; got != http.StatusSeeOther {
 			t.Fatalf("%s: save returned %d", c.mode, got)
 		}
-		brand(t, "/s/acme", c.text, c.asset)
-		brand(t, "/s/acme/history", c.text, c.asset)
+		brand(t, "/s/acme", c.text, c.asset, "/s/acme")
+		brand(t, "/s/acme/history", c.text, c.asset, "/s/acme")
 	}
 	form.Set("navbar_brand", "icon")
 	if got := s.post(t, s.admin, settings, form, nil).StatusCode; got != http.StatusSeeOther {
@@ -443,7 +443,7 @@ func TestNavbarBrandControlsThePublicHeader(t *testing.T) {
 	if err := s.store.DeleteProjectImage(ctx, id, store.ImageLogo); err != nil {
 		t.Fatal(err)
 	}
-	brand(t, "/s/acme", "", "icons.svg#globe")
+	brand(t, "/s/acme", "", "icons.svg#globe", "/s/acme")
 	if err := s.store.SetProjectImage(ctx, id, store.ImageFavicon, "image/svg+xml", logo, 2); err != nil {
 		t.Fatal(err)
 	}
@@ -451,7 +451,47 @@ func TestNavbarBrandControlsThePublicHeader(t *testing.T) {
 	if got := s.post(t, s.admin, settings, form, nil).StatusCode; got != http.StatusUnprocessableEntity {
 		t.Errorf("invalid navbar choice returned %d", got)
 	}
-	brand(t, "/s/acme", "", "/images/favicon")
+	brand(t, "/s/acme", "", "/images/favicon", "/s/acme")
+
+	form.Del("navbar_brand")
+	form.Set("navbar_link", "homepage")
+	if got := s.post(t, s.admin, settings, form, nil).StatusCode; got != http.StatusUnprocessableEntity {
+		t.Fatalf("missing homepage returned %d", got)
+	}
+	form.Set("homepage_url", "https://acme.example/docs")
+	if got := s.post(t, s.admin, settings, form, nil).StatusCode; got != http.StatusSeeOther {
+		t.Fatalf("homepage link save returned %d", got)
+	}
+	brand(t, "/s/acme/history", "", "/images/favicon", "https://acme.example/docs")
+	form.Set("navbar_link", "list")
+	form.Set("domain", "custom.example.test")
+	if got := s.post(t, s.admin, settings, form, nil).StatusCode; got != http.StatusSeeOther {
+		t.Fatalf("list link save returned %d", got)
+	}
+	brand(t, "/s/acme", "", "/images/favicon", "/status-pages")
+
+	const instance = "/admin/instance"
+	if got := s.post(t, s.admin, instance, url.Values{
+		"name": {"Acme status"}, "public_list": {"on"}, "public_url": {"https://status.example.test"},
+	}, nil).StatusCode; got != http.StatusSeeOther {
+		t.Fatalf("public origin save returned %d", got)
+	}
+	brand(t, "/s/acme", "", "/images/favicon", "https://status.example.test/status-pages")
+
+	req, err := http.NewRequest(http.MethodGet, s.server.URL+"/status-pages", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Host = "custom.example.test"
+	resp, err := s.anonymous.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(body), "<h1>status pages</h1>") {
+		t.Fatalf("custom domain list returned %d, read %v", resp.StatusCode, err)
+	}
 }
 
 func TestStatusPageFooterTimezoneDomainAndBadge(t *testing.T) {

@@ -22,9 +22,18 @@
       {{with index .Problems "tagline"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
     <div class="srow">
-      <label class="srow-copy" for="homepage_url"><span>homepage</span><small>the status page links back to this address.</small></label>
+      <label class="srow-copy" for="homepage_url"><span>homepage</span><small>shown as a link in the navbar. the logo and name can open it too.</small></label>
       <div class="srow-control"><input id="homepage_url" name="homepage_url" value="{{.Project.HomepageURL}}" maxlength="2048" placeholder="https://example.com" autocapitalize="none" spellcheck="false"{{if index .Problems "homepage_url"}} aria-invalid="true"{{end}}></div>
       {{with index .Problems "homepage_url"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <label class="srow-copy" for="navbar_link"><span>logo and name link</span><small>where the navbar brand opens.</small></label>
+      <div class="srow-control"><select id="navbar_link" name="navbar_link"{{if index .Problems "navbar_link"}} aria-invalid="true" aria-describedby="navbar-link-problem"{{end}}>
+        <option value="status"{{if eq .Project.NavbarLink "status"}} selected{{end}}>this status page</option>
+        <option value="list"{{if eq .Project.NavbarLink "list"}} selected{{end}}>all status pages</option>
+        <option value="homepage"{{if eq .Project.NavbarLink "homepage"}} selected{{end}}>homepage</option>
+      </select></div>
+      {{with index .Problems "navbar_link"}}<p class="problem srow-problem" id="navbar-link-problem">{{.}}</p>{{end}}
     </div>
     <div class="srow" data-stack>
       <label class="srow-copy" for="nav_links"><span>top bar links</span><small>links shown in the bar at the top of the status page, one per line, written as: label | https://example.com. up to 6.</small></label>

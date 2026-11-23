@@ -2,10 +2,30 @@ package web
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"uppies/internal/alert"
+	"uppies/internal/store"
 )
+
+func navbarDestination(project store.Project, timezone, publicURL string) string {
+	switch project.NavbarLink {
+	case "homepage":
+		if project.HomepageURL != "" {
+			return project.HomepageURL
+		}
+	case "list":
+		origin, _ := parsePublicOrigin(publicURL)
+		origin.Path = "/status-pages"
+		return origin.String()
+	}
+	target := url.URL{Path: "/s/" + project.Slug}
+	if timezone != "" {
+		target.RawQuery = url.Values{"tz": {timezone}}.Encode()
+	}
+	return target.String()
+}
 
 // maxNavLinks keeps a status page's top bar to one line on most screens.
 const maxNavLinks = 6

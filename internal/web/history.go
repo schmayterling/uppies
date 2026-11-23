@@ -343,6 +343,7 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	page.Chrome.Description = "Incident history and service updates for " + project.Name + "."
 	origin := publicOrigin(r, instance.PublicURL)
+	page.Chrome.BrandLink = navbarDestination(project, page.TZ, instance.PublicURL)
 	page.Chrome.setPublicMetadata(projectURL(origin, project, "/history", query), project.Name, project.NoIndex)
 	s.render(w, r, http.StatusOK, "history.html", page)
 }

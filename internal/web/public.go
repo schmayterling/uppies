@@ -200,6 +200,10 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	s.handlePublicList(w, r)
+}
+
+func (s *Server) handlePublicList(w http.ResponseWriter, r *http.Request) {
 	exists, err := s.store.HasUsers(r.Context())
 	if err != nil {
 		s.fail(w, r, err)
@@ -243,6 +247,14 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		},
 		Listed: instance.PublicList, Layout: instance.ListLayout, StateIcons: listIcons,
 	}
+	canonical := publicOrigin(r, instance.PublicURL)
+	canonical.Path = "/"
+	for _, p := range projects {
+		if p.Domain != "" && p.Domain == canonical.Hostname() {
+			canonical.Path = "/status-pages"
+			break
+		}
+	}
 	if instance.PublicList {
 		page.NavLinks, _ = parseNavLinks(instance.NavLinks)
 	} else {
@@ -255,9 +267,8 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	page.State, page.Summary = indexSummary(page.Projects)
-	canonical := publicOrigin(r, instance.PublicURL)
-	canonical.Path = "/"
-	page.Chrome.setPublicMetadata(canonical, instance.Name, !instance.PublicList)
+	noIndex := !instance.PublicList || (canonical.Path != "/" && instance.PublicURL == "")
+	page.Chrome.setPublicMetadata(canonical, instance.Name, noIndex)
 	s.render(w, r, http.StatusOK, "index.html", page)
 }
 
@@ -323,6 +334,7 @@ func (s *Server) renderStatusPage(w http.ResponseWriter, r *http.Request, projec
 		return
 	}
 	origin := publicOrigin(r, page.instance.PublicURL)
+	page.Chrome.BrandLink = navbarDestination(project, page.TZ, page.instance.PublicURL)
 	page.Chrome.setPublicMetadata(projectURL(origin, project, "", nil), project.Name, project.NoIndex)
 	s.render(w, r, http.StatusOK, "status.html", page)
 }

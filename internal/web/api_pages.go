@@ -25,6 +25,7 @@ type apiPage struct {
 	Backfill      string `json:"backfill"`
 	NavLinks      string `json:"nav_links"`
 	NavbarBrand   string `json:"navbar_brand"`
+	NavbarLink    string `json:"navbar_link"`
 	CustomCSS     string `json:"custom_css"`
 	FooterText    string `json:"footer_text"`
 	ShowPoweredBy bool   `json:"show_powered_by"`
@@ -44,7 +45,7 @@ func pageJSON(p store.Project) apiPage {
 	return apiPage{
 		ID: strconv.FormatInt(p.ID, 10), Slug: p.Slug, Name: p.Name,
 		Tagline: p.Tagline, HomepageURL: p.HomepageURL, AccentHue: p.AccentHue, Theme: p.Theme, ShowFace: p.ShowFace,
-		HistoryDays: p.HistoryDays, Backfill: p.Backfill, NavLinks: p.NavLinks, NavbarBrand: p.NavbarBrand, CustomCSS: p.CustomCSS,
+		HistoryDays: p.HistoryDays, Backfill: p.Backfill, NavLinks: p.NavLinks, NavbarBrand: p.NavbarBrand, NavbarLink: p.NavbarLink, CustomCSS: p.CustomCSS,
 		FooterText: p.FooterText, ShowPoweredBy: p.ShowPoweredBy, NoIndex: p.NoIndex, Timezone: p.Timezone,
 		Surface: p.Surface, Corners: p.Corners, Font: p.Font, Domain: p.Domain, HideQuietDays: p.HideQuietDays, GraphFill: p.GraphFill,
 	}
@@ -104,6 +105,7 @@ type pagePatch struct {
 	Backfill      *string `json:"backfill"`
 	NavLinks      *string `json:"nav_links"`
 	NavbarBrand   *string `json:"navbar_brand"`
+	NavbarLink    *string `json:"navbar_link"`
 	CustomCSS     *string `json:"custom_css"`
 	FooterText    *string `json:"footer_text"`
 	ShowPoweredBy *bool   `json:"show_powered_by"`
@@ -156,6 +158,7 @@ func (input pagePatch) apply(p *store.Project) error {
 		{"theme", input.Theme, &p.Theme, themes},
 		{"backfill", input.Backfill, &p.Backfill, backfills},
 		{"navbar_brand", input.NavbarBrand, &p.NavbarBrand, navbarBrands},
+		{"navbar_link", input.NavbarLink, &p.NavbarLink, navbarLinks},
 		{"surface", input.Surface, &p.Surface, surfaces},
 		{"corners", input.Corners, &p.Corners, cornerStyles},
 		{"font", input.Font, &p.Font, fonts},
@@ -168,6 +171,9 @@ func (input pagePatch) apply(p *store.Project) error {
 			return invalidAPIField(field.key, "Use a supported value.")
 		}
 		*field.dest = *field.value
+	}
+	if p.NavbarLink == "homepage" && p.HomepageURL == "" {
+		return invalidAPIField("homepage_url", "Set a homepage URL before choosing it for the navbar link.")
 	}
 	if input.HomepageURL != nil && p.HomepageURL != "" && alert.ValidateURL(p.HomepageURL) != nil {
 		return invalidAPIField("homepage_url", "Use an HTTP or HTTPS URL with a host.")

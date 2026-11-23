@@ -137,7 +137,7 @@
 
 {{/* the bar at the top of a status page's pages. it takes the page and the name of the current one. */}}
 {{define "site-bar"}}{{$section := .Second}}{{with .First}}<header class="site-bar">
-  <a class="site-brand{{if eq .Project.NavbarBrand "icon"}} site-brand-icon{{end}}" href="/s/{{.Project.Slug}}{{with .TZ}}?tz={{.}}{{end}}" aria-label="{{.Project.Name}}">
+  <a class="site-brand{{if eq .Project.NavbarBrand "icon"}} site-brand-icon{{end}}" href="{{.Chrome.BrandLink}}" aria-label="{{.Project.Name}}">
     {{if ne .Project.NavbarBrand "name"}}
       {{with index .Images "logo"}}<img class="logo" src="/s/{{$.First.Project.Slug}}/images/logo?v={{.}}" alt="">
       {{else}}
@@ -153,7 +153,7 @@
     <a href="/s/{{.Project.Slug}}{{with .TZ}}?tz={{.}}{{end}}"{{if eq $section "status"}} aria-current="page"{{end}}>status</a>
     <a href="/s/{{.Project.Slug}}/history{{with .TZ}}?tz={{.}}{{end}}"{{if eq $section "incidents"}} aria-current="page"{{end}}>incidents</a>
     {{template "nav-links" .NavLinks}}
-    {{with .Project.HomepageURL}}<a href="{{.}}" rel="noopener">back to {{$.First.Project.Name}}</a>{{end}}
+    {{if ne .Project.NavbarLink "homepage"}}{{with .Project.HomepageURL}}<a href="{{.}}" rel="noopener">back to {{$.First.Project.Name}}</a>{{end}}{{end}}
   </nav>
 </header>{{end}}{{end}}
 

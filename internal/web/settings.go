@@ -82,6 +82,7 @@ var (
 	cornerStyles = []string{"sharp", "soft", "round"}
 	fonts        = []string{"system", "rounded", "serif", "mono"}
 	navbarBrands = []string{"icon", "icon-name", "name"}
+	navbarLinks  = []string{"status", "list", "homepage"}
 )
 
 // choice reads a field that must be one of the allowed values. An absent
@@ -118,7 +119,9 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	p := page.Project
 	p.Name = strings.TrimSpace(form.Get("name"))
 	p.Tagline = strings.TrimSpace(form.Get("tagline"))
-	p.HomepageURL = strings.TrimSpace(form.Get("homepage_url"))
+	if form.Has("homepage_url") {
+		p.HomepageURL = strings.TrimSpace(form.Get("homepage_url"))
+	}
 	p.Theme = form.Get("theme")
 	p.ShowFace = form.Get("show_face") == "on"
 	p.HideQuietDays = form.Get("hide_quiet_days") == "on"
@@ -145,6 +148,7 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	p.GraphFill = scopedGraphFill(form, p.GraphFill, problems)
 	p.Font = choice(form, "font", fonts, p.Font, problems)
 	p.NavbarBrand = choice(form, "navbar_brand", navbarBrands, p.NavbarBrand, problems)
+	p.NavbarLink = choice(form, "navbar_link", navbarLinks, p.NavbarLink, problems)
 	p.HistoryDays = formInt(form, "history_days", 7, 365, problems)
 	p.Backfill = choice(form, "backfill", backfills, p.Backfill, problems)
 
@@ -153,6 +157,9 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(p.Tagline) > 200 {
 		problems["tagline"] = "keep the tagline to 200 characters."
+	}
+	if p.HomepageURL == "" && p.NavbarLink == "homepage" {
+		problems["homepage_url"] = "enter a homepage for the logo and name to open."
 	}
 	if p.HomepageURL != "" {
 		if len(p.HomepageURL) > 2048 {
