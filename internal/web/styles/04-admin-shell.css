@@ -1,0 +1,108 @@
+
+/* admin shell: a fixed sidebar and a wide content column.
+   256px and 1088px follow measured dashboards and have no token yet. */
+:root { --sidebar-width: 256px; --content-wide: 1088px; }
+.shell { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); min-block-size: 100vh; }
+.sidebar {
+  position: sticky;
+  inset-block-start: 0;
+  block-size: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-3);
+  border-inline-end: 1px solid var(--border);
+  background: var(--surface);
+}
+.sidebar-head { display: flex; align-items: center; justify-content: space-between; }
+.sidebar-head .sidebar-menu { display: none; }
+.sidebar-links { display: flex; flex: 1; flex-direction: column; gap: var(--space-4); }
+.sidebar .wordmark { display: flex; align-items: center; min-block-size: var(--row-height); padding-inline: var(--space-2); }
+
+/* collapsed, the sidebar is a rail of icons. nothing may move or wrap while
+   it slides: every label stays on one line and only fades, the sidebar clips
+   what no longer fits, and each icon sits at the same place in both states
+   (12px sidebar padding + 8px item padding centres a 16px icon in the 56px rail). */
+:root { --rail-width: 56px; }
+.sidebar { overflow-x: hidden; }
+.nav-item, .nav-heading, .sidebar .wordmark { white-space: nowrap; }
+.nav-label { transition: opacity var(--motion-fast) var(--ease-out); }
+.sidebar-head .icon-button { flex: none; margin-inline-start: auto; font: inherit; }
+[data-sidebar="rail"] .shell { grid-template-columns: var(--rail-width) minmax(0, 1fr); }
+[data-sidebar="rail"] .nav-label { opacity: 0; pointer-events: none; }
+/* out of the flow and hidden, so the invisible wordmark cannot sit on top of the toggle and take its clicks */
+[data-sidebar="rail"] .sidebar .wordmark { position: absolute; visibility: hidden; }
+[data-sidebar="rail"] .sidebar-head .icon-button { margin-inline: auto; }
+/* the collapsed sidebar has no room for the section's name, so a line stands where it would be */
+.nav-heading { position: relative; }
+.nav-heading::after { content: ""; position: absolute; inset-inline: var(--space-2); inset-block-start: 50%; border-block-start: 1px solid var(--border); opacity: 0; transition: opacity var(--motion-fast) var(--ease-out); }
+[data-sidebar="rail"] .nav-heading::after { opacity: 1; }
+.nav-logo { flex: none; inline-size: var(--icon-size); block-size: var(--icon-size); border-radius: var(--radius-inner); object-fit: contain; }
+
+/* icons take the size and colour of the text they sit in */
+.sidebar-symbols { position: absolute; }
+.icon { flex: none; inline-size: var(--icon-size); block-size: var(--icon-size); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.icon-button {
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--control-height);
+  block-size: var(--control-height);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+@media (hover: hover) { .icon-button:hover { background: var(--hover); color: var(--ink); } }
+.with-icon, table.dense tbody th a.with-icon { display: inline-flex; align-items: flex-start; gap: var(--space-2); }
+.with-icon .icon { margin-block-start: var(--space-0-5); }
+.with-icon .icon, .nav-item .icon, .channel .icon { color: var(--muted); }
+
+/* dialogs: one raised surface over a dimmed page */
+dialog {
+  inline-size: min(100% - var(--space-6), 440px);
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--elevated);
+  color: var(--ink);
+  box-shadow: var(--shadow-popover);
+}
+dialog::backdrop { background: var(--backdrop); }
+dialog > h2 { margin-block-end: var(--space-2); }
+dialog .form, dialog form.actions { margin-block-start: var(--space-4); }
+.nav-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-0-5); }
+.nav-list > li { min-inline-size: 0; }
+.nav-heading { margin: var(--space-4) 0 var(--space-1); padding-inline: var(--space-2); color: var(--muted); font-size: var(--text-xs); font-weight: var(--weight-semibold); }
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: 100%;
+  min-block-size: var(--row-height);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-out);
+}
+@media (hover: hover) { .nav-item:hover { background: var(--hover); color: var(--ink); } }
+.nav-item[aria-current] { background: var(--active); font-weight: var(--weight-semibold); }
+.nav-name { flex: 1; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-count { font-size: var(--text-xs); white-space: nowrap; }
+.nav-add, .nav-empty { color: var(--muted); }
+.nav-empty { padding: var(--space-1) var(--space-2); font-size: var(--text-sm); }
+.sidebar-foot { margin-block-start: auto; display: grid; gap: var(--space-0-5); }
+.sidebar-foot form { margin: 0; }
+.content { position: relative; inline-size: 100%; max-inline-size: var(--content-wide); margin-inline: auto; padding: var(--space-5) var(--space-6) var(--space-8); }
+.content > section { margin-block-start: var(--space-6); }
+.skip { position: absolute; inset-inline-start: var(--space-2); inset-block-start: var(--space-2); z-index: 1; padding: var(--space-1) var(--space-2); background: var(--background); translate: 0 -200%; }
+.skip:focus { translate: 0 0; }

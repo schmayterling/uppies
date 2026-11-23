@@ -1,0 +1,34 @@
+
+/* sign-in and setup: one card in the middle of the screen */
+/* card pages: the art fills the screen or a column, the side holds the card */
+.auth { min-block-size: 100vh; display: grid; background: var(--surface); }
+.auth-side { position: relative; display: grid; place-content: center; justify-items: center; gap: var(--space-4); padding: var(--space-4); }
+.auth-card { inline-size: min(100vw - var(--space-6), 360px); padding: var(--space-6); border: 1px solid var(--border); border-radius: var(--radius-surface); background: var(--background); }
+.auth-art { overflow: hidden; background: var(--surface); }
+.auth-art img { display: block; inline-size: 100%; block-size: 100%; object-fit: cover; }
+.auth-art-gradient { background:
+  radial-gradient(circle at 20% 15%, color-mix(in oklab, var(--accent) 42%, transparent), transparent 60%),
+  radial-gradient(circle at 85% 80%, color-mix(in oklab, var(--status-info) 30%, transparent), transparent 55%),
+  radial-gradient(circle at 60% 40%, color-mix(in oklab, var(--status-success) 18%, transparent), transparent 50%),
+  var(--surface); }
+.auth-centered .auth-art { position: fixed; inset: 0; }
+/* over art the link under the card needs its own ground to stay readable */
+.auth-centered .auth-art:not(.auth-art-plain) + .auth-side .auth-foot { padding: var(--space-1) var(--space-3); border-radius: var(--radius-round); background: var(--background); }
+/* split: the form takes two fifths on the left, the art the other three */
+.auth-split { grid-template-columns: 2fr 3fr; }
+.auth-split .auth-side { grid-area: 1 / 1; background: var(--background); border-inline-end: 1px solid var(--border); }
+.auth-split .auth-art { grid-area: 1 / 2; }
+.auth-split .auth-card { padding: 0; border: 0; background: none; }
+@media (max-width: 860px) {
+  .auth-split { grid-template-columns: 1fr; }
+  .auth-split .auth-art { display: none; }
+  .auth-split .auth-side { border-inline-end: 0; }
+}
+.auth-brand { display: flex; align-items: center; gap: var(--space-3); margin: 0 0 var(--space-5); }
+.auth-brand .wordmark { font-size: var(--text-title); letter-spacing: var(--tracking-heading); }
+.auth-card .form { margin-block-start: var(--space-5); }
+/* the sign-in form is often used on a phone, so its fields and button are touch sized for every pointer */
+.auth-card input { min-block-size: var(--control-height-touch); font-size: var(--text-body); }
+.button.wide { inline-size: 100%; block-size: var(--control-height-touch); font-size: var(--text-body); }
+.auth-foot { margin: 0; }
+.auth-card h1 { margin-block-end: var(--space-1); }

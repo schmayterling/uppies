@@ -1,0 +1,46 @@
+/* uppies styles. Every colour, size and space comes from tokens.css. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* no rubber-band bounce past the ends of the page, the sidebar or a scrolling table */
+html, body, .sidebar, .table-scroll, .heat-scroll, dialog { overscroll-behavior: none; }
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+}
+body.admin { font-size: var(--text-ui); line-height: var(--leading-ui); }
+
+.column {
+  max-inline-size: var(--content-width);
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-4) var(--space-8);
+}
+
+h1, h2, h3 { margin: 0; font-weight: var(--weight-semibold); text-wrap: balance; }
+h1 { font-size: var(--text-title); letter-spacing: var(--tracking-heading); }
+h2, h3 { font-size: var(--text-heading); }
+/* section headings on the public pages sit over body text of the same size
+   as --text-heading, so they take one step more. the scale has no value
+   between 17 and 24, so this one is named here. */
+:root { --text-section: 20px; }
+.column h2 { font-size: var(--text-section); letter-spacing: var(--tracking-heading); }
+section, .card, .incident { margin-block-start: var(--space-6); }
+section > h2, .title-row { margin-block-end: var(--space-3); }
+p { margin-block: var(--space-2); }
+a { color: inherit; text-underline-offset: 0.2em; }
+@media (hover: hover) { a:hover { color: var(--accent); } }
+strong { font-weight: var(--weight-semibold); }
+
+.muted, .meta, .hint { color: var(--muted); }
+.meta, .hint { font-size: var(--text-sm); }
+.hint { margin-block: var(--space-1) 0; }
+p.hint, p.muted { max-inline-size: 75ch; }
+
+.wordmark, .wordmark-title { font-family: var(--font-rounded); }
+.wordmark { font-size: var(--text-heading); font-weight: var(--weight-semibold); text-decoration: none; }
+.wordmark-title { font-size: var(--text-display); letter-spacing: var(--tracking-display); line-height: var(--leading-display); }

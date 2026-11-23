@@ -1,0 +1,81 @@
+
+/* overview */
+.panel { border: 1px solid var(--border); border-radius: var(--space-2); }
+.stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: var(--space-4) 0 0; border: 1px solid var(--border); border-radius: var(--space-2); }
+.stat { padding: var(--space-3) var(--space-4); border-inline-start: 1px solid var(--border); }
+.stat:first-child { border-inline-start: 0; }
+.stat dt { color: var(--muted); font-size: var(--text-sm); }
+.stat dd { margin: var(--space-1) 0 0; }
+.stat-value { font-size: var(--text-title); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; line-height: var(--leading-display); }
+.list { list-style: none; margin: 0; padding: 0; }
+.list > li + li { border-block-start: 1px solid var(--border); }
+.list-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); padding: var(--space-2) var(--space-3); text-decoration: none; }
+@media (hover: hover) { a.list-row:hover { background: var(--surface); color: inherit; } }
+.list-row { flex-wrap: wrap; }
+.list-row .state { white-space: normal; align-items: baseline; overflow-wrap: anywhere; }
+.list-row .mark { translate: 0 var(--space-0-5); }
+.list-note { overflow-wrap: anywhere; text-align: end; }
+.empty { margin: 0; padding: var(--space-5) var(--space-4); color: var(--muted); }
+.list form { margin: 0; }
+.panel.list-row { align-items: center; }
+table.dense .cell-note { margin-block-start: var(--space-0-5); }
+.monitor-tags { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: var(--space-1) 0 0; padding: 0; list-style: none; }
+.monitor-tags li { max-inline-size: 22ch; overflow: hidden; padding-inline: var(--space-1-5); border-radius: var(--radius-inner); background: var(--surface); text-overflow: ellipsis; white-space: nowrap; }
+/* the icon is part of the name, so what stands under the name starts at the name line's left edge */
+/* a name is centred in its row, and what stands under it sits close to it:
+   the link is taller than its text so that it stays an easy target */
+table.dense tbody th a.with-icon {
+  --icon-size: var(--text-sm);
+  position: relative;
+  display: inline-block;
+  max-inline-size: 26ch;
+  padding-inline-start: calc(var(--icon-size) + var(--space-1-5));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+table.dense tbody th a.with-icon > :is(.icon, .nav-logo) {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 50%;
+  margin-block-start: 0;
+  translate: 0 -50%;
+}
+table.dense tbody th a.with-icon + .cell-note { margin-block-start: calc(-1 * var(--space-0-5)); }
+table.dense .grip-cell { inline-size: var(--space-5); padding-inline-end: 0; }
+table.dense td.grip-cell .order-grip { display: grid; justify-content: start; margin: 0; }
+table.dense td time { white-space: nowrap; }
+table.dense th, table.dense td { padding: var(--space-1-5) var(--space-3); vertical-align: middle; }
+table.dense tbody tr:last-child > * { border-block-end: 0; }
+@media (hover: hover) { table.dense tbody tr:hover { background: var(--surface); } }
+table.dense thead th, table.dense tbody th { font-weight: var(--weight-regular); }
+table.dense thead th { position: relative; }
+table.dense tbody th a, .quiet-link { display: inline-block; min-block-size: var(--target-min); align-content: center; text-decoration: none; }
+@media (hover: hover) { table.dense tbody th a:hover { text-decoration: underline; } }
+.quiet-link { min-inline-size: var(--target-min); color: var(--muted); }
+@media (hover: hover) { .quiet-link:hover { text-decoration: underline; } }
+.strip.mini { inline-size: calc(var(--space-8) * 2 + var(--space-5)); block-size: var(--space-4); }
+
+@media (max-width: 860px) {
+  .sidebar-head .icon-button { display: none; }
+  [data-sidebar="rail"] .nav-label { opacity: 1; pointer-events: auto; }
+  [data-sidebar="rail"] .nav-heading::after { opacity: 0; }
+  [data-sidebar="rail"] .sidebar .wordmark { position: static; visibility: visible; }
+  .shell { display: block; }
+  .sidebar { position: static; block-size: auto; gap: 0; padding-block: 0; border-inline-end: 0; border-block-end: 1px solid var(--border); }
+  .sidebar-head .wordmark { min-inline-size: 0; min-block-size: var(--control-height-touch); }
+  .sidebar-head .nav-label { overflow: hidden; text-overflow: ellipsis; }
+  .has-script .sidebar-head .sidebar-menu { display: inline-flex; flex: none; block-size: var(--control-height-touch); border-color: transparent; }
+  .sidebar-menu[aria-expanded="true"] .icon { rotate: 180deg; }
+  .has-script .sidebar:has(.sidebar-menu[aria-expanded="false"]) .sidebar-links { display: none; }
+  .sidebar-links { padding-block: var(--space-2) var(--space-3); }
+  .content { padding: var(--space-4); }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat { border-inline-start: 0; border-block-start: 1px solid var(--border); }
+  .stats-overview .stat:first-child { grid-column: 1 / -1; border-block-start: 0; }
+  .stats-overview .stat:nth-child(2n+3) { border-inline-start: 1px solid var(--border); }
+}
+
+.crumbs a { display: inline-block; min-block-size: var(--target-min); align-content: center; }
+.crumbs { margin-block-end: var(--space-2); }
+.title-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }

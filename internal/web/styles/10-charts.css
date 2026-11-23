@@ -1,0 +1,93 @@
+.strip { display: flex; align-items: flex-end; gap: var(--space-0-5); block-size: var(--space-6); }
+.component .strip { block-size: var(--space-5); }
+.day { flex: 1; min-inline-size: 0; border-radius: var(--space-0-5); }
+.day-ok { block-size: 100%; background: var(--status-success); }
+.day-warn { block-size: 70%; background: var(--status-warning); }
+.day-down { block-size: 40%; background: var(--status-danger); }
+.day-none { block-size: 100%; background: var(--active); }
+/* hover feedback above sits inside (hover: hover), so a touch screen does not
+   keep it stuck after a tap. the tooltips below stay outside it on purpose:
+   on a touch screen a tap is the only way to open one. */
+/* a tooltip for each day, drawn without script. it opens on hover and on a
+   tap, and the cells near either end align it inward so it stays on screen. */
+.day { position: relative; }
+/* no fade on the hovered bar: its tooltip is part of it and would turn see-through with it */
+.day:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  inset-block-end: calc(100% + var(--space-1-5));
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  z-index: 1;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--elevated);
+  box-shadow: var(--shadow-popover);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-ui);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.day:nth-child(-n+10):hover::after { inset-inline-start: 0; translate: 0 0; }
+.day:nth-last-child(-n+10):hover::after { inset-inline-start: auto; inset-inline-end: 0; translate: 0 0; }
+.day-warn::after, .day-down::after { inset-block-end: calc(100% + var(--space-1-5)); }
+.strip { position: relative; }
+.index-uptime .day { position: static; }
+.index-uptime .day:hover::after {
+  inset-inline: 0 auto;
+  inline-size: max-content;
+  max-inline-size: 100%;
+  white-space: normal;
+  translate: 0 0;
+}
+.index-uptime .day:where(:nth-last-child(-n+15):not(:first-child)):hover::after { inset-inline: auto 0; }
+/* center the tip on its bar and use the strip's insets to keep it in view */
+@supports (justify-self: anchor-center) and (position-anchor: --uptime-day) {
+  .index-uptime .day:hover { anchor-name: --uptime-day; }
+  .index-uptime .day:hover::after {
+    position-anchor: --uptime-day;
+    inset-inline: 0;
+    justify-self: anchor-center;
+  }
+}
+.table-scroll:has(.day:hover) { overflow: visible; }
+/* one unseen column per day lies over the line, so each day has a tooltip like the bars do */
+.spark-box { position: relative; }
+.spark-days { position: absolute; inset: 0; display: flex; }
+.spark-day { block-size: 100%; }
+.spark-day:hover { background: color-mix(in oklab, var(--accent) 18%, transparent); }
+/* the area under a graph's line: one flat tint, or a fade from the tint to nothing */
+.area { stroke: none; }
+.area-flat { fill: color-mix(in oklab, var(--accent) 20%, transparent); }
+.area-top { stop-color: var(--accent); stop-opacity: 0.55; }
+.area-bottom { stop-color: var(--accent); stop-opacity: 0; }
+.checks { display: grid; gap: var(--space-1); inline-size: 100%; }
+/* the detail view of a monitor */
+.stats-wide { grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }
+@media (max-width: 520px) { .stats-wide { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stats-wide .stat { margin-inline-start: -1px; border-block-end: 1px solid var(--border); margin-block-end: -1px; }
+.chart-box { position: relative; margin-block-start: var(--space-3); border-block-end: 1px solid var(--border); }
+.chart { display: block; inline-size: 100%; block-size: calc(var(--space-8) * 2); overflow: visible; }
+.chart polyline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.chart-failed { background: color-mix(in oklab, var(--status-danger) 22%, transparent); }
+a.component-name { display: inline-flex; align-items: center; min-inline-size: var(--target-min); min-block-size: var(--target-min); color: inherit; text-decoration: none; }
+@media (hover: hover) { a.component-name:hover { color: var(--accent); text-decoration: underline; } }
+.badge88 { flex: none; image-rendering: pixelated; }
+/* the swatch that stands for "the colour of the state": half up, half down */
+.swatch-state { background: linear-gradient(90deg, var(--status-success) 50%, var(--status-danger) 50%); }
+.badge88-large { inline-size: 176px; block-size: 62px; }
+.has-script form[data-autosubmit] .savebar { display: none; }
+.badge-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+.spark { display: block; inline-size: 100%; block-size: var(--space-6); overflow: visible; }
+.spark-baseline { stroke: var(--muted); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.spark polyline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin: 0; }
+.figures dd { margin: 0; font-size: var(--text-heading); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
+/* past about 120 days the bars sit shoulder to shoulder, or they would vanish */
+.strip-dense { gap: 0; }
+.strip-dense .day { border-radius: 0; }
+.strip-legend { display: flex; justify-content: space-between; gap: var(--space-3); margin-block-start: var(--space-1); font-variant-numeric: tabular-nums; }
+.narrow-only { display: none; }

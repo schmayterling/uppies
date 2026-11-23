@@ -1,0 +1,49 @@
+
+/* motion. everything that changes state eases into it, with the house
+   durations. tokens.css sets them to zero for people who ask for less motion. */
+
+/* controls answer a hover at once and give a little under a press */
+.button, .icon-button, .nav-item, .tabs a, .list-row, .row-link, .segmented span, .swatch, .day, .heat-cell, a {
+  transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out), opacity var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out);
+}
+.button:active, .icon-button:active, .swatch:active { scale: 0.96; }
+.nav-item:active { scale: 0.98; }
+input, select, textarea { transition: border-color var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out); }
+@media (hover: hover) { input:hover, select:hover, textarea:hover { border-color: var(--ink); } }
+table.dense tbody tr { transition: background-color var(--motion-fast) var(--ease-out); }
+
+/* a dialog rises into place and its backdrop fades in. closing reverses it. */
+dialog {
+  opacity: 0;
+  scale: 0.97;
+  transition: opacity var(--motion-exit) var(--ease-out), scale var(--motion-exit) var(--ease-out),
+    overlay var(--motion-exit) allow-discrete, display var(--motion-exit) allow-discrete;
+}
+dialog[open] { opacity: 1; scale: 1; transition-duration: var(--motion-base); }
+@starting-style { dialog[open] { opacity: 0; scale: 0.97; } }
+dialog::backdrop { opacity: 0; transition: opacity var(--motion-exit) var(--ease-out), overlay var(--motion-exit) allow-discrete, display var(--motion-exit) allow-discrete; }
+dialog[open]::backdrop { opacity: 1; transition-duration: var(--motion-base); }
+@starting-style { dialog[open]::backdrop { opacity: 0; } }
+
+/* messages and tooltips arrive instead of popping in */
+@keyframes arrive { from { opacity: 0; translate: 0 calc(-1 * var(--space-1)); } }
+.admonition { animation: arrive var(--motion-base) var(--ease-out); }
+@keyframes tip { from { opacity: 0; } }
+.day:hover::after, .heat-cell[data-tip]:hover::after { animation: tip var(--motion-fast) var(--ease-out); }
+
+/* the sidebar slides between its full width and the rail. this is the one
+   place where a size is animated, since the content beside it has to follow. */
+.shell { transition: grid-template-columns var(--motion-base) var(--ease-out); }
+
+/* a touch screen gets form text of 16px, which also keeps ios from zooming into a field */
+@media (pointer: coarse) {
+  /* 16px is the size below which ios zooms into a focused field. the tool density shrinks every text token, so the number is written out. */
+  input, select, textarea, .select-button { font-size: 16px; }
+  .site-brand, .site-links a, .column .title-row > a.meta, .zone-picker .menu > summary, a.component-name {
+    min-inline-size: var(--control-height-touch);
+    min-block-size: var(--control-height-touch);
+  }
+  .component-head { align-items: center; }
+}

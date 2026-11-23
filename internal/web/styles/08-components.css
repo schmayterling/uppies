@@ -1,0 +1,65 @@
+/* admonitions: a message that stands apart from the form or page around it.
+   the tint is mixed in oklab, which keeps a grey background from shifting hue. */
+.admonition,
+.page-announcement {
+  --tone: var(--status-info);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid color-mix(in oklab, var(--tone) 35%, var(--border));
+  border-radius: var(--radius-control);
+  background: color-mix(in oklab, var(--tone) 8%, var(--background));
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.admonition > .icon { color: var(--tone); margin-block-start: var(--space-0-5); }
+.admonition p { margin: 0 0 var(--space-1); }
+.admonition p:last-child { margin: 0; }
+.admonition-danger, .announcement-red { --tone: var(--status-danger); }
+.admonition-warning, .announcement-amber { --tone: var(--status-warning); }
+.admonition-success, .announcement-green { --tone: var(--status-success); }
+.announcement-neutral { --tone: var(--muted); }
+.announcement-accent { --tone: var(--accent); }
+.page-announcement { display: block; white-space: pre-wrap; border-inline-start: var(--focus-width) solid var(--tone); }
+/* an admonition keeps its distance from whatever it follows: a heading, a line of text or a row of facts */
+.content > .admonition, .content > form > .admonition, .settings > .admonition, .settings > form > .admonition { margin-block: var(--space-4); }
+.channel { display: flex; gap: var(--space-2); align-items: baseline; min-inline-size: 0; }
+.rows form { margin: 0; }
+
+/* lists and tables */
+.rows { list-style: none; margin: 0; padding: 0; border-block-start: 1px solid var(--border); }
+.rows > li { border-block-end: 1px solid var(--border); }
+.row, .row-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding-block: var(--space-2);
+}
+.row-link { text-decoration: none; }
+
+.card { padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-card); }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; margin-block-end: var(--space-2); }
+
+.table-scroll { overflow-x: auto; }
+table { inline-size: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: var(--space-2) var(--space-3) var(--space-2) 0; border-block-end: 1px solid var(--border); text-align: start; vertical-align: top; }
+thead th { color: var(--muted); font-size: var(--text-sm); font-weight: var(--weight-regular); }
+tbody th { font-weight: var(--weight-regular); }
+.number { text-align: end; white-space: nowrap; }
+.target { overflow-wrap: anywhere; color: var(--muted); }
+td time { white-space: nowrap; }
+.cell-note { display: block; overflow-wrap: anywhere; }
+code { font-family: var(--font-mono); font-size: var(--text-sm); }
+
+/* state: a word, a colour and a shape together */
+.state { display: inline-flex; align-items: center; gap: var(--space-1-5); white-space: nowrap; font-size: var(--text-sm); }
+.mark { flex: none; fill: currentColor; }
+.mark .hollow { fill: none; stroke: currentColor; stroke-width: 2; }
+.state-ok { color: var(--status-success); }
+.state-warn { color: var(--status-warning); }
+.state-down { color: var(--status-danger); }
+.state-none { color: var(--muted); }

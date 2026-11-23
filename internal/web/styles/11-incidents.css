@@ -1,0 +1,122 @@
+
+.incident { padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-card); }
+.incident-open { border-color: var(--status-warning); }
+.timeline { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-3); }
+.timeline li { display: grid; gap: var(--space-0-5); }
+.update-body { white-space: pre-line; overflow-wrap: anywhere; }
+/* the timeline: the day on the left, what happened on the right. each
+   incident's updates run down a rail that reads line, space, dot, space, line:
+   a dot per update in the colour of its status, and a line that stops short
+   of the dots on both ends. */
+.title-ruled { padding-block-end: var(--space-2); border-block-end: 1px solid var(--border); }
+.tl { list-style: none; margin: var(--space-4) 0 0; padding: 0; }
+.tl-day { display: grid; grid-template-columns: calc(var(--space-8) * 2 + var(--space-6)) minmax(0, 1fr); gap: var(--space-2) var(--space-5); padding-block-end: var(--space-6); }
+.tl-day:last-child { padding-block-end: 0; }
+.tl-when { display: grid; justify-items: start; align-content: start; gap: var(--space-2); margin: 0; }
+.tl-date { margin: 0; font-size: var(--text-heading); font-weight: var(--weight-semibold); }
+.tl-what { display: grid; gap: var(--space-5); min-inline-size: 0; }
+.tl-incident h4, .incident-open h2 { margin: 0; font-size: var(--text-heading); font-weight: var(--weight-semibold); }
+.tl-calm { padding-block-end: var(--space-4); color: var(--muted); font-size: var(--text-sm); }
+.tl-calm .tl-date { font-size: inherit; font-weight: var(--weight-regular); text-wrap: balance; }
+.tl-quiet { margin: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-1-5); margin: var(--space-2) 0 0; }
+.chip-plain { border-radius: var(--radius-control); background: var(--surface); color: var(--muted); font-weight: var(--weight-regular); }
+.incident-open .chip-plain { background: var(--hover); }
+.updates { list-style: none; margin: var(--space-3) 0 0; padding: 0; }
+.updates > li { position: relative; padding-inline-start: var(--space-5); padding-block-end: var(--space-4); }
+.updates > li:last-child { padding-block-end: 0; }
+.updates > li::before {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+  inset-inline-start: var(--space-0-5);
+  inset-block-start: var(--space-1-5);
+  inline-size: var(--space-2);
+  block-size: var(--space-2);
+  border-radius: var(--radius-round);
+  background: var(--border-strong);
+}
+.updates > li::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: calc(var(--space-1) + 1px);
+  inset-block: calc(var(--space-4) + var(--space-0-5)) calc(-1 * var(--space-0-5));
+  inline-size: 2px;
+  border-radius: var(--radius-round);
+  background: var(--border);
+}
+.updates > li:last-child::after { display: none; }
+.updates > .update-investigating::before { background: var(--status-danger); }
+.updates > .update-identified::before { background: var(--status-warning); }
+.updates > .update-monitoring::before { background: var(--status-info); }
+.updates > .update-resolved::before { background: var(--status-success); }
+.update-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); margin: 0; }
+.updates .update-body { margin: var(--space-1) 0 0; }
+@media (max-width: 520px) {
+  .tl-day { grid-template-columns: minmax(0, 1fr); }
+  .tl-when { display: flex; flex-wrap: wrap; align-items: center; padding-block-end: var(--space-2); border-block-end: 1px solid var(--border); }
+  .tl-calm .tl-when { padding-block-end: 0; border-block-end: 0; }
+}
+
+/* the incident map: a year of days, one column per week */
+.heat-scroll { overflow-x: auto; padding-block: var(--space-5) var(--space-1); }
+.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); grid-auto-columns: minmax(var(--space-2), 1fr); gap: var(--space-0-5); }
+.heat-cell { position: relative; aspect-ratio: 1; border-radius: var(--space-0-5); background: var(--active); }
+.heat-blank { background: none; }
+/* a day that has not happened yet: an empty outline that holds its place */
+.heat-future { background: none; outline: 1px dashed var(--border-strong); outline-offset: -1px; }
+.heat-frame { display: grid; grid-template-columns: auto minmax(560px, 1fr); column-gap: var(--space-2); }
+.heat-days { display: grid; grid-template-rows: repeat(7, 1fr); gap: var(--space-0-5); color: var(--muted); font-size: var(--text-xs); line-height: 1; }
+.heat-days span { display: flex; align-items: center; }
+.pager { justify-content: center; margin-block-start: var(--space-4); }
+.heat-1 { background: color-mix(in oklab, var(--status-warning) 60%, var(--background)); }
+.heat-2 { background: var(--status-warning); }
+.heat-3 { background: var(--status-danger); }
+.heat-cell[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  inset-block-end: calc(100% + var(--space-1-5));
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  z-index: 1;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--elevated);
+  box-shadow: var(--shadow-popover);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.heat-cell:nth-child(-n+70):hover::after { inset-inline-start: 0; translate: 0 0; }
+.heat-cell:nth-last-child(-n+70):hover::after { inset-inline-start: auto; inset-inline-end: 0; translate: 0 0; }
+.heat-months { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(var(--space-2), 1fr); gap: var(--space-0-5); margin-block-end: var(--space-1); color: var(--muted); font-size: var(--text-xs); }
+.heat-months span { white-space: nowrap; overflow: visible; }
+.heat-legend { display: flex; align-items: center; gap: var(--space-1-5); margin-block-start: var(--space-2); }
+.heat-legend .heat-cell { inline-size: var(--space-3); margin-inline-start: var(--space-2); }
+
+.zone-picker { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); margin-block-start: var(--space-7); }
+/* a menu without script: the summary reads as a link, the list opens above it */
+.menu { position: relative; }
+.menu > summary { display: inline-flex; align-items: center; gap: var(--space-0-5); min-block-size: var(--target-min); color: var(--ink); text-decoration: underline; text-underline-offset: var(--space-0-5); cursor: pointer; list-style: none; }
+.menu > summary::-webkit-details-marker { display: none; }
+/* an open menu lays an unseen sheet over the page. a click anywhere outside
+   the list lands on it, and so on the summary, which closes the menu. */
+.menu[open] > summary::before { content: ""; position: fixed; inset: 0; z-index: 1; cursor: default; }
+.menu > summary .icon { transition: rotate var(--motion-fast) var(--ease-out); }
+.menu[open] > summary .icon { rotate: 180deg; }
+.menu-list { position: absolute; inset-block-end: 100%; inset-inline-start: 0; z-index: 2; min-inline-size: max-content; max-block-size: calc(var(--space-8) * 4); overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: var(--space-1); list-style: none; border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--elevated); box-shadow: var(--shadow-popover); }
+.menu-list a { display: flex; align-items: center; min-block-size: var(--control-height); padding-inline: var(--space-2); border-radius: var(--radius-control); color: var(--ink); text-decoration: none; }
+@media (hover: hover) { .menu-list a:hover { background: var(--hover); } }
+.menu-list a[aria-current] { font-weight: var(--weight-semibold); background: var(--active); }
+.zone-picker + .page-foot { margin-block-start: var(--space-3); }
+.page-foot { margin-block-start: var(--space-7); }
+
+/* phones show 30 days so each day stays wide enough to see */
+@media (max-width: 520px) {
+  .strip > .day:nth-last-child(n+31) { display: none; }
+  .wide-only { display: none; }
+  .narrow-only { display: inline; }
+  .banner { font-size: var(--text-heading); }
+}

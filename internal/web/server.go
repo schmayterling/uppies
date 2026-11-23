@@ -2,6 +2,7 @@
 package web
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"embed"
 	"encoding/hex"
@@ -25,6 +26,9 @@ var templateFiles embed.FS
 //go:embed static
 var staticFiles embed.FS
 
+//go:embed styles/*.css
+var stylesheetFiles embed.FS
+
 // maxFormBytes caps the size of a posted form.
 const maxFormBytes = 64 << 10
 
@@ -37,6 +41,7 @@ type Server struct {
 	// mailer sends test emails. It is nil when no SMTP server is configured.
 	mailer    *alert.Mailer
 	pages     map[string]*template.Template
+	appCSS    []byte
 	logins    *loginLimiter
 	now       func() time.Time
 	startedAt time.Time
@@ -66,11 +71,26 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 	// The sidebar can paint its icons before the external sprite loads.
 	sidebarSymbols := template.HTML(strings.Replace(string(icons), "<svg ",
 		`<svg class="sidebar-symbols" width="0" height="0" aria-hidden="true" `, 1))
-	assets := make(map[string]string)
-	for _, name := range []string{"tokens.css", "app.css", "admin.js", "noscript.css"} {
-		data, err := staticFiles.ReadFile("static/" + name)
+	// The numbered files are read in filename order to preserve the cascade.
+	stylesheets, err := fs.ReadDir(stylesheetFiles, "styles")
+	if err != nil {
+		return nil, err
+	}
+	for _, stylesheet := range stylesheets {
+		data, err := stylesheetFiles.ReadFile("styles/" + stylesheet.Name())
 		if err != nil {
 			return nil, err
+		}
+		s.appCSS = append(s.appCSS, data...)
+	}
+	assets := make(map[string]string)
+	for _, name := range []string{"tokens.css", "app.css", "admin.js", "noscript.css"} {
+		data := s.appCSS
+		if name != "app.css" {
+			data, err = staticFiles.ReadFile("static/" + name)
+			if err != nil {
+				return nil, err
+			}
 		}
 		hash := sha256.Sum256(data)
 		assets[name] = "/static/" + name + "?v=" + hex.EncodeToString(hash[:8])
@@ -103,6 +123,9 @@ func (s *Server) Handler() (http.Handler, error) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
+	mux.HandleFunc("GET /static/app.css", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeContent(w, r, "app.css", time.Time{}, bytes.NewReader(s.appCSS))
+	})
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 	mux.HandleFunc("GET /status-pages", s.handlePublicList)
 	mux.HandleFunc("GET /incidents", s.handleIndexIncidents)
