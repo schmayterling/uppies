@@ -86,3 +86,21 @@ func TestYearDayGroupsCanHideQuietDays(t *testing.T) {
 		t.Fatalf("without quiet days: got %+v, want only jan 3", busy)
 	}
 }
+
+func TestMonthLabels(t *testing.T) {
+	labels := monthLabels(2026, time.UTC)
+	// 2026 has 53 week columns. January starts in the first one, and February
+	// 1 is a Sunday, which opens the sixth column.
+	if len(labels) != 53 || labels[0] != "jan" || labels[1] != "" || labels[5] != "feb" {
+		t.Fatalf("got %d labels starting %q, want 53 with jan first and feb sixth", len(labels), labels[:6])
+	}
+	named := 0
+	for _, label := range labels {
+		if label != "" {
+			named++
+		}
+	}
+	if named != 12 {
+		t.Fatalf("got %d month names, want 12", named)
+	}
+}

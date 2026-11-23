@@ -16,6 +16,7 @@
     </nav>
   </div>
   <div class="heat-scroll">
+    <div class="heat-months" aria-hidden="true">{{range .Months}}<span>{{.}}</span>{{end}}</div>
     <div class="heat" role="img" aria-label="{{.Total}} incidents in {{.Year}}. each square is a day, and the list below names them.">
       {{range .Weeks}}{{range .}}<span class="heat-cell{{if .Blank}} heat-blank{{else}} heat-{{.Level}}{{end}}"{{if .Tip}} data-tip="{{.Tip}}"{{end}}></span>{{end}}{{end}}
     </div>

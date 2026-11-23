@@ -73,6 +73,9 @@ type historyPage struct {
 	PrevYear int
 	NextYear int // 0 when the page shows the current year
 	Weeks    [][]heatCell
+	// Months holds one label per week: the month's short name on the week in
+	// which the month starts, and empty otherwise.
+	Months []string
 	Total    int
 	Days     []dayGroup
 	// HideQuiet leaves days without incidents out of the timeline.
@@ -147,6 +150,25 @@ func incidentMap(incidents []store.Incident, year int, now time.Time, zone *time
 	return weeks
 }
 
+// monthLabels names the months above the year's grid, one entry per week
+// column: the short name where a month begins, empty for the other weeks.
+func monthLabels(year int, zone *time.Location) []string {
+	first := time.Date(year, time.January, 1, 12, 0, 0, 0, zone)
+	last := time.Date(year, time.December, 31, 12, 0, 0, 0, zone)
+	var labels []string
+	for week := first.AddDate(0, 0, -int(first.Weekday())); !week.After(last); week = week.AddDate(0, 0, 7) {
+		label := ""
+		for offset := range 7 {
+			day := week.AddDate(0, 0, offset)
+			if day.Year() == year && day.Day() == 1 {
+				label = strings.ToLower(day.Format("Jan"))
+			}
+		}
+		labels = append(labels, label)
+	}
+	return labels
+}
+
 func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	project, err := s.store.ProjectBySlug(ctx, r.PathValue("slug"))
@@ -199,6 +221,7 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 		Year:      year,
 		PrevYear:  year - 1,
 		Weeks:     incidentMap(incidents, year, now, zone),
+		Months:    monthLabels(year, zone),
 		Total:     len(incidents),
 		HideQuiet: r.URL.Query().Get("quiet") == "hide",
 	}
