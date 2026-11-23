@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 
 	_ "modernc.org/sqlite"
 )
@@ -175,6 +176,72 @@ create table project_images (
 	unique (project_id, kind)
 ) strict;
 `,
+	// Step 5 rebuilds two tables, because SQLite cannot change a CHECK
+	// constraint in place: monitors gain three kinds and four columns, and
+	// alert channels gain the email kind.
+	`
+create table monitors_new (
+	id integer primary key,
+	project_id integer not null references projects(id) on delete cascade,
+	name text not null check (length(name) between 1 and 120),
+	kind text not null check (kind in ('http', 'tcp', 'dns', 'ping', 'push')),
+	target text not null check (length(target) between 1 and 2048),
+	keyword text not null default '',
+	interval_s integer not null check (interval_s between 20 and 86400),
+	timeout_ms integer not null check (timeout_ms between 100 and 60000),
+	retries integer not null check (retries between 0 and 10),
+	retry_interval_s integer not null check (retry_interval_s between 1 and 3600),
+	recovery_checks integer not null check (recovery_checks between 1 and 10),
+	paused integer not null default 0 check (paused in (0, 1)),
+	status text not null default 'unknown' check (status in ('unknown', 'up', 'down')),
+	status_since_ms integer not null,
+	fail_streak integer not null default 0,
+	ok_streak integer not null default 0,
+	failing_since_ms integer not null default 0,
+	last_check_at_ms integer not null default 0,
+	last_latency_ms integer not null default 0,
+	last_error text not null default '',
+	created_at_ms integer not null,
+	public integer not null default 1 check (public in (0, 1)),
+	push_token text not null default '',
+	last_push_at_ms integer not null default 0,
+	cert_expires_at_ms integer not null default 0,
+	cert_warned_days integer not null default 0
+) strict;
+insert into monitors_new (id, project_id, name, kind, target, keyword, interval_s, timeout_ms, retries,
+	retry_interval_s, recovery_checks, paused, status, status_since_ms, fail_streak, ok_streak,
+	failing_since_ms, last_check_at_ms, last_latency_ms, last_error, created_at_ms, public)
+select id, project_id, name, kind, target, keyword, interval_s, timeout_ms, retries,
+	retry_interval_s, recovery_checks, paused, status, status_since_ms, fail_streak, ok_streak,
+	failing_since_ms, last_check_at_ms, last_latency_ms, last_error, created_at_ms, public
+from monitors;
+drop table monitors;
+alter table monitors_new rename to monitors;
+create index monitors_project on monitors(project_id);
+create unique index monitors_push_token on monitors(push_token) where push_token <> '';
+
+create table alert_channels_new (
+	id integer primary key,
+	project_id integer not null references projects(id) on delete cascade,
+	kind text not null check (kind in ('webhook', 'discord', 'slack', 'email')),
+	url text not null check (length(url) between 1 and 2048),
+	created_at_ms integer not null
+) strict;
+insert into alert_channels_new select id, project_id, kind, url, created_at_ms from alert_channels;
+drop table alert_channels;
+alter table alert_channels_new rename to alert_channels;
+create index alert_channels_project on alert_channels(project_id);
+
+create table maintenance_windows (
+	id integer primary key,
+	project_id integer not null references projects(id) on delete cascade,
+	title text not null check (length(title) between 1 and 200),
+	starts_at_ms integer not null,
+	ends_at_ms integer not null check (ends_at_ms > starts_at_ms),
+	created_at_ms integer not null
+) strict;
+create index maintenance_windows_project on maintenance_windows(project_id, ends_at_ms);
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.
@@ -194,7 +261,7 @@ func Open(ctx context.Context, path string) (*Store, error) {
 		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
 	s := &Store{db: db}
-	if err := s.migrate(ctx); err != nil {
+	if err := s.migrate(ctx, path); err != nil {
 		closeErr := db.Close()
 		return nil, errors.Join(fmt.Errorf("migrate %s: %w", path, err), closeErr)
 	}
@@ -206,7 +273,7 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
-func (s *Store) migrate(ctx context.Context) error {
+func (s *Store) migrate(ctx context.Context, path string) error {
 	var version int
 	if err := s.db.QueryRowContext(ctx, "pragma user_version").Scan(&version); err != nil {
 		return err
@@ -214,23 +281,73 @@ func (s *Store) migrate(ctx context.Context) error {
 	if version > len(migrations) {
 		return fmt.Errorf("database schema version %d is newer than this build supports (%d)", version, len(migrations))
 	}
-	for step := version; step < len(migrations); step++ {
-		if err := s.applyMigration(ctx, step); err != nil {
-			return fmt.Errorf("schema step %d: %w", step+1, err)
+	if version == len(migrations) {
+		return nil
+	}
+	if version > 0 {
+		if err := s.backup(ctx, fmt.Sprintf("%s.backup-v%d", path, version)); err != nil {
+			return fmt.Errorf("back up before upgrading: %w", err)
 		}
 	}
-	return nil
+
+	// Steps that rebuild a table need foreign keys switched off, and that
+	// setting cannot change inside a transaction. So every step runs on one
+	// connection with them off, and checks them itself before it commits.
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	if _, err := conn.ExecContext(ctx, "pragma foreign_keys = off"); err != nil {
+		return errors.Join(err, conn.Close())
+	}
+	for step := version; step < len(migrations) && err == nil; step++ {
+		if err = applyMigration(ctx, conn, step); err != nil {
+			err = fmt.Errorf("schema step %d: %w", step+1, err)
+		}
+	}
+	_, restoreErr := conn.ExecContext(ctx, "pragma foreign_keys = on")
+	return errors.Join(err, restoreErr, conn.Close())
 }
 
-func (s *Store) applyMigration(ctx context.Context, step int) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, migrations[step]); err != nil {
-			return err
-		}
-		// PRAGMA takes no bound parameters. The value is a loop counter, not input.
-		_, err := tx.ExecContext(ctx, fmt.Sprintf("pragma user_version = %d", step+1))
+// backup writes a copy of the database next to it, unless that copy already
+// exists from an earlier attempt at the same upgrade.
+func (s *Store) backup(ctx context.Context, target string) error {
+	if _, err := os.Stat(target); err == nil {
+		return nil
+	}
+	_, err := s.db.ExecContext(ctx, "vacuum into ?", target)
+	return err
+}
+
+func applyMigration(ctx context.Context, conn *sql.Conn, step int) error {
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
 		return err
-	})
+	}
+	if err := runMigration(ctx, tx, step); err != nil {
+		return errors.Join(err, tx.Rollback())
+	}
+	return tx.Commit()
+}
+
+func runMigration(ctx context.Context, tx *sql.Tx, step int) error {
+	if _, err := tx.ExecContext(ctx, migrations[step]); err != nil {
+		return err
+	}
+	broken, err := tx.QueryContext(ctx, "pragma foreign_key_check")
+	if err != nil {
+		return err
+	}
+	hasBroken := broken.Next()
+	if err := errors.Join(broken.Err(), broken.Close()); err != nil {
+		return err
+	}
+	if hasBroken {
+		return errors.New("the step left rows that point at missing rows")
+	}
+	// PRAGMA takes no bound parameters. The value is a loop counter, not input.
+	_, err = tx.ExecContext(ctx, fmt.Sprintf("pragma user_version = %d", step+1))
+	return err
 }
 
 // write runs fn in one transaction and commits when fn returns nil.

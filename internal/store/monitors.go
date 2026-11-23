@@ -49,8 +49,8 @@ type Monitor struct {
 	ID             int64
 	ProjectID      int64
 	Name           string
-	Kind           string // "http" or "tcp"
-	Target         string // a URL for http, host:port for tcp
+	Kind           string // "http", "tcp", "dns", "ping" or "push"
+	Target         string // a URL for http, host:port for tcp, a hostname for dns and ping
 	Keyword        string // http only: text the response body must contain, empty for none
 	IntervalS      int
 	TimeoutMs      int
@@ -65,11 +65,20 @@ type Monitor struct {
 	LastCheckAtMs int64
 	LastLatencyMs int64
 	LastError     string
+
+	// PushToken is the secret in a push monitor's URL, empty for other kinds.
+	PushToken    string
+	LastPushAtMs int64
+	// CertExpiresAtMs is when the certificate seen by the last HTTPS check expires, 0 if none.
+	CertExpiresAtMs int64
+	// CertWarnedDays is the last warning threshold already alerted on, 0 for none.
+	CertWarnedDays int
 }
 
 const monitorColumns = `id, project_id, name, kind, target, keyword, interval_s, timeout_ms, retries,
 	retry_interval_s, recovery_checks, paused, public, status, status_since_ms, fail_streak, ok_streak,
-	failing_since_ms, last_check_at_ms, last_latency_ms, last_error`
+	failing_since_ms, last_check_at_ms, last_latency_ms, last_error, push_token, last_push_at_ms,
+	cert_expires_at_ms, cert_warned_days`
 
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -80,7 +89,7 @@ func scanMonitor(row rowScanner) (Monitor, error) {
 	err := row.Scan(&m.ID, &m.ProjectID, &m.Name, &m.Kind, &m.Target, &m.Keyword, &m.IntervalS, &m.TimeoutMs,
 		&m.Retries, &m.RetryIntervalS, &m.RecoveryChecks, &m.Paused, &m.Public, &m.Tracker.Status, &m.StatusSinceMs,
 		&m.Tracker.FailStreak, &m.Tracker.OKStreak, &m.Tracker.FailingSinceMs, &m.LastCheckAtMs,
-		&m.LastLatencyMs, &m.LastError)
+		&m.LastLatencyMs, &m.LastError, &m.PushToken, &m.LastPushAtMs, &m.CertExpiresAtMs, &m.CertWarnedDays)
 	return m, err
 }
 
@@ -181,10 +190,10 @@ func (s *Store) DeleteProject(ctx context.Context, id int64) error {
 func (s *Store) CreateMonitor(ctx context.Context, m Monitor, nowMs int64) (int64, error) {
 	res, err := s.db.ExecContext(ctx, `
 		insert into monitors (project_id, name, kind, target, keyword, interval_s, timeout_ms, retries,
-			retry_interval_s, recovery_checks, paused, public, status_since_ms, created_at_ms)
-		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			retry_interval_s, recovery_checks, paused, public, push_token, status_since_ms, created_at_ms)
+		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		m.ProjectID, m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries,
-		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.Public, nowMs, nowMs)
+		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.Public, m.PushToken, nowMs, nowMs)
 	if err != nil {
 		return 0, err
 	}

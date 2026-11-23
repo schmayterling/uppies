@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -205,7 +206,8 @@ func TestUpgradingAVersionOneFileKeepsItsDataAndAddsDefaults(t *testing.T) {
 		insert into projects (id, slug, name, created_at_ms) values (7, 'acme', 'Acme', 1);
 		insert into monitors (project_id, name, kind, target, interval_s, timeout_ms, retries,
 			retry_interval_s, recovery_checks, status_since_ms, created_at_ms)
-		values (7, 'api', 'http', 'https://example.com', 60, 5000, 2, 20, 2, 1, 1);`
+		values (7, 'api', 'http', 'https://example.com', 60, 5000, 2, 20, 2, 1, 1);
+		insert into daily_rollups values (1, 86400000, 3, 0, 120000, 0, 90, 40);`
 	if _, err := old.ExecContext(ctx, setup); err != nil {
 		t.Fatal(err)
 	}
@@ -237,8 +239,29 @@ func TestUpgradingAVersionOneFileKeepsItsDataAndAddsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(monitors) != 1 || !monitors[0].Public {
-		t.Fatalf("monitors after upgrade: got %+v, want one public monitor", monitors)
+	if len(monitors) != 1 || !monitors[0].Public || monitors[0].Name != "api" {
+		t.Fatalf("monitors after upgrade: got %+v, want the one public monitor", monitors)
+	}
+	// The monitors table is rebuilt in step 5. Rows that point at a monitor must survive that.
+	rollups, err := s.DailyRollups(ctx, 7, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := rollups[monitors[0].ID]; len(got) != 1 || got[0].Checks != 3 {
+		t.Fatalf("rollups after upgrade: got %+v, want the one day with 3 checks", got)
+	}
+	monitors[0].Kind, monitors[0].Target = "dns", "example.com"
+	if err := s.UpdateMonitor(ctx, monitors[0]); err != nil {
+		t.Fatalf("a kind added in step 5 is refused after the upgrade: %v", err)
+	}
+	if err := s.DeleteProject(ctx, 7); err != nil {
+		t.Fatal(err)
+	}
+	if left, err := s.DailyRollups(ctx, 7, 0); err != nil || len(left) != 0 {
+		t.Fatalf("rollups after deleting the project: got %v err=%v, want none, so cascades still work", left, err)
+	}
+	if _, err := os.Stat(path + ".backup-v1"); err != nil {
+		t.Fatalf("no backup was written before the upgrade: %v", err)
 	}
 }
 
