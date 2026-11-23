@@ -632,3 +632,12 @@ document.addEventListener("dragend", () => {
   saveForm(draggedItem.closest("form"));
   draggedItem = null;
 });
+
+// A form marked data-autosubmit is sent as soon as one of its fields changes.
+// It is for forms that only change what the page shows, such as the badge builder.
+document.addEventListener("change", (event) => {
+  const form = event.target.closest("form[data-autosubmit]");
+  if (form) {
+    form.requestSubmit();
+  }
+});

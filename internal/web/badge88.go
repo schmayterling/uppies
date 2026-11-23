@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"uppies/internal/store"
 )
 
 // An 88 by 31 badge is drawn from rectangles only, glyphs included. With no
@@ -116,7 +118,23 @@ type badgeSpec struct {
 	Light bool
 	// Title is the image's accessible name.
 	Title string
+	// Graph replaces the large text with a small chart: one column per entry,
+	// each up to graphHeight pixels tall. Gap leaves a pixel between columns.
+	Graph []graphColumn
+	Gap   bool
+	// Hue colours the block with a hue of the colour wheel, 0 to 360,
+	// in place of the state's colour. Negative keeps the state's colour.
+	Hue int
 }
+
+// graphColumn is one column of a badge's chart. An empty colour means the badge's own ink.
+type graphColumn struct {
+	Height int
+	Colour string
+}
+
+// graphHeight is the height of a badge's chart in pixels.
+const graphHeight = 16
 
 // badgeWord cuts text down to what the pixel font can draw and a line can
 // hold: lowercase letters, digits and a few signs, at most max characters.
@@ -153,7 +171,11 @@ func drawBadge(spec badgeSpec) string {
 		width, height, width, height, spec.Title, spec.Title)
 	fmt.Fprintf(&b, `<path fill="%s" d="M0 0h%dv%dh-%dz"/><path fill="%s" d="M1 1h%dv%dh-%dz"/>`,
 		border, width, height, width, ground, width-2, height-2, width-2)
-	fmt.Fprintf(&b, `<path fill="%s" d="M1 1h%dv%dh-%dz"/>`, badgeColours[spec.State], blockWidth, height-2, blockWidth)
+	block := badgeColours[spec.State]
+	if spec.Hue >= 0 {
+		block = fmt.Sprintf("hsl(%d 45%% 32%%)", spec.Hue)
+	}
+	fmt.Fprintf(&b, `<path fill="%s" d="M1 1h%dv%dh-%dz"/>`, block, blockWidth, height-2, blockWidth)
 	// One line on the block sits in its middle. Two lines share it.
 	labelTop := 12
 	if spec.Sub != "" {
@@ -162,7 +184,21 @@ func drawBadge(spec badgeSpec) string {
 	fmt.Fprintf(&b, `<path fill="#fff" d="%s%s"/>`,
 		badgeText(spec.Label, centred(spec.Label, 1, blockWidth, 1), labelTop, 1),
 		badgeText(spec.Sub, centred(spec.Sub, 1, blockWidth, 1), 18, 1))
-	fmt.Fprintf(&b, `<path fill="%s" d="%s"/>`, ink, badgeText(spec.Value, centred(spec.Value, valueLeft, valueSpace, 2), 4, 2))
+	if len(spec.Graph) > 0 {
+		// The chart stands on a line 4 pixels under the top of the value's place, centred like the value.
+		step := 1
+		if spec.Gap {
+			step = 2
+		}
+		left := valueLeft + (valueSpace-(len(spec.Graph)*step-step+1))/2
+		for i, column := range spec.Graph {
+			if column.Height > 0 {
+				fmt.Fprintf(&b, `<path fill="%s" d="M%d %dh1v%dh-1z"/>`, cmp.Or(column.Colour, ink), left+i*step, 3+graphHeight-column.Height, column.Height)
+			}
+		}
+	} else {
+		fmt.Fprintf(&b, `<path fill="%s" d="%s"/>`, ink, badgeText(spec.Value, centred(spec.Value, valueLeft, valueSpace, 2), 4, 2))
+	}
 	fmt.Fprintf(&b, `<path fill="%s" d="%s"/></svg>`, quiet, badgeText(spec.Unit, centred(spec.Unit, valueLeft, valueSpace, 1), 21, 1))
 	return b.String()
 }
@@ -180,7 +216,7 @@ func percentileSpec(p int, sortedLatencies []int64, state string) badgeSpec {
 	if len(sortedLatencies) == 0 {
 		title = name + " response time over 24 hours: no data"
 	}
-	return badgeSpec{Label: name, Sub: "24h", Value: value, Unit: unit, State: state, Title: title}
+	return badgeSpec{Label: name, Sub: "24h", Value: value, Unit: unit, State: state, Title: title, Hue: -1}
 }
 
 // badgeStateWords says a state in at most four characters, the width of the large text.
@@ -189,7 +225,7 @@ var badgeStateWords = map[string]string{stateOK: "up", stateDown: "down", stateW
 // statusSpec is the badge of a current state. name is whose state it is.
 func statusSpec(name, state, word string) badgeSpec {
 	return badgeSpec{
-		Label: "now", Value: cmp.Or(word, badgeStateWords[state]), Unit: badgeWord(name, 9), State: state,
+		Label: "now", Value: cmp.Or(word, badgeStateWords[state]), Unit: badgeWord(name, 9), State: state, Hue: -1,
 		Title: fmt.Sprintf("%s is %s", name, cmp.Or(word, badgeStateWords[state])),
 	}
 }
@@ -197,7 +233,7 @@ func statusSpec(name, state, word string) badgeSpec {
 // uptimeSpec is the badge of an uptime figure over a number of days. uptime
 // is the text uptimePercent gives, such as "99.94% uptime" or "no data yet".
 func uptimeSpec(name, uptime string, days int, state string) badgeSpec {
-	spec := badgeSpec{Label: "up", Sub: fmt.Sprintf("%dd", days), Value: "--", Unit: "% uptime", State: state}
+	spec := badgeSpec{Label: "up", Sub: fmt.Sprintf("%dd", days), Value: "--", Unit: "% uptime", State: state, Hue: -1}
 	spec.Title = fmt.Sprintf("uptime of %s over %d days: no data", name, days)
 	if number, _, measured := strings.Cut(uptime, "%"); measured {
 		// Four characters hold "100" and "99.9". The figure is cut, never rounded up.
@@ -207,10 +243,61 @@ func uptimeSpec(name, uptime string, days int, state string) badgeSpec {
 	return spec
 }
 
+// badgeBarDays is how many days a badge's uptime chart shows: one column and one gap per day.
+const badgeBarDays = 27
+
+// barsSpec is the badge with a small uptime chart: one column per day, the
+// newest on the right, shorter and coloured on a day with downtime.
+func barsSpec(name string, days []dayCell, state string) badgeSpec {
+	heights := map[string]int{stateOK: graphHeight, stateWarn: 11, stateDown: 6, stateNone: graphHeight}
+	spec := badgeSpec{Label: "up", Sub: fmt.Sprintf("%dd", len(days)), Unit: "per day", State: state, Gap: true, Hue: -1}
+	spec.Title = fmt.Sprintf("uptime of %s per day over %d days", name, len(days))
+	for _, day := range days {
+		colour := badgeColours[day.State]
+		if day.State == stateOK {
+			colour = "#2f9e5b"
+		}
+		spec.Graph = append(spec.Graph, graphColumn{Height: heights[day.State], Colour: colour})
+	}
+	return spec
+}
+
+// lineSpec is the badge with a small response time chart: one column per
+// half hour of the last day, as tall as that half hour's average against the slowest one.
+func lineSpec(name string, buckets []store.CheckBucket, firstSlotMs int64, state string) badgeSpec {
+	spec := badgeSpec{Label: "ms", Sub: "24h", Unit: "no data", State: state, Hue: -1}
+	spec.Title = "response time of " + name + " over 24 hours: no data"
+	var peak int64
+	byStart := make(map[int64]int64, len(buckets))
+	for _, b := range buckets {
+		byStart[b.StartMs] = b.LatencyAvgMs
+		peak = max(peak, b.LatencyAvgMs)
+	}
+	if peak == 0 {
+		return spec
+	}
+	for i := range int(detailBuckets) {
+		average := byStart[firstSlotMs+int64(i)*detailBucketMs]
+		column := graphColumn{}
+		if average > 0 {
+			column.Height = max(1, int(average*graphHeight/peak))
+		}
+		spec.Graph = append(spec.Graph, column)
+	}
+	value, unit := badgeValue(peak, true)
+	spec.Unit = "top " + value + unit
+	spec.Title = fmt.Sprintf("response time of %s over 24 hours, at most %s %s per half hour", name, value, unit)
+	return spec
+}
+
 // badgeOptions applies what the address asks for to a badge: "theme=light"
-// for a white ground, and "label=" for other words on the block.
+// for a white ground, "label=" for other words on the block, and "color="
+// with a hue from 0 to 360 for a block in that colour.
 func badgeOptions(spec badgeSpec, query url.Values) badgeSpec {
 	spec.Light = query.Get("theme") == "light"
+	if hue, err := strconv.Atoi(query.Get("color")); err == nil && hue >= 0 && hue <= 360 {
+		spec.Hue = hue
+	}
 	if label := badgeWord(query.Get("label"), 4); label != "" {
 		spec.Label = label
 	}

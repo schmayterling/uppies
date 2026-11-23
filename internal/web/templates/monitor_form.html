@@ -4,7 +4,7 @@
 <h1>{{if .Editing}}{{.Monitor.Name}}{{else}}new monitor{{end}}</h1>
 {{if .Editing}}
 <nav class="tabs" aria-label="monitor sections">
-  <a href="#pane-overview" data-tab="overview">overview</a><a href="#pane-settings" data-tab="settings">settings</a>
+  <a href="#pane-overview" data-tab="overview">overview</a><a href="#pane-settings" data-tab="settings">settings</a><a href="#pane-badges" data-tab="badges">badges</a>
 </nav>
 <div class="pane" id="pane-overview" data-pane="overview">
   <div class="admonition admonition-{{if eq .State "down"}}danger{{else if eq .State "ok"}}success{{else}}info{{end}}"{{if eq .State "down"}} role="alert"{{end}}>{{template "icon" (index .StateIcons .State)}}<div>
@@ -112,7 +112,59 @@
     {{if .Editing}}<button class="button danger push-end" type="button" data-open-dialog="delete-monitor">{{template "icon" "trash"}}delete monitor</button>{{end}}
   </div>
 </form>
-{{if .Editing}}</div>{{end}}
+{{if .Editing}}</div>
+<div class="pane" id="pane-badges" data-pane="badges">
+  <h2 class="group-title">88 by 31 badge</h2>
+  {{if .Badge.Path}}
+  <form method="get" action="/admin/monitors/{{.Monitor.ID}}#pane-badges" data-autosubmit>
+    <div class="group">
+      <div class="srow">
+        <span class="srow-copy"><span>preview</span><small class="target">{{.Badge.Path}}</small></span>
+        <span class="srow-control badge-row"><img class="badge88 badge88-large" src="{{.Badge.Path}}" width="176" height="62" alt="the badge with these choices"><img class="badge88" src="{{.Badge.Path}}" width="88" height="31" alt=""></span>
+      </div>
+      <div class="srow">
+        <label class="srow-copy" for="b_show"><span>shows</span><small>status is the current state. bars is the uptime per day. line is the response time over a day.</small></label>
+        <div class="srow-control"><select id="b_show" name="b_show">{{range .Badge.Kinds}}<option value="{{.}}"{{if eq . $.Badge.Show}} selected{{end}}>{{.}}</option>{{end}}</select></div>
+      </div>
+      {{if gt (len .Pages) 1}}
+      <div class="srow">
+        <label class="srow-copy" for="b_page"><span>status page</span><small>the badge lives under a status page that shows the monitor.</small></label>
+        <div class="srow-control"><select id="b_page" name="b_page">{{range .Pages}}<option value="{{.Slug}}"{{if eq .Slug $.Badge.Slug}} selected{{end}}>{{.Name}}</option>{{end}}</select></div>
+      </div>
+      {{end}}
+      <div class="srow">
+        <div class="srow-copy" id="b-theme-label"><span>ground</span></div>
+        <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="b-theme-label">
+          <label><input type="radio" name="b_theme" value="dark"{{if ne .Badge.Theme "light"}} checked{{end}}><span>dark</span></label><label><input type="radio" name="b_theme" value="light"{{if eq .Badge.Theme "light"}} checked{{end}}><span>light</span></label>
+        </div></div>
+      </div>
+      <div class="srow">
+        <div class="srow-copy" id="b-color-label"><span>block colour</span><small>state follows the monitor: green, red or grey.</small></div>
+        <div class="srow-control"><div class="swatches" role="radiogroup" aria-labelledby="b-color-label">
+          <label class="segmented"><input type="radio" name="b_color" value=""{{if not .Badge.Color}} checked{{end}}><span>state</span></label>
+          {{range .Badge.Swatches}}<label class="swatch swatch-{{.}}"><input type="radio" name="b_color" value="{{.}}"{{if eq (print .) $.Badge.Color}} checked{{end}}><span class="visually-hidden">hue {{.}}</span></label>{{end}}
+        </div></div>
+      </div>
+      <div class="srow">
+        <label class="srow-copy" for="b_label"><span>label</span><small>up to four letters or digits on the block. leave empty for the usual one.</small></label>
+        <div class="srow-control"><input id="b_label" name="b_label" value="{{.Badge.Label}}" maxlength="4" autocapitalize="none" spellcheck="false"></div>
+      </div>
+      <div class="srow">
+        <label class="srow-copy" for="b_days"><span>days</span><small>the window of the uptime figure, from 1 to 365. leave empty for the status page's own.</small></label>
+        <div class="srow-control"><input class="number-field" id="b_days" name="b_days" type="number" inputmode="numeric" min="1" max="365" value="{{.Badge.Days}}"></div>
+      </div>
+      <div class="srow" data-stack>
+        <span class="srow-copy"><span>code</span><small>paste this where the badge should show. the same numbers always give the same image.</small></span>
+        <code class="target">&lt;img src="{{.Badge.URL}}" width="88" height="31" alt="{{.Monitor.Name}}"&gt;</code>
+      </div>
+    </div>
+    <div class="savebar"><button class="button" type="submit">update the preview</button></div>
+  </form>
+  {{else}}
+  <p class="panel empty">a badge lives under a status page. put this monitor on a status page from that page's editor, then come back.</p>
+  {{end}}
+</div>
+{{end}}
 {{if .Editing}}
 <dialog id="delete-monitor" aria-labelledby="delete-monitor-heading">
   <h2 id="delete-monitor-heading">delete {{.Monitor.Name}}?</h2>

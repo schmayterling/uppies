@@ -3,6 +3,8 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -39,6 +41,62 @@ type monitorFormPage struct {
 	Lookback int
 	// StateIcons names the icon of the notice for each state.
 	StateIcons map[string]string
+	// Badge is the 88 by 31 badge being put together on the badges tab.
+	Badge badgeBuilder
+}
+
+// badgeBuilder holds the choices of the badge form and the address they give.
+type badgeBuilder struct {
+	Kinds    []string
+	Swatches []int
+	// The choices: the status page whose address the badge lives under, what
+	// it shows, its ground, the colour of its block, its label and its days.
+	Slug, Show, Theme, Color, Label, Days string
+	// Path is the badge's address with its options, and URL the same with this server's origin.
+	Path, URL string
+}
+
+// newBadgeBuilder reads the badge form's choices from the address and works
+// out the badge's own address. Without a status page there is no badge.
+func newBadgeBuilder(r *http.Request, monitorID int64, pages []store.Project) badgeBuilder {
+	query := r.URL.Query()
+	b := badgeBuilder{
+		Kinds: badgeKinds, Swatches: accentSwatches,
+		Show: query.Get("b_show"), Theme: query.Get("b_theme"), Color: query.Get("b_color"),
+		Label: badgeWord(query.Get("b_label"), 4), Days: query.Get("b_days"),
+	}
+	if !slices.Contains(badgeKinds, b.Show) {
+		b.Show = "status"
+	}
+	if len(pages) == 0 {
+		return b
+	}
+	b.Slug = pages[0].Slug
+	for _, page := range pages {
+		if page.Slug == query.Get("b_page") {
+			b.Slug = page.Slug
+		}
+	}
+	options := url.Values{"show": {b.Show}}
+	if b.Theme == "light" {
+		options.Set("theme", "light")
+	}
+	if _, err := strconv.Atoi(b.Color); err == nil {
+		options.Set("color", b.Color)
+	}
+	if b.Label != "" {
+		options.Set("label", b.Label)
+	}
+	if _, err := strconv.Atoi(b.Days); err == nil && b.Show == "uptime" {
+		options.Set("days", b.Days)
+	}
+	b.Path = fmt.Sprintf("/s/%s/monitors/%d/88x31.svg?%s", b.Slug, monitorID, options.Encode())
+	scheme := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	b.URL = scheme + "://" + r.Host + b.Path
+	return b
 }
 
 // stateIcons are the icons of the state notice on the monitor overview.
@@ -80,6 +138,7 @@ func (s *Server) monitorOverview(r *http.Request, page *monitorFormPage) error {
 		return err
 	}
 	page.Pages = pages[page.Monitor.ID]
+	page.Badge = newBadgeBuilder(r, page.Monitor.ID, page.Pages)
 	instance, err := s.store.Instance(ctx)
 	if err != nil {
 		return err

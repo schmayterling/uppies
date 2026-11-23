@@ -225,6 +225,24 @@ func TestMonitorDetailPagesAndBadges(t *testing.T) {
 		t.Errorf("p90 of four values is the largest: %q", p90)
 	}
 
+	// A badge can be a small chart, and can take its block colour from the address.
+	for path, want := range map[string]string{
+		public + "/88x31.svg?show=bars":          "uptime of api per day over 27 days",
+		public + "/88x31.svg?show=line":          "response time of api over 24 hours, at most",
+		public + "/88x31.svg?show=p99&color=200": "hsl(200 45% 32%)",
+	} {
+		if status, image := s.get(t, s.anonymous, path); status != http.StatusOK || !strings.Contains(image, want) {
+			t.Errorf("%s: got %d, want an image with %q", path, status, want)
+		}
+	}
+	// The monitor's admin page has a builder that turns choices into the badge's address.
+	_, builder := s.get(t, s.admin, fmt.Sprintf("/admin/monitors/%d?b_show=p95&b_theme=light&b_color=200&b_label=API!", apiID))
+	if want := public + "/88x31.svg?color=200&amp;label=api&amp;show=p95&amp;theme=light"; !strings.Contains(builder, want) {
+		t.Errorf("badge builder: the page is missing the address %q", want)
+	}
+	if _, none := s.get(t, s.admin, fmt.Sprintf("/admin/monitors/%d", hiddenID)); !strings.Contains(none, "a badge lives under a status page") {
+		t.Error("the builder of a monitor on no status page must say why there is no badge")
+	}
 	// The status page's settings list the badges of every component it shows, and of no other monitor.
 	_, badges := s.get(t, s.admin, fmt.Sprintf("/admin/projects/%d/settings", projectID))
 	if !strings.Contains(badges, public+"/88x31.svg?show=uptime") || strings.Contains(badges, fmt.Sprintf("/monitors/%d/88x31.svg", hiddenID)) {

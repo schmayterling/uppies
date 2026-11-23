@@ -189,6 +189,9 @@ type monitorPage struct {
 	Origin string
 }
 
+// badgeKinds are what a component's 88 by 31 badge can show.
+var badgeKinds = []string{"status", "uptime", "bars", "line", "p50", "p90", "p95", "p99"}
+
 // badgePercentiles maps the file names of the percentile badges to their percentile.
 var badgePercentiles = map[string]int{"p90.svg": 90, "p95.svg": 95, "p99.svg": 99}
 
@@ -246,7 +249,7 @@ func (s *Server) handleMonitorPage(w http.ResponseWriter, r *http.Request) {
 	page := monitorPage{
 		Chrome:  chrome{Title: m.Name + " · " + project.Name, Unbranded: !project.ShowPoweredBy, Favicon: s.faviconAddress(r.Context())},
 		Project: project, Monitor: m, Category: placed.Category, Images: images, Zone: zone, ZoneName: zoneName, Detail: detail,
-		Badges: []string{"status", "uptime", "p90", "p95", "p99"}, Origin: scheme + "://" + r.Host,
+		Badges: badgeKinds, Origin: scheme + "://" + r.Host,
 	}
 	page.State, page.Word = componentState(m)
 	if zoneName != project.Timezone {
@@ -298,6 +301,23 @@ func (s *Server) handleMonitorBadge(w http.ResponseWriter, r *http.Request) {
 		}
 		_, uptime := uptimeStrip(rollups, todayStartMs, days)
 		spec = uptimeSpec(m.Name, uptime, days, state)
+	case "bars":
+		todayStartMs := store.DayStartMs(nowMs)
+		rollups, err := s.store.MonitorRollups(r.Context(), m.ID, todayStartMs-int64(badgeBarDays-1)*dayMs)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		days, _ := uptimeStrip(rollups, todayStartMs, badgeBarDays)
+		spec = barsSpec(m.Name, days, state)
+	case "line":
+		firstSlotMs := (nowMs/detailBucketMs - (detailBuckets - 1)) * detailBucketMs
+		buckets, err := s.store.CheckBuckets(r.Context(), m.ID, firstSlotMs, detailBucketMs)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		spec = lineSpec(m.Name, buckets, firstSlotMs, state)
 	case "p50", "p90", "p95", "p99":
 		p, _ := strconv.Atoi(strings.TrimPrefix(show, "p"))
 		latencies, err := s.store.LatenciesSince(r.Context(), m.ID, nowMs-detailWindowMs)
