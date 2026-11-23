@@ -204,8 +204,11 @@ func TestTheEditorSavesTheLookAndTheOrderOfStatusPages(t *testing.T) {
 	}
 	move := func(id int64, direction string) {
 		t.Helper()
-		resp := s.post(t, s.admin, fmt.Sprintf("/admin/projects/%d/move", id), url.Values{"direction": {direction}}, nil)
-		if resp.StatusCode != http.StatusSeeOther {
+		sent := url.Values{direction: {strconv.FormatInt(id, 10)}}
+		for _, listed := range order() {
+			sent.Add("item", strconv.FormatInt(listed, 10))
+		}
+		if resp := s.post(t, s.admin, "/admin/projects/order", sent, nil); resp.StatusCode != http.StatusSeeOther {
 			t.Fatalf("move %d %s: got %d, want 303", id, direction, resp.StatusCode)
 		}
 	}
@@ -216,6 +219,40 @@ func TestTheEditorSavesTheLookAndTheOrderOfStatusPages(t *testing.T) {
 	move(firstID, "down")
 	if got := order(); !slices.Equal(got, []int64{secondID, firstID}) {
 		t.Fatalf("after moving the first page down: got %v, want it second", got)
+	}
+	// The status pages page lists them in that order and reorders them, by one place or as a whole list.
+	listed := func() string {
+		t.Helper()
+		status, page := s.get(t, s.admin, "/admin/projects")
+		if status != http.StatusOK {
+			t.Fatalf("status pages page: got %d, want 200", status)
+		}
+		if strings.Index(page, ">First</a>") < 0 || strings.Index(page, ">Second</a>") < 0 || !strings.Contains(page, `id="new-project"`) {
+			t.Fatal("the status pages page must list both pages and hold the new status page dialog")
+		}
+		if strings.Index(page, ">First</a>") < strings.Index(page, ">Second</a>") {
+			return "first,second"
+		}
+		return "second,first"
+	}
+	if got := listed(); got != "second,first" {
+		t.Fatalf("status pages page: got %s, want second,first", got)
+	}
+	ids := url.Values{"item": {strconv.FormatInt(secondID, 10), strconv.FormatInt(firstID, 10)}, "up": {strconv.FormatInt(firstID, 10)}}
+	if resp := s.post(t, s.admin, "/admin/projects/order", ids, nil); resp.Header.Get("Location") != "/admin/projects" {
+		t.Fatalf("move up on the list: got %d to %q, want a redirect to the list", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	if got := listed(); got != "first,second" {
+		t.Fatalf("after the arrow: got %s, want first,second", got)
+	}
+	ids = url.Values{"item": {strconv.FormatInt(secondID, 10), strconv.FormatInt(firstID, 10)}}
+	s.post(t, s.admin, "/admin/projects/order", ids, nil)
+	if got := listed(); got != "second,first" {
+		t.Fatalf("after sending the list in a new order: got %s, want second,first", got)
+	}
+	// A new status page that is refused shows its problem on this page.
+	if resp := s.post(t, s.admin, "/admin/projects", url.Values{"name": {""}, "slug": {"x"}}, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("a status page without a name: got %d, want 422", resp.StatusCode)
 	}
 	// The public list follows the same order.
 	_, list := s.get(t, s.anonymous, "/")

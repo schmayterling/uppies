@@ -53,7 +53,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 	}
 	names := []string{
 		"index.html", "status.html", "error.html", "setup.html", "login.html", "dashboard.html",
-		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "monitor.html", "alerts.html", "monitors.html", "editor.html", "appearance.html", "instance.html", "users.html",
+		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "monitor.html", "alerts.html", "monitors.html", "editor.html", "projects.html", "appearance.html", "instance.html", "users.html",
 	}
 	for _, name := range names {
 		page, err := template.New("base.html").Funcs(templateFuncs).
@@ -114,13 +114,14 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("POST /admin/users", s.handleCreateUser)
 	admin("POST /admin/users/password", s.handleChangePassword)
 	admin("POST /admin/users/{id}/delete", s.handleDeleteUser)
+	admin("GET /admin/projects", s.handleProjects)
 	admin("POST /admin/projects", s.handleCreateProject)
+	admin("POST /admin/projects/order", s.handleOrderProjects)
 	admin("GET /admin/projects/{id}", s.handleProject)
 	admin("GET /admin/projects/{id}/editor", s.handleEditor)
 	admin("POST /admin/projects/{id}/delete", s.handleDeleteProject)
 	admin("POST /admin/projects/{id}/placements", s.handleSavePlacements)
 	admin("POST /admin/projects/{id}/look", s.handleSaveLook)
-	admin("POST /admin/projects/{id}/move", s.handleMoveProject)
 	admin("POST /admin/projects/{id}/maintenance", s.handleCreateMaintenance)
 	admin("POST /admin/projects/{id}/maintenance/{window}/delete", s.handleDeleteMaintenance)
 	admin("GET /admin/projects/{id}/settings", s.handleSettings)

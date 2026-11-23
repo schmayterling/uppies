@@ -1,7 +1,7 @@
 {{define "main"}}
 <div class="editor">
   <div class="editor-controls">
-    <nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">overview</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / editor</nav>
+    <nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin/projects">status pages</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / editor</nav>
     <div class="title-row">
       <h1>editor</h1>
       <span class="actions">
@@ -31,7 +31,7 @@
           </div>
           <ol class="editor-list">
             {{range .Rows}}{{$row := .}}
-            <li class="editor-row" draggable="true" data-drag="monitor">
+            <li class="editor-row" draggable="true" data-drag="row">
               <input type="hidden" name="item" value="m:{{.ID}}">
               <span class="editor-grip" aria-hidden="true">{{template "icon" "grip"}}</span>
               <span class="editor-name">

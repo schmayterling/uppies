@@ -1,0 +1,59 @@
+{{define "main"}}
+<div class="title-row">
+  <h1>status pages</h1>
+  <button class="button" type="button" data-open-dialog="new-project">{{template "icon" "plus"}}new status page</button>
+</div>
+<p class="muted">each status page shows the monitors you put on it, with its own categories, incidents and look. their order here is their order in the sidebar and on the public list.</p>
+{{if .Rows}}
+<form method="post" action="/admin/projects/order" data-order>
+  <div class="panel table-scroll">
+  <table class="dense">
+    <thead><tr><th scope="col">status page</th><th scope="col">state</th><th scope="col" class="number">monitors</th><th scope="col">address</th><th scope="col"><span class="visually-hidden">actions</span></th></tr></thead>
+    <tbody>
+      {{range .Rows}}
+      <tr draggable="true" data-drag="row">
+        <th scope="row">
+          <input type="hidden" name="item" value="{{.ID}}">
+          <a class="with-icon" href="/admin/projects/{{.ID}}" draggable="false">{{if .LogoVersion}}<img class="nav-logo" src="/s/{{.Slug}}/images/logo?v={{.LogoVersion}}" alt="" width="16" height="16">{{else}}{{template "icon" "globe"}}{{end}}{{.Name}}</a>
+          {{with .Tagline}}<span class="meta cell-note">{{.}}</span>{{end}}
+        </th>
+        <td><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span></td>
+        <td class="number">{{.Monitors}}</td>
+        <td><a class="quiet-link target" href="/s/{{.Slug}}" draggable="false">/s/{{.Slug}}</a>{{with .Domain}}<span class="meta cell-note target">{{.}}</span>{{end}}</td>
+        <td>
+          <span class="row-actions">
+            <button class="icon-button" type="submit" name="up" value="{{.ID}}" aria-label="move {{.Name}} up">{{template "icon" "chevron-up"}}</button>
+            <button class="icon-button" type="submit" name="down" value="{{.ID}}" aria-label="move {{.Name}} down">{{template "icon" "chevron-down"}}</button>
+            <a class="button quiet" href="/admin/projects/{{.ID}}/editor" draggable="false">editor</a>
+            <a class="button quiet" href="/admin/projects/{{.ID}}/settings" draggable="false">settings</a>
+          </span>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  </div>
+</form>
+<p class="hint">drag a status page, or use its arrows, to change the order.</p>
+{{else}}
+<p class="panel empty">no status pages yet. create the first one to show your monitors to others.</p>
+{{end}}
+<dialog id="new-project" aria-labelledby="new-project-heading"{{if .Problems}} data-open-on-load{{end}}>
+  <h2 id="new-project-heading">new status page</h2>
+  <p class="muted">a status page shows the monitors you put on it, with its own incidents and look.</p>
+  <form class="form" method="post" action="/admin/projects">
+    <div class="field">
+      <label for="name">name</label>
+      <input id="name" name="name" value="{{.Name}}" required maxlength="120"{{if index .Problems "name"}} aria-invalid="true" aria-describedby="name-problem"{{end}}>
+      {{with index .Problems "name"}}<p class="problem" id="name-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="slug">address</label>
+      <input id="slug" name="slug" value="{{.Slug}}" required maxlength="64" pattern="[a-z0-9]([a-z0-9\-]*[a-z0-9])?" autocapitalize="none" spellcheck="false" aria-describedby="slug-hint{{if index .Problems "slug"}} slug-problem{{end}}"{{if index .Problems "slug"}} aria-invalid="true"{{end}}>
+      <p class="hint" id="slug-hint">the status page will live at /s/&lt;address&gt;.</p>
+      {{with index .Problems "slug"}}<p class="problem" id="slug-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="actions"><button class="button" type="submit">create status page</button><button class="button quiet" type="button" data-close-dialog>cancel</button></div>
+  </form>
+</dialog>
+{{end}}

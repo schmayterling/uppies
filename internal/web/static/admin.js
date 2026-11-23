@@ -608,7 +608,7 @@ document.addEventListener("dragover", (event) => {
     return;
   }
   const kind = draggedItem.dataset.drag;
-  const over = event.target.closest(kind === "monitor" ? "[data-drag=monitor], .empty-row" : "[data-drag=category]");
+  const over = event.target.closest(kind === "row" ? "[data-drag=row], .empty-row" : "[data-drag=category]");
   if (!over || !over.closest("form[data-order]")) {
     return;
   }

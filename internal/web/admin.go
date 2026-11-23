@@ -65,9 +65,6 @@ type dashboardPage struct {
 	Rows                             []overviewRow
 	Events                           []overviewEvent
 	HasProjects                      bool
-	Name                             string
-	Slug                             string
-	Problems                         map[string]string
 }
 
 // adminChrome builds the frame of an admin page: its title and the sidebar.
@@ -75,7 +72,7 @@ type dashboardPage struct {
 // itself still renders.
 func (s *Server) adminChrome(r *http.Request, title string) chrome {
 	sections := map[string]string{
-		"/admin": "overview", "/admin/monitors": "monitors", "/admin/alerts": "alerts", "/admin/appearance": "appearance", "/admin/instance": "instance", "/admin/users": "users",
+		"/admin": "overview", "/admin/monitors": "monitors", "/admin/alerts": "alerts", "/admin/projects": "projects", "/admin/appearance": "appearance", "/admin/instance": "instance", "/admin/users": "users",
 	}
 	c := chrome{Title: title, Admin: true, Nav: nav{Section: sections[r.URL.Path]}, Favicon: s.faviconAddress(r.Context())}
 	if instance, err := s.store.Instance(r.Context()); err != nil {
@@ -268,6 +265,84 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusOK, "dashboard.html", page)
 }
 
+// projectsPage is the data of projects.html: every status page, in order.
+type projectsPage struct {
+	Chrome chrome
+	Rows   []projectRow
+	// Name and Slug hold the new-page form's values after a failed submit.
+	Name, Slug string
+	Problems   map[string]string
+}
+
+// projectRow is one status page in the list: its state in a word, and how many monitors it shows.
+type projectRow struct {
+	store.Project
+	State       string
+	Word        string
+	Monitors    int
+	LogoVersion int64
+}
+
+func (s *Server) projectsPage(r *http.Request) (projectsPage, error) {
+	ctx := r.Context()
+	page := projectsPage{Chrome: s.adminChrome(r, "status pages")}
+	projects, err := s.store.Projects(ctx)
+	if err != nil {
+		return page, err
+	}
+	placed, err := s.store.PlacedMonitors(ctx)
+	if err != nil {
+		return page, err
+	}
+	logos, err := s.store.LogoVersions(ctx)
+	if err != nil {
+		return page, err
+	}
+	shown := make(map[int64][]store.Monitor)
+	for _, m := range placed {
+		shown[m.ProjectID] = append(shown[m.ProjectID], m.Monitor)
+	}
+	for _, p := range projects {
+		state, _ := banner(shown[p.ID], 0)
+		page.Rows = append(page.Rows, projectRow{
+			Project: p, State: state, Word: indexWords[state], Monitors: len(shown[p.ID]), LogoVersion: logos[p.ID],
+		})
+	}
+	return page, nil
+}
+
+func (s *Server) handleProjects(w http.ResponseWriter, r *http.Request) {
+	page, err := s.projectsPage(r)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	s.render(w, r, http.StatusOK, "projects.html", page)
+}
+
+// handleOrderProjects stores the order of the status pages. The form sends
+// every page's id in the order they stand in, and at most one page to move
+// up or down by one place.
+func (s *Server) handleOrderProjects(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	order := formIDs(r.PostForm["item"])
+	for field, step := range map[string]int{"up": -1, "down": 1} {
+		id, err := strconv.ParseInt(r.PostForm.Get(field), 10, 64)
+		at := slices.Index(order, id)
+		if err == nil && at >= 0 && at+step >= 0 && at+step < len(order) {
+			order[at], order[at+step] = order[at+step], order[at]
+		}
+	}
+	if err := s.store.SetProjectOrder(r.Context(), order); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/admin/projects", http.StatusSeeOther)
+}
+
 func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		s.fail(w, r, err)
@@ -298,13 +373,13 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(problems) > 0 {
-		page, err := s.dashboard(r)
+		page, err := s.projectsPage(r)
 		if err != nil {
 			s.fail(w, r, err)
 			return
 		}
 		page.Name, page.Slug, page.Problems = name, slug, problems
-		s.render(w, r, http.StatusUnprocessableEntity, "dashboard.html", page)
+		s.render(w, r, http.StatusUnprocessableEntity, "projects.html", page)
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d", id), http.StatusSeeOther)
@@ -532,7 +607,7 @@ func (s *Server) handleDeleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.monitorsChanged()
-	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/projects", http.StatusSeeOther)
 }
 
 // kindLabels names each monitor kind in the form.

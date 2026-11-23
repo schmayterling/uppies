@@ -11,7 +11,7 @@
     <thead><tr><th scope="col">monitor</th><th scope="col">state</th><th scope="col">status pages</th><th scope="col">last check</th><th scope="col" class="number">latency</th></tr></thead>
     <tbody>
       {{range .Rows}}
-      <tr draggable="true" data-drag="monitor">
+      <tr draggable="true" data-drag="row">
         <th scope="row">
           <input type="hidden" name="item" value="m:{{.ID}}">
           <a class="with-icon" href="/admin/monitors/{{.ID}}" draggable="false">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>

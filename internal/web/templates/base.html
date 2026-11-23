@@ -26,6 +26,7 @@
       <ul class="nav-list">
         <li><a class="nav-item" href="/admin" title="overview"{{if eq .Chrome.Nav.Section "overview"}} aria-current="page"{{end}}>{{template "icon" "layout-dashboard"}}<span class="nav-label">overview</span></a></li>
         <li><a class="nav-item" href="/admin/monitors" title="monitors"{{if eq .Chrome.Nav.Section "monitors"}} aria-current="page"{{end}}>{{template "icon" "activity"}}<span class="nav-label">monitors</span></a></li>
+        <li><a class="nav-item" href="/admin/projects" title="status pages"{{if eq .Chrome.Nav.Section "projects"}} aria-current="page"{{end}}>{{template "icon" "folder"}}<span class="nav-label">status pages</span></a></li>
         <li><a class="nav-item" href="/admin/alerts" title="alerts"{{if eq .Chrome.Nav.Section "alerts"}} aria-current="page"{{end}}>{{template "icon" "bell"}}<span class="nav-label">alerts</span></a></li>
         <li><a class="nav-item" href="/admin/appearance" title="appearance"{{if eq .Chrome.Nav.Section "appearance"}} aria-current="page"{{end}}>{{template "icon" "palette"}}<span class="nav-label">appearance</span></a></li>
         <li><a class="nav-item" href="/admin/instance" title="instance"{{if eq .Chrome.Nav.Section "instance"}} aria-current="page"{{end}}>{{template "icon" "server"}}<span class="nav-label">instance</span></a></li>
@@ -42,7 +43,7 @@
         {{else}}
         <li class="nav-empty nav-label">none yet</li>
         {{end}}
-        <li><a class="nav-item nav-add" href="/admin#new-project" title="new status page">{{template "icon" "plus"}}<span class="nav-label">new status page</span></a></li>
+        <li><a class="nav-item nav-add" href="/admin/projects#new-project" title="new status page">{{template "icon" "plus"}}<span class="nav-label">new status page</span></a></li>
       </ul>
     </nav>
     <div class="sidebar-foot">

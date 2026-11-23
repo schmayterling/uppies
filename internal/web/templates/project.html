@@ -1,12 +1,8 @@
 {{define "main"}}
-<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">overview</a> / {{.Project.Name}}</nav>
+<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin/projects">status pages</a> / {{.Project.Name}}</nav>
 <div class="title-row">
   <h1>{{.Project.Name}}</h1>
   <span class="actions">
-    <form class="actions" method="post" action="/admin/projects/{{.Project.ID}}/move">
-      <button class="icon-button" type="submit" name="direction" value="up" aria-label="move this status page up in the list" title="move up in the list">{{template "icon" "chevron-up"}}</button>
-      <button class="icon-button" type="submit" name="direction" value="down" aria-label="move this status page down in the list" title="move down in the list">{{template "icon" "chevron-down"}}</button>
-    </form>
     <a class="button quiet" href="/s/{{.Project.Slug}}">{{template "icon" "external-link"}}status page</a>
     <a class="button" href="/admin/projects/{{.Project.ID}}/editor">{{template "icon" "pencil"}}editor</a>
     <a class="button quiet" href="/admin/projects/{{.Project.ID}}/settings">{{template "icon" "settings"}}settings</a>

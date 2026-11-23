@@ -247,7 +247,8 @@ label.srow { cursor: pointer; }
 .update-row .update-body { font-size: var(--text-ui); }
 /* the list of all monitors is arranged by dragging: a row inside or between
    categories, a category by its name. a category with no rows shows its note. */
-[data-order] [data-drag="monitor"] { cursor: grab; }
+[data-order] [data-drag="row"] { cursor: grab; }
+.row-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-1); }
 [data-order] .dragging { opacity: 0.5; }
 .order-grip { display: inline-grid; place-items: center; margin-inline-end: var(--space-1); color: var(--muted); cursor: grab; vertical-align: middle; }
 tbody:has(> [data-drag]) > .empty-row { display: none; }
