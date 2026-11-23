@@ -30,6 +30,7 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 	})
 	s, err := New(st, slog.New(slog.NewTextHandler(t.Output(), nil)), nil, nil)
 	check(err)
+	s.now = func() time.Time { return time.Date(2026, time.January, 2, 12, 0, 0, 0, time.UTC) }
 
 	handler, err := s.Handler()
 	check(err)
@@ -94,6 +95,7 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 	}
 	create(edge, "Active network incident", "monitoring", started, true)
 	create(edge, "Unpublished incident", "investigating", started+1, false)
+	create(edge, "Earlier year incident", "resolved", time.Date(2024, time.June, 1, 0, 0, 0, 0, time.UTC).UnixMilli(), true)
 
 	for _, path := range []string{"/", "/status-pages?before=0.1"} {
 		page := get(path, http.StatusOK)
@@ -113,16 +115,33 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 		"href=\"" + olderURL + "\"",
 		"rel=\"canonical\" href=\"" + origin + "/incidents\"",
 		"Active network incident", "First tied incident",
+		`class="heat" role="img" aria-label="0 incidents in 2026`, `href="/incidents?year=2025">2025</a>`,
 	}, []string{"Unpublished incident", "Checkout &lt;orders&gt;", "Older ongoing incident"})
 
 	older := get(olderURL, http.StatusOK)
 	checkHTML(older, []string{
 		"rel=\"canonical\" href=\"" + origin + olderURL + "\"",
 		"href=\"/incidents\">newest incidents",
-		"Checkout &lt;orders&gt;", "Older ongoing incident",
+		"Checkout &lt;orders&gt;", "Older ongoing incident", "Earlier year incident",
 		"started <time datetime=\"2025-12-31T23:30:00Z\"",
 		"resolved <time datetime=\"2026-01-01T01:30:00Z\"",
 	}, []string{"First tied incident", "older incidents", "incident update body"})
+
+	year := get("/incidents?year=2025", http.StatusOK)
+	checkHTML(year, []string{
+		`class="heat" role="img" aria-label="22 incidents in 2025`, `class="heat-cell heat-2" data-tip="dec 31, 2025: 22 incidents"`,
+		`href="/incidents?year=2026">2026</a>`, `href="/incidents">all years</a>`,
+		`href="` + olderURL + `&amp;year=2025">older incidents</a>`,
+		`rel="canonical" href="` + origin + `/incidents?year=2025"`,
+	}, []string{"Unpublished incident", "Earlier year incident", "Checkout &lt;orders&gt;"})
+
+	yearOlder := get(olderURL+"&year=2025", http.StatusOK)
+	checkHTML(yearOlder, []string{
+		"Checkout &lt;orders&gt;", "Older ongoing incident",
+		`class="heat" role="img" aria-label="22 incidents in 2025`,
+		`href="/incidents?year=2025">newest incidents</a>`,
+		`rel="canonical" href="` + origin + olderURL + `&amp;year=2025"`,
+	}, []string{"Unpublished incident", "Earlier year incident", "First tied incident", "older incidents"})
 
 	instance.PublicList = false
 	check(st.SaveInstance(ctx, instance))

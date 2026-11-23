@@ -81,7 +81,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 	}
 	for _, name := range names {
 		page, err := template.New("base.html").Funcs(templateFuncs).Funcs(pageAssets).
-			ParseFS(templateFiles, "templates/base.html", "templates/index_incidents.html", "templates/"+name)
+			ParseFS(templateFiles, "templates/base.html", "templates/index_incidents.html", "templates/incident_calendar.html", "templates/"+name)
 		if err != nil {
 			return nil, err
 		}

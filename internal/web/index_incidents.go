@@ -1,8 +1,10 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -28,16 +30,27 @@ type indexIncidentHistory struct {
 type indexIncidentsArchivePage struct {
 	indexSite
 	IncidentHistory indexIncidentHistory
+	Calendar        indexIncidentCalendar
+	PrevYear        int
+	NextYear        int
+	Filtered        bool
 	HasCursor       bool
 }
 
 func (s *Server) loadIndexIncidentHistory(r *http.Request) (indexIncidentHistory, error) {
-	return s.loadIndexIncidentPage(r, store.IncidentCursor{}, indexIncidentPreviewLimit)
+	return s.loadIndexIncidentPage(r.Context(), store.IncidentCursor{}, 0, indexIncidentPreviewLimit)
 }
 
-func (s *Server) loadIndexIncidentPage(r *http.Request, before store.IncidentCursor, limit int) (indexIncidentHistory, error) {
+func (s *Server) loadIndexIncidentPage(ctx context.Context, before store.IncidentCursor, year, limit int) (indexIncidentHistory, error) {
 	var history indexIncidentHistory
-	incidents, err := s.store.PublishedIncidentSummaries(r.Context(), before, limit+1)
+	var incidents []store.PublishedIncidentSummary
+	var err error
+	if year == 0 {
+		incidents, err = s.store.PublishedIncidentSummaries(ctx, before, limit+1)
+	} else {
+		from := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
+		incidents, err = s.store.PublishedIncidentSummariesBetween(ctx, before, from.UnixMilli(), from.AddDate(1, 0, 0).UnixMilli(), limit+1)
+	}
 	if err != nil {
 		return history, err
 	}
@@ -92,8 +105,23 @@ func (s *Server) handleIndexIncidents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	before := parseIndexIncidentCursor(r.URL.Query().Get("before"))
-	history, err := s.loadIndexIncidentPage(r, before, indexIncidentArchiveLimit)
+	now := s.now().UTC()
+	query := r.URL.Query()
+	before := parseIndexIncidentCursor(query.Get("before"))
+	year, _ := strconv.Atoi(query.Get("year"))
+	if year < 2000 || year > now.Year() {
+		year = 0
+	}
+	calendarYear := year
+	if calendarYear == 0 {
+		calendarYear = now.Year()
+	}
+	history, err := s.loadIndexIncidentPage(ctx, before, year, indexIncidentArchiveLimit)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	calendar, err := s.loadIndexCalendar(ctx, calendarYear, now)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -103,7 +131,7 @@ func (s *Server) handleIndexIncidents(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	rows, err := s.indexRows(ctx, projects, s.now().UnixMilli(), false)
+	rows, err := s.indexRows(ctx, projects, now.UnixMilli(), false)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -113,13 +141,27 @@ func (s *Server) handleIndexIncidents(w http.ResponseWriter, r *http.Request) {
 		indexSite: s.newIndexSite(ctx, instance, state, instance.Name+" incident history",
 			"Incident history across the status pages for "+instance.Name+"."),
 		IncidentHistory: history,
+		Calendar:        calendar,
+		Filtered:        year != 0,
 		HasCursor:       before.ID != 0,
+	}
+	if calendarYear > 2000 {
+		page.PrevYear = calendarYear - 1
+	}
+	if calendarYear < now.Year() {
+		page.NextYear = calendarYear + 1
 	}
 	canonical := publicOrigin(r, instance.PublicURL)
 	canonical.Path = "/incidents"
-	if page.HasCursor {
-		canonical.RawQuery = "before=" + indexIncidentCursorValue(before)
+	params := make(url.Values)
+	if page.Filtered {
+		params.Set("year", strconv.Itoa(year))
+		page.Chrome.Title += " " + strconv.Itoa(year)
 	}
+	if page.HasCursor {
+		params.Set("before", indexIncidentCursorValue(before))
+	}
+	canonical.RawQuery = params.Encode()
 	page.Chrome.setPublicMetadata(canonical, instance.Name, false)
 	s.render(w, r, http.StatusOK, "index_incidents_archive.html", page)
 }

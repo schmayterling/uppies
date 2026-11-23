@@ -4,12 +4,29 @@
 <header class="page-head">
   <h1>incident history</h1>
 </header>
-{{template "index-incident-rows" .IncidentHistory}}
-{{if or .HasCursor .IncidentHistory.Older}}
-<nav class="actions pager" aria-label="pages of the incident history">
-  {{if .HasCursor}}<a class="button quiet" href="/incidents">newest incidents</a>{{end}}
-  {{with .IncidentHistory.Older}}<a class="button quiet" href="/incidents?before={{.}}">older incidents</a>{{end}}
-</nav>
-{{end}}
+<section aria-labelledby="map-heading">
+  <div class="title-row">
+    <h2 id="map-heading">{{.Calendar.Year}}</h2>
+    <nav class="actions" aria-label="years">
+      {{if .PrevYear}}<a class="button quiet" href="/incidents?year={{.PrevYear}}">{{.PrevYear}}</a>{{end}}
+      {{if .NextYear}}<a class="button quiet" href="/incidents?year={{.NextYear}}">{{.NextYear}}</a>{{end}}
+      {{if .Filtered}}<a class="button quiet" href="/incidents">all years</a>{{end}}
+    </nav>
+  </div>
+  {{template "incident-calendar" .Calendar}}
+</section>
+
+<section aria-labelledby="list-heading">
+  <div class="title-row title-ruled">
+    <h2 id="list-heading">{{if .Filtered}}incidents in {{.Calendar.Year}}{{else}}all incidents{{end}}</h2>
+  </div>
+  {{template "index-incident-rows" .IncidentHistory}}
+  {{if or .HasCursor .IncidentHistory.Older}}
+  <nav class="actions pager" aria-label="pages of the incident history">
+    {{if .HasCursor}}<a class="button quiet" href="/incidents{{if .Filtered}}?year={{.Calendar.Year}}{{end}}">newest incidents</a>{{end}}
+    {{with .IncidentHistory.Older}}<a class="button quiet" href="/incidents?before={{.}}{{if $.Filtered}}&amp;year={{$.Calendar.Year}}{{end}}">older incidents</a>{{end}}
+  </nav>
+  {{end}}
+</section>
 {{template "index-footer" .}}
 {{end}}
