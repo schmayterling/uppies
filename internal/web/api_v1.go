@@ -54,6 +54,9 @@ func (s *Server) registerAPI(mux *http.ServeMux) {
 		{"GET /api/v1/status-pages/{id}/maintenance/{window}", maintenanceRead, s.apiReadMaintenance},
 		{"PATCH /api/v1/status-pages/{id}/maintenance/{window}", maintenanceUpdate, s.apiUpdateMaintenance},
 		{"DELETE /api/v1/status-pages/{id}/maintenance/{window}", maintenanceDelete, s.apiDeleteMaintenance},
+		{"POST /api/v1/status-pages/{id}/maintenance/{window}/end", maintenanceUpdate, s.apiEndMaintenance},
+		{"GET /api/v1/status-pages/{id}/maintenance/{window}/updates", maintenanceRead, s.apiListMaintenanceUpdates},
+		{"POST /api/v1/status-pages/{id}/maintenance/{window}/updates", maintenanceUpdate, s.apiAddMaintenanceUpdate},
 		{"GET /api/v1/status-pages/{id}/incidents", incidentsRead, s.apiListIncidents},
 		{"POST /api/v1/status-pages/{id}/incidents", incidentsCreate, s.apiCreateIncident},
 		{"GET /api/v1/status-pages/{id}/incidents/{incident}", incidentsRead, s.apiReadIncident},
@@ -190,6 +193,8 @@ func (s *Server) apiFailure(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		s.apiError(w, r, http.StatusNotFound, "not_found", "The requested resource was not found.")
+	case errors.Is(err, store.ErrMaintenanceNotStarted):
+		s.apiError(w, r, http.StatusConflict, "maintenance_not_started", "The maintenance window has not started.")
 	case errors.Is(err, store.ErrUnknownMonitor):
 		s.apiError(w, r, http.StatusUnprocessableEntity, "unknown_monitor", "A referenced monitor is unavailable for this resource.")
 	case errors.Is(err, store.ErrUnknownChannel):

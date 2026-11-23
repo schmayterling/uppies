@@ -501,6 +501,26 @@ alter table projects add column navbar_link text not null default 'status'
 alter table projects add column announcement text not null default '' check (length(announcement) <= 1000);
 alter table projects add column announcement_color text not null default '' check (announcement_color in ('', 'blue', 'green', 'amber', 'red', 'neutral', 'accent'));
 `,
+	// Step 25 adds monitor scope, open-ended maintenance, and window updates.
+	`
+alter table maintenance_windows add column scoped integer not null default 0 check (scoped in (0, 1));
+alter table maintenance_windows add column until_further_notice integer not null default 0 check (until_further_notice in (0, 1));
+
+create table maintenance_window_monitors (
+	window_id integer not null references maintenance_windows(id) on delete cascade,
+	monitor_id integer not null references monitors(id) on delete cascade,
+	primary key (window_id, monitor_id)
+) strict;
+create index maintenance_window_monitors_monitor on maintenance_window_monitors(monitor_id);
+
+create table maintenance_updates (
+	id integer primary key,
+	window_id integer not null references maintenance_windows(id) on delete cascade,
+	body text not null check (length(body) between 1 and 5000),
+	at_ms integer not null
+) strict;
+create index maintenance_updates_window on maintenance_updates(window_id, id);
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

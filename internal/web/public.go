@@ -108,7 +108,9 @@ type statusPage struct {
 
 type maintenanceView struct {
 	store.MaintenanceWindow
-	Running bool
+	Running  bool
+	Affected []string
+	Updates  []store.MaintenanceUpdate
 }
 
 type indexPage struct {
@@ -425,6 +427,15 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 		return statusPage{}, err
 	}
 	zone, zoneName := pageZone(project, askedZone)
+	nowMs := s.now().UnixMilli()
+	windows, err := s.store.MaintenanceWindows(ctx, project.ID, nowMs)
+	if err != nil {
+		return statusPage{}, err
+	}
+	updates, err := s.store.RecentMaintenanceUpdates(ctx, windows)
+	if err != nil {
+		return statusPage{}, err
+	}
 
 	page := statusPage{
 		Chrome: chrome{
@@ -442,18 +453,40 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 		page.TZ = zoneName
 	}
 	names := make(map[int64]string, len(monitors))
+	for _, m := range monitors {
+		names[m.ID] = m.Name
+	}
+	resting := make(map[int64]bool)
+	allResting := false
+	for _, w := range windows {
+		running := w.RunningAt(nowMs)
+		view := maintenanceView{MaintenanceWindow: w, Running: running, Updates: updates[w.ID]}
+		allResting = allResting || (running && !w.Scoped)
+		for _, id := range w.MonitorIDs {
+			if name, placed := names[id]; placed {
+				view.Affected = append(view.Affected, name)
+				resting[id] = resting[id] || running
+			}
+		}
+		page.Maintenance = append(page.Maintenance, view)
+	}
 	var counted []store.Monitor
 	excluded := make(map[int64]bool)
+	restingContributor := false
 	lastCategory := ""
 	for _, m := range monitors {
-		if m.ExcludeFromStatus {
+		underMaintenance := allResting || resting[m.ID]
+		if m.ExcludeFromStatus || underMaintenance {
 			excluded[m.ID] = true
+			restingContributor = restingContributor || !m.ExcludeFromStatus
 		} else {
 			counted = append(counted, m.Monitor)
 		}
 		page.LastCheckAtMs = max(page.LastCheckAtMs, m.LastCheckAtMs)
-		names[m.ID] = m.Name
 		state, word := componentState(m.Monitor)
+		if underMaintenance {
+			state, word = stateNone, "under maintenance"
+		}
 		days, uptime := uptimeStrip(rollups[m.ID], todayStartMs, project.HistoryDays)
 		backfillDays(days, project.Backfill)
 		view := componentView{ID: m.ID, Name: m.Name, State: state, Word: word, Days: days, Uptime: uptime, Display: m.Display}
@@ -494,23 +527,9 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 	page.Calm = !slices.ContainsFunc(page.Recent, func(g dayGroup) bool { return g.QuietDays == 0 })
 	// Saved links were checked when they were saved, so a problem here is not expected and shows none.
 	page.NavLinks, _ = parseNavLinks(project.NavLinks)
-	nowMs := s.now().UnixMilli()
-	windows, err := s.store.MaintenanceWindows(ctx, project.ID, nowMs)
-	if err != nil {
-		return statusPage{}, err
-	}
-	resting := false
-	for _, w := range windows {
-		running := w.StartsAtMs <= nowMs
-		resting = resting || running
-		page.Maintenance = append(page.Maintenance, maintenanceView{MaintenanceWindow: w, Running: running})
-	}
 	page.Overall = overall(counted, countedIncidents)
-	if resting {
+	if allResting || (restingContributor && len(counted) == 0) {
 		page.Overall = overallMaintenance
-		for i := range page.Components {
-			page.Components[i].State, page.Components[i].Word = stateNone, "under maintenance"
-		}
 	}
 	page.BannerState, page.BannerText = overallViews[page.Overall].state, overallViews[page.Overall].text
 	page.BannerIcon = overallIcons[page.Overall]

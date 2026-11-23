@@ -57,7 +57,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 	}
 	names := []string{
 		"index.html", "status.html", "error.html", "setup.html", "login.html", "dashboard.html",
-		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "monitor.html", "alerts.html", "monitors.html", "editor.html", "projects.html", "appearance.html", "instance.html", "users.html", "api_tokens.html",
+		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "monitor.html", "alerts.html", "monitors.html", "maintenance.html", "maintenance_history.html", "editor.html", "projects.html", "appearance.html", "instance.html", "users.html", "api_tokens.html",
 	}
 	icons, err := staticFiles.ReadFile("static/icons.svg")
 	if err != nil {
@@ -155,7 +155,11 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("POST /admin/projects/{id}/delete", s.handleDeleteProject)
 	admin("POST /admin/projects/{id}/placements", s.handleSavePlacements)
 	admin("POST /admin/projects/{id}/look", s.handleSaveLook)
+	admin("GET /admin/projects/{id}/maintenance", s.handleMaintenanceHistory)
 	admin("POST /admin/projects/{id}/maintenance", s.handleCreateMaintenance)
+	admin("GET /admin/projects/{id}/maintenance/{window}", s.handleMaintenanceWindow)
+	admin("POST /admin/projects/{id}/maintenance/{window}/end", s.handleEndMaintenance)
+	admin("POST /admin/projects/{id}/maintenance/{window}/updates", s.handleAddMaintenanceUpdate)
 	admin("POST /admin/projects/{id}/maintenance/{window}/delete", s.handleDeleteMaintenance)
 	admin("GET /admin/projects/{id}/settings", s.handleSettings)
 	admin("POST /admin/projects/{id}/settings", s.handleUpdateSettings)

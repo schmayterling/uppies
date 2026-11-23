@@ -433,9 +433,11 @@ var eventWords = map[string]string{
 
 // maintenanceForm holds the new-window form as typed.
 type maintenanceForm struct {
-	Title  string
-	Starts string
-	Ends   string
+	Title              string
+	Starts             string
+	Ends               string
+	UntilFurtherNotice bool
+	MonitorIDs         []int64
 }
 
 // dateTimeLayout is what a datetime-local input submits.
@@ -461,25 +463,36 @@ func (s *Server) handleCreateMaintenance(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	form := maintenanceForm{
-		Title:  strings.TrimSpace(r.PostForm.Get("title")),
-		Starts: r.PostForm.Get("starts"),
-		Ends:   r.PostForm.Get("ends"),
+		Title:              strings.TrimSpace(r.PostForm.Get("title")),
+		Starts:             r.PostForm.Get("starts"),
+		Ends:               r.PostForm.Get("ends"),
+		UntilFurtherNotice: r.PostForm.Get("until_further_notice") == "1",
 	}
 	problems := make(map[string]string)
-	if form.Title == "" || len(form.Title) > 200 {
+	selected, err := apiIDs("monitor_ids", r.PostForm["monitor"])
+	if err != nil {
+		problems["monitor_ids"] = "choose monitors from this status page."
+	}
+	form.MonitorIDs = selected
+	if apiText("title", form.Title, 1, 200) != nil {
 		problems["title"] = "give the window a title of 1 to 200 characters."
 	}
 	starts, err := time.ParseInLocation(dateTimeLayout, form.Starts, page.Zone)
 	if err != nil {
 		problems["starts"] = "choose when it starts."
 	}
-	ends, err := time.ParseInLocation(dateTimeLayout, form.Ends, page.Zone)
-	if err != nil {
-		problems["ends"] = "choose when it ends."
-	} else if !ends.After(starts) {
-		problems["ends"] = "the end must be after the start."
-	} else if !ends.After(s.now()) {
-		problems["ends"] = "the end is already in the past."
+	now := s.now()
+	var ends time.Time
+	if !form.UntilFurtherNotice {
+		ends, err = time.ParseInLocation(dateTimeLayout, form.Ends, page.Zone)
+		switch {
+		case err != nil:
+			problems["ends"] = "choose when it ends."
+		case !ends.After(starts):
+			problems["ends"] = "the end must be after the start."
+		case !ends.After(now):
+			problems["ends"] = "the end is already in the past."
+		}
 	}
 	if len(problems) > 0 {
 		page.Window, page.Problems = form, problems
@@ -488,29 +501,34 @@ func (s *Server) handleCreateMaintenance(w http.ResponseWriter, r *http.Request)
 	}
 	window := store.MaintenanceWindow{
 		ProjectID: page.Project.ID, Title: form.Title, StartsAtMs: starts.UnixMilli(), EndsAtMs: ends.UnixMilli(),
+		UntilFurtherNotice: form.UntilFurtherNotice, MonitorIDs: selected,
 	}
-	if _, err := s.store.CreateMaintenanceWindow(r.Context(), window, s.now().UnixMilli()); err != nil {
+	_, err = s.store.CreateMaintenanceWindow(r.Context(), window, now.UnixMilli())
+	if errors.Is(err, store.ErrUnknownMonitor) {
+		problems["monitor_ids"] = "choose monitors from this status page."
+		page.Window, page.Problems = form, problems
+		s.render(w, r, http.StatusUnprocessableEntity, "project.html", page)
+		return
+	}
+	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
+	s.monitorsChanged()
 	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d#maintenance-heading", page.Project.ID), http.StatusSeeOther)
 }
 
 func (s *Server) handleDeleteMaintenance(w http.ResponseWriter, r *http.Request) {
-	id, err := pathID(r)
+	id, windowID, err := maintenanceAdminIDs(r)
 	if err != nil {
 		s.fail(w, r, err)
-		return
-	}
-	windowID, err := strconv.ParseInt(r.PathValue("window"), 10, 64)
-	if err != nil {
-		s.fail(w, r, store.ErrNotFound)
 		return
 	}
 	if err := s.store.DeleteMaintenanceWindow(r.Context(), id, windowID); err != nil {
 		s.fail(w, r, err)
 		return
 	}
+	s.monitorsChanged()
 	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d#maintenance-heading", id), http.StatusSeeOther)
 }
 

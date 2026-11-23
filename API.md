@@ -103,6 +103,9 @@ field-specific validation. Branch on the status or code.
 | `GET /status-pages/{page}/maintenance/{window}` | `maintenance:read` |
 | `PATCH /status-pages/{page}/maintenance/{window}` | `maintenance:update` |
 | `DELETE /status-pages/{page}/maintenance/{window}` | `maintenance:delete` |
+| `POST /status-pages/{page}/maintenance/{window}/end` | `maintenance:update` |
+| `GET /status-pages/{page}/maintenance/{window}/updates` | `maintenance:read` |
+| `POST /status-pages/{page}/maintenance/{window}/updates` | `maintenance:update` |
 | `GET /status-pages/{page}/incidents` | `incidents:read` |
 | `POST /status-pages/{page}/incidents` | `incidents:create` |
 | `GET /status-pages/{page}/incidents/{incident}` | `incidents:read` |
@@ -203,12 +206,23 @@ send alerts.
 
 ## Maintenance
 
-Maintenance windows belong to a status page. Reads include `id`,
-`status_page_id`, `title`, `starts_at` and `ends_at`. The collection
-includes past windows. POST requires a title (1–200 characters) and both
-timestamps. PATCH accepts any of those three fields. For a new or rescheduled
-window, the end must follow the start and be in the future. A window affects
-monitors displayed on its page according to Uppies' maintenance rules.
+Maintenance windows belong to a status page. The collection includes past
+windows. POST requires a title (1–200 characters), `starts_at`, and either a
+future `ends_at` after the start or `until_further_notice: true`. Open-ended
+windows return `ends_at: null`. Send a scheduled `ends_at` to give one a fixed
+end. PATCH preserves omitted fields.
+
+Set `monitor_ids` to a list of distinct IDs on the page to scope the window.
+Omit it on create or send an empty array to cover all page monitors. Reads
+include `all_monitors`, `monitor_ids`, and `until_further_notice` alongside
+the original window fields. Removing a selected monitor does not broaden
+the scope.
+
+POST to `/end` with no body or `{}` to end a running window. An already ended
+window succeeds without changing its end. An upcoming window returns `409`.
+GET `/updates` lists dated messages (`id`, `body`, `at`), including after
+the window ends. POST a `body` of 1–5,000 characters to add an update, returning
+`204`. Deleting a window removes its updates.
 
 ## Incidents
 

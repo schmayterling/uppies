@@ -28,7 +28,9 @@
     {{range .Maintenance}}
     <li class="incident maintenance{{if .Running}} maintenance-now{{end}}">
       <h3>{{.Title}}{{if .Running}} <span class="chip">under way</span>{{end}}</h3>
-      <p class="meta"><time datetime="{{rfc3339 .StartsAtMs}}">{{local $.Zone .StartsAtMs}}</time> to <time datetime="{{rfc3339 .EndsAtMs}}">{{local $.Zone .EndsAtMs}}</time></p>
+      <p class="meta">{{template "maintenance-dates" (pair . $.Zone)}}</p>
+      {{if .Affected}}<p class="chips">{{range .Affected}}<span class="chip chip-plain">{{.}}</span>{{end}}</p>{{end}}
+      {{if .Updates}}{{template "maintenance-updates" (pair .Updates $.Zone)}}{{end}}
     </li>
     {{end}}
   </ul>

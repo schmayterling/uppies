@@ -993,6 +993,73 @@ func TestPlannedMaintenanceIsAnnouncedAndShownWhileRunning(t *testing.T) {
 	}
 }
 
+func TestScopedMaintenanceNoticeAndEndedHistory(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitor := defaultMonitor()
+	monitor.Name, monitor.Target = "api", "https://example.test"
+	selected, err := s.createShown(ctx, projectID, monitor, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitor.Name = "web"
+	uncovered, err := s.createShown(ctx, projectID, monitor, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	for id, state := range map[int64]health.Status{selected: health.Down, uncovered: health.Up} {
+		result := store.CheckResult{MonitorID: id, AtMs: now.UnixMilli(), OK: state == health.Up,
+			Step: health.Step{Tracker: health.Tracker{Status: state}}}
+		if err := s.store.RecordCheck(ctx, result); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	collection := fmt.Sprintf("/admin/projects/%d/maintenance", projectID)
+	form := url.Values{"title": {"Open database work"}, "starts": {now.Add(-time.Hour).Format(dateTimeLayout)},
+		"until_further_notice": {"1"}, "monitor": {strconv.FormatInt(selected, 10)}}
+	if response := s.post(t, s.admin, collection, form, nil); response.StatusCode != http.StatusSeeOther {
+		t.Fatalf("scoped open window: got %d, want 303", response.StatusCode)
+	}
+	window := collection + "/1"
+	update := url.Values{"body": {"The first task has finished."}}
+	if response := s.post(t, s.admin, window+"/updates", update, nil); response.StatusCode != http.StatusSeeOther {
+		t.Fatalf("add update: got %d, want 303", response.StatusCode)
+	}
+	_, public := s.get(t, s.anonymous, "/s/acme")
+	if !strings.Contains(public, "everything is up.") || strings.Count(public, "under maintenance") != 1 ||
+		!strings.Contains(public, "until further notice") || !strings.Contains(public, "The first task has finished.") {
+		t.Fatal("scoped notice did not mask just the selected monitor and show its update")
+	}
+
+	if err := s.store.SetPlacements(ctx, projectID, []store.Placement{
+		{MonitorID: selected}, {MonitorID: uncovered, ExcludeFromStatus: true},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_, public = s.get(t, s.anonymous, "/s/acme")
+	if !strings.Contains(public, "planned maintenance is under way.") {
+		t.Fatal("the only contributing monitor is covered, so the page should say maintenance")
+	}
+	if response := s.post(t, s.admin, window+"/end", nil, nil); response.StatusCode != http.StatusSeeOther {
+		t.Fatalf("end window: got %d, want 303", response.StatusCode)
+	}
+	_, public = s.get(t, s.anonymous, "/s/acme")
+	if strings.Contains(public, "Open database work") || !strings.Contains(public, "everything is down.") {
+		t.Fatal("ending the window did not restore component status and retire the notice")
+	}
+	_, history := s.get(t, s.admin, collection)
+	_, detail := s.get(t, s.admin, window)
+	if !strings.Contains(history, "Open database work") || !strings.Contains(detail, "The first task has finished.") {
+		t.Fatal("ended window and its update are missing from admin history")
+	}
+}
+
 func TestOverviewSumsUpEveryProject(t *testing.T) {
 	ctx := context.Background()
 	s := newSite(t)

@@ -1,4 +1,4 @@
--- Fresh Uppies schema, version 24.
+-- Fresh Uppies schema, version 25.
 create table if not exists projects (
 	id integer primary key,
 	slug text not null unique check (length(slug) between 1 and 64),
@@ -175,10 +175,29 @@ create table if not exists maintenance_windows (
 	title text not null check (length(title) between 1 and 200),
 	starts_at_ms integer not null,
 	ends_at_ms integer not null check (ends_at_ms > starts_at_ms),
-	created_at_ms integer not null
+	created_at_ms integer not null,
+	scoped integer not null default 0 check (scoped in (0, 1)),
+	until_further_notice integer not null default 0 check (until_further_notice in (0, 1))
 ) strict;
 
 create index if not exists maintenance_windows_project on maintenance_windows(project_id, ends_at_ms);
+
+create table if not exists maintenance_window_monitors (
+	window_id integer not null references maintenance_windows(id) on delete cascade,
+	monitor_id integer not null references monitors(id) on delete cascade,
+	primary key (window_id, monitor_id)
+) strict;
+
+create index if not exists maintenance_window_monitors_monitor on maintenance_window_monitors(monitor_id);
+
+create table if not exists maintenance_updates (
+	id integer primary key,
+	window_id integer not null references maintenance_windows(id) on delete cascade,
+	body text not null check (length(body) between 1 and 5000),
+	at_ms integer not null
+) strict;
+
+create index if not exists maintenance_updates_window on maintenance_updates(window_id, id);
 
 create table if not exists instance_settings (
 	key text primary key,

@@ -11,8 +11,9 @@ Uppies is under active development. See "Not built yet" for planned features.
   you set per monitor.
 - Watches scheduled jobs: a push monitor goes down when a job stops reporting in.
 - Warns 14, 7, 3 and 1 days before the certificate of an HTTPS target expires.
-- Takes planned maintenance windows. Nothing is checked during one, so it
-  neither alerts nor counts as downtime, and the status page announces it.
+- Schedules maintenance for a whole status page or selected monitors. Checks
+  pause for the covered monitors. Windows can have a fixed end time or run
+  until you end them, and the status page shows their timestamped updates.
 - Waits for retries before it calls something down, and for good checks before
   it calls it up again, so one failed request does not raise an alarm.
 - Serves one public status page per project at `/s/<address>`, with a 90-day

@@ -73,23 +73,25 @@
 <section aria-labelledby="maintenance-heading">
   <div class="title-row">
     <h2 id="maintenance-heading">planned maintenance</h2>
-    <button class="button quiet" type="button" data-open-dialog="plan-maintenance">{{template "icon" "wrench"}}plan maintenance</button>
+    <span class="actions">
+      <a class="button quiet" href="/admin/projects/{{.Project.ID}}/maintenance" aria-label="maintenance history">history</a>
+      <button class="button quiet" type="button" data-open-dialog="plan-maintenance">{{template "icon" "wrench"}}plan maintenance</button>
+    </span>
   </div>
   {{if .Maintenance}}
   <ul class="panel list">
     {{range .Maintenance}}
     <li class="list-row">
-      <span>{{.Title}} <span class="meta"><time datetime="{{rfc3339 .StartsAtMs}}">{{local $.Zone .StartsAtMs}}</time> to <time datetime="{{rfc3339 .EndsAtMs}}">{{local $.Zone .EndsAtMs}}</time></span></span>
-      <form method="post" action="/admin/projects/{{$.Project.ID}}/maintenance/{{.ID}}/delete"><button class="button quiet" type="submit">remove</button></form>
+      <span><a href="/admin/projects/{{$.Project.ID}}/maintenance/{{.ID}}">{{.Title}}</a> <span class="meta">{{template "maintenance-dates" (pair . $.Zone)}}</span></span>
     </li>
     {{end}}
   </ul>
   {{else}}
-  <p class="panel empty">nothing planned. during a window nothing is checked, so nothing alerts or counts as downtime.</p>
+  <p class="panel empty">nothing planned.</p>
   {{end}}
   <dialog id="plan-maintenance" aria-labelledby="plan-maintenance-heading"{{if .Problems}} data-open-on-load{{end}}>
   <h2 id="plan-maintenance-heading">plan maintenance</h2>
-  <p class="muted">nothing is checked during the window, and the status page announces it ahead of time.</p>
+  <p class="muted">the status page announces the window. checks pause for the monitors it covers.</p>
   <form class="form" method="post" action="/admin/projects/{{.Project.ID}}/maintenance">
     <div class="field">
       <label for="window-title">what is planned</label>
@@ -104,9 +106,21 @@
     </div>
     <div class="field">
       <label for="window-ends">ends</label>
-      <input id="window-ends" name="ends" type="datetime-local" value="{{.Window.Ends}}" required{{if index .Problems "ends"}} aria-invalid="true" aria-describedby="window-ends-problem"{{end}}>
+      <input id="window-ends" name="ends" type="datetime-local" value="{{.Window.Ends}}" aria-describedby="window-ends-hint{{if index .Problems "ends"}} window-ends-problem{{end}}"{{if index .Problems "ends"}} aria-invalid="true"{{end}}>
+      <p class="hint" id="window-ends-hint">used for a window with a fixed end time.</p>
       {{with index .Problems "ends"}}<p class="problem" id="window-ends-problem">{{.}}</p>{{end}}
     </div>
+    <label class="check"><input type="checkbox" name="until_further_notice" value="1"{{if .Window.UntilFurtherNotice}} checked{{end}}> until further notice</label>
+    {{if .Monitors}}
+    <fieldset class="field" aria-describedby="window-monitors-hint{{if index .Problems "monitor_ids"}} window-monitors-problem{{end}}">
+      <legend>affected monitors</legend>
+      <p class="hint" id="window-monitors-hint">leave all unchecked to cover every monitor on this page.</p>
+      <div class="checks">
+        {{range .Monitors}}<label class="check"><input type="checkbox" name="monitor" value="{{.ID}}"{{if contains $.Window.MonitorIDs .ID}} checked{{end}}> {{.Name}}</label>{{end}}
+      </div>
+    </fieldset>
+    {{end}}
+    {{with index .Problems "monitor_ids"}}<p class="problem" id="window-monitors-problem">{{.}}</p>{{end}}
     <div class="actions"><button class="button" type="submit">plan maintenance</button><button class="button quiet" type="button" data-close-dialog>cancel</button></div>
   </form>
   </dialog>

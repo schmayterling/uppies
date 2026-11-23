@@ -1,0 +1,51 @@
+{{define "main"}}
+<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">overview</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / <a href="/admin/projects/{{.Project.ID}}/maintenance">maintenance</a></nav>
+<div class="title-row">
+  <h1>{{.Window.Title}}</h1>
+  <span class="actions">
+    {{if .Window.Running}}<form method="post" action="/admin/projects/{{.Project.ID}}/maintenance/{{.Window.ID}}/end"><button class="button" type="submit">end maintenance</button></form>{{end}}
+    <button class="button quiet" type="button" data-open-dialog="delete-maintenance">{{template "icon" "trash"}}remove</button>
+  </span>
+</div>
+<ul class="facts">
+  <li><strong>{{if .Ended}}ended{{else if .Window.Running}}under way{{else}}scheduled{{end}}</strong></li>
+  <li>{{template "maintenance-dates" (pair .Window .Zone)}}</li>
+  <li>{{if not .Window.Scoped}}all monitors on this page{{else if .Window.Affected}}affects <strong>{{range $i, $name := .Window.Affected}}{{if $i}}, {{end}}{{$name}}{{end}}</strong>{{else}}none of the selected monitors are on this page.{{end}}</li>
+</ul>
+
+<section aria-labelledby="updates-heading">
+  <div class="title-row">
+    <h2 id="updates-heading">updates</h2>
+    <button class="button quiet" type="button" data-open-dialog="add-maintenance-update">{{template "icon" "plus"}}add update</button>
+  </div>
+  {{if .Window.Updates}}
+  <div class="incident">{{template "maintenance-updates" (pair .Window.Updates .Zone)}}</div>
+  {{else}}<p class="panel empty">no updates yet.</p>{{end}}
+  {{if or .Before .OlderID}}
+  <nav class="actions" aria-label="maintenance update pages">
+    {{if .Before}}<a class="button quiet" href="/admin/projects/{{.Project.ID}}/maintenance/{{.Window.ID}}#updates-heading">newest</a>{{end}}
+    {{if .OlderID}}<a class="button quiet" href="?before={{.OlderID}}#updates-heading">older</a>{{end}}
+  </nav>
+  {{end}}
+</section>
+
+<dialog id="add-maintenance-update" aria-labelledby="maintenance-update-heading"{{if .Problem}} data-open-on-load{{end}}>
+  <h2 id="maintenance-update-heading">add an update</h2>
+  <form class="form" method="post" action="/admin/projects/{{.Project.ID}}/maintenance/{{.Window.ID}}/updates">
+    <div class="field">
+      <label for="maintenance-update-body">message</label>
+      <textarea id="maintenance-update-body" name="body" maxlength="5000" rows="4" required{{if .Problem}} aria-invalid="true" aria-describedby="maintenance-update-problem"{{end}}>{{.Draft}}</textarea>
+      {{if .Problem}}<p class="problem" id="maintenance-update-problem">{{.Problem}}</p>{{end}}
+    </div>
+    <div class="actions"><button class="button" type="submit">add update</button><button class="button quiet" type="button" data-close-dialog>cancel</button></div>
+  </form>
+</dialog>
+
+<dialog id="delete-maintenance" aria-labelledby="delete-maintenance-heading">
+  <h2 id="delete-maintenance-heading">remove maintenance?</h2>
+  <p>this removes the window and all its updates.</p>
+  <form class="actions" method="post" action="/admin/projects/{{.Project.ID}}/maintenance/{{.Window.ID}}/delete">
+    <button class="button danger" type="submit">remove maintenance</button><button class="button quiet" type="button" data-close-dialog>cancel</button>
+  </form>
+</dialog>
+{{end}}
