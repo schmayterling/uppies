@@ -21,8 +21,11 @@ and several planned features are missing (see "Not built yet").
   webhook (JSON), Discord or Slack. The alert says what failed, why, and on
   recovery for how long.
 - Lets you shape each status page: tagline, link to your homepage, accent
-  colour, light or dark theme, 30, 60 or 90 days of history, your own CSS, and
-  which monitors are shown.
+  colour, light or dark theme, 30, 60 or 90 days of history, timezone, footer
+  text, your own CSS, and which monitors are shown. A page can live on its own
+  domain, drop the "powered by" line and ask search engines to stay away.
+- Serves a status badge per project at `/s/<address>/badge.svg` for readmes
+  and other sites.
 - Runs as one binary and stores everything in one SQLite file.
 
 ## Run it
@@ -42,6 +45,10 @@ uppies cannot tell you that it has stopped running itself. To cover that, pass
 `-heartbeat-url` with the address of an outside service that expects a request
 every minute and alerts you when the requests stop.
 
+To serve a status page on its own domain, enter the hostname in the project's
+settings and point that hostname at uppies through your reverse proxy. The
+proxy must pass the original `Host` header on.
+
 Put a reverse proxy with TLS in front of uppies before you expose it to the
 internet. The proxy must set the `X-Forwarded-Proto` header so that the
 session cookie is marked secure.
@@ -57,8 +64,8 @@ go build ./... && go vet ./... && go test -race ./...
 ## Not built yet
 
 Email alerts, scheduled maintenance, the config file mode, the REST API, ping,
-DNS and push monitors, certificate expiry warnings, custom domains and logos
-for status pages, and a Docker image.
+DNS and push monitors, certificate expiry warnings, logos and favicons for
+status pages, alert message templates, other languages, and a Docker image.
 
 ## License
 
