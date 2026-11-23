@@ -1,15 +1,16 @@
 {{define "main"}}
-<h1 class="wordmark-title">uppies</h1>
-<form class="form narrow" method="post" action="/admin/login">
+<h1>sign in</h1>
+<p class="muted">to manage your monitors and status pages.</p>
+<form class="form" method="post" action="/admin/login">
   {{with .Problem}}<p class="problem" role="alert">{{.}}</p>{{end}}
   <div class="field">
     <label for="username">username</label>
-    <input id="username" name="username" value="{{.Username}}" autocomplete="username" required maxlength="64">
+    <input id="username" name="username" value="{{.Username}}" autocomplete="username" required maxlength="64" autofocus>
   </div>
   <div class="field">
     <label for="password">password</label>
     <input id="password" name="password" type="password" autocomplete="current-password" required>
   </div>
-  <div class="actions"><button class="button" type="submit">sign in</button></div>
+  <button class="button wide" type="submit">sign in</button>
 </form>
 {{end}}

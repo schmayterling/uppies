@@ -36,6 +36,17 @@ strong { font-weight: var(--weight-semibold); }
 .wordmark { font-size: var(--text-heading); font-weight: var(--weight-semibold); text-decoration: none; }
 .wordmark-title { font-size: var(--text-display); letter-spacing: var(--tracking-display); line-height: var(--leading-display); }
 
+/* sign-in and setup: one card in the middle of the screen */
+.auth { min-block-size: 100vh; display: grid; place-content: center; justify-items: center; gap: var(--space-4); padding: var(--space-4); background: var(--surface); }
+.auth-card { inline-size: min(100vw - var(--space-6), 360px); padding: var(--space-6); border: 1px solid var(--border); border-radius: var(--radius-surface); background: var(--background); }
+.auth-brand { display: flex; align-items: center; gap: var(--space-3); margin: 0 0 var(--space-5); }
+.auth-brand .face { inline-size: var(--space-6); block-size: var(--space-6); }
+.auth-brand .wordmark { font-size: var(--text-title); letter-spacing: var(--tracking-heading); }
+.auth-card .form { margin-block-start: var(--space-5); }
+.auth-card input { min-block-size: calc(var(--control-height) + var(--space-1)); }
+.button.wide { inline-size: 100%; block-size: calc(var(--control-height) + var(--space-1)); }
+.auth-foot { margin: 0; }
+
 /* admin shell: a fixed sidebar and a wide content column.
    256px and 1088px follow measured dashboards and have no token yet. */
 :root { --sidebar-width: 256px; --content-wide: 1088px; }

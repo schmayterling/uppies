@@ -202,6 +202,8 @@ func pathID(r *http.Request) (int64, error) {
 type chrome struct {
 	Title string
 	Admin bool // show the admin navigation
+	// Auth marks the sign-in and setup pages, which centre one card on the screen.
+	Auth bool
 	// Unbranded drops the "uppies" suffix from the browser title.
 	Unbranded bool
 	// Nav is the sidebar of the admin pages.

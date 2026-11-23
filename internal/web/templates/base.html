@@ -48,6 +48,14 @@
   </main>
 </div>
 </body>
+{{else if .Chrome.Auth}}
+<body class="auth">
+<main class="auth-card">
+  <p class="auth-brand">{{template "face" "ok"}}<span class="wordmark">uppies</span></p>
+{{template "main" .}}
+</main>
+<p class="auth-foot meta"><a href="/">view the status pages</a></p>
+</body>
 {{else}}
 <body>
 <main class="column">

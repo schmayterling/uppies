@@ -143,7 +143,7 @@ func (s *Server) handleSetupForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 		return
 	}
-	s.render(w, r, http.StatusOK, "setup.html", credentialsPage{Chrome: chrome{Title: "set up uppies"}})
+	s.render(w, r, http.StatusOK, "setup.html", credentialsPage{Chrome: chrome{Title: "set up uppies", Auth: true}})
 }
 
 func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
@@ -153,7 +153,7 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	}
 	username := strings.TrimSpace(r.PostForm.Get("username"))
 	password := r.PostForm.Get("password")
-	page := credentialsPage{Chrome: chrome{Title: "set up uppies"}, Username: username}
+	page := credentialsPage{Chrome: chrome{Title: "set up uppies", Auth: true}, Username: username}
 	switch {
 	case username == "" || len(username) > 64:
 		page.Problem = "choose a username of 1 to 64 characters."
@@ -196,7 +196,7 @@ func (s *Server) handleLoginForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/setup", http.StatusSeeOther)
 		return
 	}
-	s.render(w, r, http.StatusOK, "login.html", credentialsPage{Chrome: chrome{Title: "sign in"}})
+	s.render(w, r, http.StatusOK, "login.html", credentialsPage{Chrome: chrome{Title: "sign in", Auth: true}})
 }
 
 // decoyHash is checked when the username is unknown, so that a wrong username
@@ -209,7 +209,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username := strings.TrimSpace(r.PostForm.Get("username"))
-	page := credentialsPage{Chrome: chrome{Title: "sign in"}, Username: username}
+	page := credentialsPage{Chrome: chrome{Title: "sign in", Auth: true}, Username: username}
 	client := clientAddress(r)
 	if s.logins.blocked(client, s.now()) {
 		page.Problem = "too many failed attempts. wait five minutes and try again."
