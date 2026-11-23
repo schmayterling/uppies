@@ -19,14 +19,94 @@ type instancePage struct {
 	Facts    []figure
 	Problems map[string]string
 	Saved    bool
+	// Layouts and Backgrounds are the sign-in page choices.
+	Layouts     []string
+	Backgrounds []string
+	// BackgroundVersion is set when a sign-in background image is uploaded.
+	BackgroundVersion int64
 }
 
 func (s *Server) instancePage(r *http.Request, title string) (instancePage, error) {
 	page := instancePage{Chrome: s.adminChrome(r, title), Themes: themes, Swatches: accentSwatches}
 	var err error
-	page.Instance, err = s.store.Instance(r.Context())
+	page.Layouts, page.Backgrounds = store.LoginLayouts, store.LoginBackgrounds
 	page.Saved = r.URL.Query().Get("saved") == "1"
+	page.Instance, err = s.store.Instance(r.Context())
+	if err != nil {
+		return page, err
+	}
+	page.BackgroundVersion, err = s.store.InstanceImageVersion(r.Context(), store.ImageLoginBackground)
 	return page, err
+}
+
+// maxBackgroundUploadBytes caps the sign-in page form: one image at the size limit plus form overhead.
+const maxBackgroundUploadBytes = store.MaxBackgroundBytes + 64<<10
+
+func (s *Server) handleSaveSignInPage(w http.ResponseWriter, r *http.Request) {
+	page, err := s.instancePage(r, "appearance")
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if err := r.ParseMultipartForm(maxBackgroundUploadBytes); err != nil {
+		var tooLarge *http.MaxBytesError
+		if !errors.As(err, &tooLarge) {
+			s.fail(w, r, err)
+			return
+		}
+		page.Problems = map[string]string{"background": "the file is larger than 2048 KB."}
+		s.render(w, r, http.StatusUnprocessableEntity, "appearance.html", page)
+		return
+	}
+	problems := make(map[string]string)
+	page.Instance.LoginLayout = choice(r.PostForm, "login_layout", store.LoginLayouts, page.Instance.LoginLayout, problems)
+	page.Instance.LoginBackground = choice(r.PostForm, "login_background", store.LoginBackgrounds, page.Instance.LoginBackground, problems)
+	data, contentType, problem, err := readUpload(r, "background", store.MaxBackgroundBytes)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	remove := data == nil && r.PostForm.Get("remove_background") == "on"
+	hasImage := data != nil || (page.BackgroundVersion != 0 && !remove)
+	switch {
+	case problem != "":
+		problems["background"] = problem
+	case page.Instance.LoginBackground == "image" && !hasImage:
+		problems["background"] = "choose an image to upload, or pick another background."
+	}
+	if len(problems) > 0 {
+		page.Problems = problems
+		s.render(w, r, http.StatusUnprocessableEntity, "appearance.html", page)
+		return
+	}
+	if data != nil {
+		err = s.store.SetInstanceImage(r.Context(), store.ImageLoginBackground, contentType, data, s.now().UnixMilli())
+	} else if remove {
+		err = s.store.DeleteInstanceImage(r.Context(), store.ImageLoginBackground)
+	}
+	if err == nil {
+		err = s.store.SaveInstance(r.Context(), page.Instance)
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/admin/appearance?saved=1", http.StatusSeeOther)
+}
+
+// handleSignInBackground serves the uploaded background of the sign-in page.
+// It is public, because the page that shows it is.
+func (s *Server) handleSignInBackground(w http.ResponseWriter, r *http.Request) {
+	contentType, data, err := s.store.InstanceImage(r.Context(), store.ImageLoginBackground)
+	if errors.Is(err, store.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	s.writeImage(w, r, contentType, data)
 }
 
 // handleInstanceTheme serves the admin's look as a stylesheet, for the same

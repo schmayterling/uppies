@@ -18,10 +18,31 @@ type InstanceSettings struct {
 	AccentHue int
 	// PublicList decides whether the front page lists the status pages to anyone.
 	PublicList bool
+	// LoginLayout places the sign-in form: "split" puts it in a column on the
+	// left with the background beside it, "centered" puts it in a card over the background.
+	LoginLayout string
+	// LoginBackground is what the sign-in page shows behind or beside the
+	// form: "plain", "gradient" or "image", the uploaded one.
+	LoginBackground string
 }
 
+// Sign-in page choices.
+var (
+	LoginLayouts     = []string{"split", "centered"}
+	LoginBackgrounds = []string{"plain", "gradient", "image"}
+)
+
+// ImageLoginBackground is the instance image shown on the sign-in page.
+const ImageLoginBackground = "login_background"
+
+// MaxBackgroundBytes is the largest instance image the schema accepts.
+const MaxBackgroundBytes = 2 << 20
+
 // defaultInstance is what a fresh install uses until something is saved.
-var defaultInstance = InstanceSettings{Name: "uppies", Theme: "auto", AccentHue: 200, PublicList: true}
+var defaultInstance = InstanceSettings{
+	Name: "uppies", Theme: "auto", AccentHue: 200, PublicList: true,
+	LoginLayout: "split", LoginBackground: "gradient",
+}
 
 // Instance returns the instance settings, with defaults for what was never saved.
 func (s *Store) Instance(ctx context.Context) (InstanceSettings, error) {
@@ -48,6 +69,10 @@ func (s *Store) Instance(ctx context.Context) (InstanceSettings, error) {
 			}
 		case "public_list":
 			settings.PublicList = value == "1"
+		case "login_layout":
+			settings.LoginLayout = value
+		case "login_background":
+			settings.LoginBackground = value
 		}
 	}
 	return settings, rows.Err()
@@ -62,6 +87,7 @@ func (s *Store) SaveInstance(ctx context.Context, settings InstanceSettings) err
 	values := map[string]string{
 		"name": settings.Name, "theme": settings.Theme,
 		"accent_hue": strconv.Itoa(settings.AccentHue), "public_list": publicList,
+		"login_layout": settings.LoginLayout, "login_background": settings.LoginBackground,
 	}
 	return s.write(ctx, func(tx *sql.Tx) error {
 		for key, value := range values {
@@ -178,4 +204,42 @@ func (s *Store) LogoVersions(ctx context.Context) (map[int64]int64, error) {
 		versions[projectID] = updatedAtMs
 	}
 	return versions, rows.Err()
+}
+
+// SetInstanceImage stores or replaces one of the install's images.
+func (s *Store) SetInstanceImage(ctx context.Context, kind, contentType string, data []byte, nowMs int64) error {
+	_, err := s.db.ExecContext(ctx, `
+		insert into instance_images (kind, content_type, data, updated_at_ms) values (?, ?, ?, ?)
+		on conflict (kind) do update set
+			content_type = excluded.content_type, data = excluded.data, updated_at_ms = excluded.updated_at_ms`,
+		kind, contentType, data, nowMs)
+	return err
+}
+
+// DeleteInstanceImage removes an image. Removing one that does not exist is not an error.
+func (s *Store) DeleteInstanceImage(ctx context.Context, kind string) error {
+	_, err := s.db.ExecContext(ctx, "delete from instance_images where kind = ?", kind)
+	return err
+}
+
+// InstanceImage returns an image's content type and bytes, or ErrNotFound.
+func (s *Store) InstanceImage(ctx context.Context, kind string) (string, []byte, error) {
+	var contentType string
+	var data []byte
+	err := s.db.QueryRowContext(ctx, "select content_type, data from instance_images where kind = ?", kind).
+		Scan(&contentType, &data)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil, ErrNotFound
+	}
+	return contentType, data, err
+}
+
+// InstanceImageVersion returns when an image was last changed, or 0 when there is none.
+func (s *Store) InstanceImageVersion(ctx context.Context, kind string) (int64, error) {
+	var updatedAtMs int64
+	err := s.db.QueryRowContext(ctx, "select updated_at_ms from instance_images where kind = ?", kind).Scan(&updatedAtMs)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return updatedAtMs, err
 }

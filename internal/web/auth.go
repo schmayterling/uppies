@@ -134,6 +134,30 @@ func (s *Server) startSession(ctx context.Context, w http.ResponseWriter, r *htt
 	return nil
 }
 
+// signInChrome is the chrome of the sign-in and setup pages, laid out the way
+// the instance settings say. When the settings cannot be read the page still
+// has to open, so it falls back to the plain centred card.
+func (s *Server) signInChrome(r *http.Request, title string) chrome {
+	c := chrome{Title: title, Auth: true, AuthLayout: "centered", AuthBackground: "plain"}
+	instance, err := s.store.Instance(r.Context())
+	if err != nil {
+		s.log.Error("read instance settings", "path", r.URL.Path, "error", err)
+		return c
+	}
+	c.Brand, c.AuthLayout, c.AuthBackground = instance.Name, instance.LoginLayout, instance.LoginBackground
+	if c.AuthBackground != "image" {
+		return c
+	}
+	c.AuthImage, err = s.store.InstanceImageVersion(r.Context(), store.ImageLoginBackground)
+	if err != nil {
+		s.log.Error("read sign-in background", "path", r.URL.Path, "error", err)
+	}
+	if c.AuthImage == 0 {
+		c.AuthBackground = "gradient"
+	}
+	return c
+}
+
 // credentialsPage is the data of setup.html and login.html.
 type credentialsPage struct {
 	Chrome   chrome
@@ -151,7 +175,7 @@ func (s *Server) handleSetupForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 		return
 	}
-	s.render(w, r, http.StatusOK, "setup.html", credentialsPage{Chrome: chrome{Title: "set up uppies", Auth: true}})
+	s.render(w, r, http.StatusOK, "setup.html", credentialsPage{Chrome: s.signInChrome(r, "set up uppies")})
 }
 
 func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
@@ -161,7 +185,7 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	}
 	username := strings.TrimSpace(r.PostForm.Get("username"))
 	password := r.PostForm.Get("password")
-	page := credentialsPage{Chrome: chrome{Title: "set up uppies", Auth: true}, Username: username}
+	page := credentialsPage{Chrome: s.signInChrome(r, "set up uppies"), Username: username}
 	switch {
 	case username == "" || len(username) > 64:
 		page.Problem = "choose a username of 1 to 64 characters."
@@ -204,7 +228,7 @@ func (s *Server) handleLoginForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/setup", http.StatusSeeOther)
 		return
 	}
-	s.render(w, r, http.StatusOK, "login.html", credentialsPage{Chrome: chrome{Title: "sign in", Auth: true}})
+	s.render(w, r, http.StatusOK, "login.html", credentialsPage{Chrome: s.signInChrome(r, "sign in")})
 }
 
 // decoyHash is checked when the username is unknown, so that a wrong username
@@ -217,7 +241,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username := strings.TrimSpace(r.PostForm.Get("username"))
-	page := credentialsPage{Chrome: chrome{Title: "sign in", Auth: true}, Username: username}
+	page := credentialsPage{Chrome: s.signInChrome(r, "sign in"), Username: username}
 	client := clientAddress(r)
 	if s.logins.blocked(client, s.now()) {
 		page.Problem = "too many failed attempts. wait five minutes and try again."

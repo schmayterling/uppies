@@ -358,15 +358,42 @@ func TestInstanceSettingsDefaultAndSave(t *testing.T) {
 	ctx := context.Background()
 	s := openTemp(t)
 	got, err := s.Instance(ctx)
-	if err != nil || got != (InstanceSettings{Name: "uppies", Theme: "auto", AccentHue: 200, PublicList: true}) {
+	if err != nil || got != (InstanceSettings{Name: "uppies", Theme: "auto", AccentHue: 200, PublicList: true, LoginLayout: "split", LoginBackground: "gradient"}) {
 		t.Fatalf("fresh install: got %+v err=%v, want the defaults", got, err)
 	}
-	want := InstanceSettings{Name: "acme status", Theme: "dark", AccentHue: 25, PublicList: false}
+	want := InstanceSettings{Name: "acme status", Theme: "dark", AccentHue: 25, PublicList: false, LoginLayout: "centered", LoginBackground: "image"}
 	if err := s.SaveInstance(ctx, want); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := s.Instance(ctx); err != nil || got != want {
 		t.Fatalf("after a save: got %+v err=%v, want %+v", got, err, want)
+	}
+}
+
+func TestInstanceImageIsStoredReplacedAndRemoved(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	if version, err := s.InstanceImageVersion(ctx, ImageLoginBackground); err != nil || version != 0 {
+		t.Fatalf("version with no image: got %d err=%v, want 0", version, err)
+	}
+	if err := s.SetInstanceImage(ctx, ImageLoginBackground, "image/png", []byte("first"), 10); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetInstanceImage(ctx, ImageLoginBackground, "image/webp", []byte("second"), 20); err != nil {
+		t.Fatal(err)
+	}
+	contentType, data, err := s.InstanceImage(ctx, ImageLoginBackground)
+	if err != nil || contentType != "image/webp" || string(data) != "second" {
+		t.Fatalf("after replacing: got %q %q err=%v, want the second upload", contentType, data, err)
+	}
+	if version, err := s.InstanceImageVersion(ctx, ImageLoginBackground); err != nil || version != 20 {
+		t.Fatalf("version: got %d err=%v, want 20", version, err)
+	}
+	if err := s.DeleteInstanceImage(ctx, ImageLoginBackground); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.InstanceImage(ctx, ImageLoginBackground); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("after removal: got err=%v, want ErrNotFound", err)
 	}
 }
 

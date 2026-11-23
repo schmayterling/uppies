@@ -551,6 +551,75 @@ func TestLogoAndFaviconUploads(t *testing.T) {
 	}
 }
 
+func TestSignInPageLayoutAndBackgroundAreChosenInAppearance(t *testing.T) {
+	s := newSite(t)
+	png, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const save = "/admin/appearance/sign-in"
+
+	_, page := s.get(t, s.anonymous, "/admin/login")
+	for _, want := range []string{`class="auth auth-split"`, `class="auth-art auth-art-gradient"`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("fresh sign-in page is missing %q", want)
+		}
+	}
+	if resp := s.upload(t, s.anonymous, save, map[string][]byte{"background": png}, nil); resp.Header.Get("Location") != "/admin/login" {
+		t.Fatalf("anonymous save: got %d to %q, want a redirect to /admin/login", resp.StatusCode, resp.Header.Get("Location"))
+	}
+
+	refused := []struct {
+		name   string
+		files  map[string][]byte
+		fields map[string]string
+	}{
+		{"image chosen with no file", nil, map[string]string{"login_background": "image"}},
+		{"a web page as the image", map[string][]byte{"background": []byte("<html><script>alert(1)</script></html>")}, nil},
+		{"a file over 2 MB", map[string][]byte{"background": append(bytes.Clone(png), make([]byte, store.MaxBackgroundBytes)...)}, nil},
+		{"an unknown layout", nil, map[string]string{"login_layout": "sideways"}},
+	}
+	for _, c := range refused {
+		if resp := s.upload(t, s.admin, save, c.files, c.fields); resp.StatusCode != http.StatusUnprocessableEntity {
+			t.Errorf("%s: got %d, want 422", c.name, resp.StatusCode)
+		}
+	}
+	if status, _ := s.get(t, s.anonymous, "/sign-in-background"); status != http.StatusNotFound {
+		t.Fatalf("background after refused saves: got %d, want 404", status)
+	}
+
+	// A real background is far larger than an ordinary form may be.
+	large := append(bytes.Clone(png), make([]byte, 1<<20)...)
+	fields := map[string]string{"login_layout": "centered", "login_background": "image"}
+	if resp := s.upload(t, s.admin, save, map[string][]byte{"background": large}, fields); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("save: got %d, want 303", resp.StatusCode)
+	}
+	_, page = s.get(t, s.anonymous, "/admin/login")
+	for _, want := range []string{`class="auth auth-centered"`, `class="auth-art auth-art-image"`, `<img src="/sign-in-background?v=`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("sign-in page after the save is missing %q", want)
+		}
+	}
+	if status, _ := s.get(t, s.anonymous, "/sign-in-background"); status != http.StatusOK {
+		t.Errorf("background: got %d, want 200", status)
+	}
+
+	// Removing the image while it is still the chosen background is refused.
+	if resp := s.upload(t, s.admin, save, nil, map[string]string{"remove_background": "on"}); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("removing the image in use: got %d, want 422", resp.StatusCode)
+	}
+	fields = map[string]string{"login_background": "plain", "remove_background": "on"}
+	if resp := s.upload(t, s.admin, save, nil, fields); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("remove: got %d, want 303", resp.StatusCode)
+	}
+	if status, _ := s.get(t, s.anonymous, "/sign-in-background"); status != http.StatusNotFound {
+		t.Errorf("background after removal: got %d, want 404", status)
+	}
+	if _, page = s.get(t, s.anonymous, "/admin/login"); !strings.Contains(page, `class="auth-art auth-art-plain"`) {
+		t.Error("sign-in page after choosing plain still shows art")
+	}
+}
+
 func TestAPushMonitorGetsATokenThatTheJobReportsTo(t *testing.T) {
 	ctx := context.Background()
 	s := newSite(t)

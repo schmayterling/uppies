@@ -36,7 +36,7 @@ func sniffImageType(data []byte) string {
 
 // readUpload returns the bytes and type of an uploaded image field. It
 // returns no data and no problem when the field was left empty.
-func readUpload(r *http.Request, field string) (data []byte, contentType, problem string, err error) {
+func readUpload(r *http.Request, field string, maxBytes int) (data []byte, contentType, problem string, err error) {
 	file, _, err := r.FormFile(field)
 	if errors.Is(err, http.ErrMissingFile) {
 		return nil, "", "", nil
@@ -44,15 +44,15 @@ func readUpload(r *http.Request, field string) (data []byte, contentType, proble
 	if err != nil {
 		return nil, "", "", err
 	}
-	data, err = io.ReadAll(io.LimitReader(file, store.MaxImageBytes+1))
+	data, err = io.ReadAll(io.LimitReader(file, int64(maxBytes)+1))
 	if err := errors.Join(err, file.Close()); err != nil {
 		return nil, "", "", err
 	}
 	switch contentType = sniffImageType(data); {
 	case len(data) == 0:
 		return nil, "", "", nil
-	case len(data) > store.MaxImageBytes:
-		return nil, "", "the file is larger than 512 KB.", nil
+	case len(data) > maxBytes:
+		return nil, "", fmt.Sprintf("the file is larger than %d KB.", maxBytes>>10), nil
 	case contentType == "":
 		return nil, "", "use a png, jpeg, webp, gif, ico or svg image.", nil
 	}
@@ -76,7 +76,7 @@ func (s *Server) handleUpdateImages(w http.ResponseWriter, r *http.Request) {
 	uploads := make(map[string]upload)
 	problems := make(map[string]string)
 	for _, kind := range []string{store.ImageLogo, store.ImageFavicon} {
-		data, contentType, problem, err := readUpload(r, kind)
+		data, contentType, problem, err := readUpload(r, kind, store.MaxImageBytes)
 		if err != nil {
 			s.fail(w, r, err)
 			return
@@ -126,6 +126,11 @@ func (s *Server) handleImage(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	s.writeImage(w, r, contentType, data)
+}
+
+// writeImage sends an uploaded image.
+func (s *Server) writeImage(w http.ResponseWriter, r *http.Request, contentType string, data []byte) {
 	h := w.Header()
 	h.Set("Content-Type", contentType)
 	h.Set("Cache-Control", "max-age=300")

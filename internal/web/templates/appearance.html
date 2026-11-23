@@ -23,5 +23,34 @@
   </div>
   <div class="savebar"><button class="button" type="submit">save appearance</button></div>
 </form>
+<form method="post" action="/admin/appearance/sign-in" enctype="multipart/form-data">
+  <h2 class="group-title">sign-in page</h2>
+  <div class="group">
+    <div class="srow">
+      <div class="srow-copy" id="layout-label"><span>layout</span><small>split puts the form in a column on the left and the background beside it. centered puts the form in a card over the background.</small></div>
+      <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="layout-label">
+        {{range .Layouts}}<label><input type="radio" name="login_layout" value="{{.}}"{{if eq . $.Instance.LoginLayout}} checked{{end}}><span>{{.}}</span></label>{{end}}
+      </div></div>
+      {{with index .Problems "login_layout"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <div class="srow-copy" id="background-label"><span>background</span><small>gradient is drawn from the accent colour. image uses the file below.</small></div>
+      <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="background-label">
+        {{range .Backgrounds}}<label><input type="radio" name="login_background" value="{{.}}"{{if eq . $.Instance.LoginBackground}} checked{{end}}><span>{{.}}</span></label>{{end}}
+      </div></div>
+      {{with index .Problems "login_background"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <label class="srow-copy" for="background"><span>background image</span><small>png, jpeg, webp, gif or svg, up to 2 MB. it is cropped to fill the space.</small></label>
+      <div class="srow-control">
+        {{with .BackgroundVersion}}<img class="background-preview" src="/sign-in-background?v={{.}}" alt="the current background">{{end}}
+        <input id="background" name="background" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"{{if index .Problems "background"}} aria-invalid="true"{{end}}>
+      </div>
+      {{with index .Problems "background"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+      {{if .BackgroundVersion}}<label class="check srow-problem"><input type="checkbox" name="remove_background"> remove the current image</label>{{end}}
+    </div>
+  </div>
+  <div class="savebar"><button class="button" type="submit">save sign-in page</button><a class="button quiet" href="/admin/login">preview</a></div>
+</form>
 </div>
 {{end}}

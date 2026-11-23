@@ -81,6 +81,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 	mux.HandleFunc("GET /theme.css", s.handleInstanceTheme)
+	mux.HandleFunc("GET /sign-in-background", s.handleSignInBackground)
 	mux.HandleFunc("GET /s/{slug}", s.handleStatusPage)
 	mux.HandleFunc("GET /s/{slug}/history", s.handleHistory)
 	mux.HandleFunc("GET /s/{slug}/theme.css", s.handleTheme)
@@ -101,6 +102,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("GET /admin", s.handleDashboard)
 	admin("GET /admin/appearance", s.handleAppearance)
 	admin("POST /admin/appearance", s.handleSaveAppearance)
+	admin("POST /admin/appearance/sign-in", s.handleSaveSignInPage)
 	admin("GET /admin/instance", s.handleInstance)
 	admin("POST /admin/instance", s.handleSaveInstance)
 	admin("GET /admin/users", s.handleUsers)
@@ -149,8 +151,11 @@ func securityHeaders(next http.Handler) http.Handler {
 func limitBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		limit := int64(maxFormBytes)
-		if strings.HasSuffix(r.URL.Path, "/images") {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/images"):
 			limit = maxUploadBytes
+		case r.URL.Path == "/admin/appearance/sign-in":
+			limit = maxBackgroundUploadBytes
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		next.ServeHTTP(w, r)
@@ -223,6 +228,12 @@ type chrome struct {
 	Nav nav
 	// Brand is the instance name shown as the wordmark. Empty means "uppies".
 	Brand string
+	// AuthLayout and AuthBackground are the sign-in page choices from the
+	// instance settings. Empty on the other card pages, which stay plain and centred.
+	AuthLayout     string
+	AuthBackground string
+	// AuthImage is the version of the uploaded background, or 0 when there is none.
+	AuthImage int64
 }
 
 // nav is the admin sidebar: where you are, and every project with its state.

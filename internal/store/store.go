@@ -268,6 +268,16 @@ alter table projects add column backfill text not null default 'none' check (bac
 	`
 alter table projects add column nav_links text not null default '' check (length(nav_links) <= 2000);
 `,
+	// Step 11 holds the images of the whole install. The first one is the
+	// background of the sign-in page.
+	`
+create table instance_images (
+	kind text primary key check (kind in ('login_background')),
+	content_type text not null,
+	data blob not null check (length(data) between 1 and 2097152),
+	updated_at_ms integer not null
+) strict;
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.
