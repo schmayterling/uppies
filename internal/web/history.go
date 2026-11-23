@@ -50,7 +50,21 @@ func mergeQuietRuns(groups []dayGroup) []dayGroup {
 		}
 		run.Date = g.Date + " to " + newest
 	}
+	for i := range merged {
+		merged[i].Date = shortRange(merged[i].Date)
+	}
 	return merged
+}
+
+// shortRange names the year of a run of days once when both ends share it:
+// "sep 15 to oct 13, 2026". A run across new year keeps both years.
+func shortRange(run string) string {
+	oldest, newest, found := strings.Cut(run, " to ")
+	if !found {
+		return run
+	}
+	_, year, _ := strings.Cut(newest, ", ")
+	return strings.TrimSuffix(oldest, ", "+year) + " to " + newest
 }
 
 // agoLabel says how long ago a day was, in the largest unit that fits.
@@ -131,6 +145,8 @@ type historyPage struct {
 	Months []string
 	Total  int
 	Days   []dayGroup
+	// NavLinks are the project's own links for the bar at the top.
+	NavLinks []navLink
 	// TZ is the visitor's own timezone choice, empty when the project's zone is shown.
 	TZ string
 	// Page is the page of the timeline shown, from 1. Older and Newer are the
@@ -303,6 +319,8 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	if zoneName != project.Timezone {
 		page.TZ = zoneName
 	}
+	// Saved links were checked when they were saved, so a problem here is not expected and shows none.
+	page.NavLinks, _ = parseNavLinks(project.NavLinks)
 	groups := yearDayGroups(views, year, now, zone, project.HideQuietDays)
 	// A missing or impossible page number means the first page.
 	requested, _ := strconv.Atoi(r.URL.Query().Get("page"))

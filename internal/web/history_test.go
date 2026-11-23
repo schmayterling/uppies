@@ -31,7 +31,7 @@ func TestRecentDayGroupsFoldQuietRuns(t *testing.T) {
 	}{
 		{"nov 23, 2026", 1, 0},
 		{"nov 22, 2026", 0, 1},
-		{"nov 17, 2026 to nov 21, 2026", 5, 0},
+		{"nov 17 to nov 21, 2026", 5, 0},
 	}
 	if len(groups) != len(want) {
 		t.Fatalf("got %d groups, want %d: %+v", len(groups), len(want), groups)
@@ -77,6 +77,19 @@ func TestIncidentMap(t *testing.T) {
 	}
 }
 
+func TestShortRange(t *testing.T) {
+	cases := map[string]string{
+		"sep 15, 2026 to oct 13, 2026": "sep 15 to oct 13, 2026",
+		"dec 30, 2025 to jan 2, 2026":  "dec 30, 2025 to jan 2, 2026",
+		"nov 23, 2026":                 "nov 23, 2026",
+	}
+	for run, want := range cases {
+		if got := shortRange(run); got != want {
+			t.Errorf("%q: got %q, want %q", run, got, want)
+		}
+	}
+}
+
 func TestAgoLabel(t *testing.T) {
 	cases := map[int]string{0: "today", 1: "yesterday", 16: "16 days ago", 59: "59 days ago", 60: "2 months ago", 400: "13 months ago", 730: "2 years ago"}
 	for daysAgo, want := range cases {
@@ -94,8 +107,8 @@ func TestYearDayGroupsCanHideQuietDays(t *testing.T) {
 	}
 	all := yearDayGroups(incidents, 2026, now, time.UTC, false)
 	// Nothing after today (jan 5). The quiet days fold into a run on each side of jan 3.
-	if len(all) != 3 || all[0].Date != "jan 4, 2026 to jan 5, 2026" || all[0].QuietDays != 2 ||
-		all[2].Date != "jan 1, 2026 to jan 2, 2026" || all[2].QuietDays != 2 {
+	if len(all) != 3 || all[0].Date != "jan 4 to jan 5, 2026" || all[0].QuietDays != 2 ||
+		all[2].Date != "jan 1 to jan 2, 2026" || all[2].QuietDays != 2 {
 		t.Fatalf("with quiet days: got %+v, want a two-day run, jan 3, and another two-day run", all)
 	}
 	if all[1].Date != "jan 3, 2026" || len(all[1].Incidents) != 2 || all[1].Level != 3 {

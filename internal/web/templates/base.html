@@ -101,6 +101,17 @@
   {{end}}
 </ol>{{end}}
 
+{{/* the bar at the top of a status page's pages. it takes the page and the name of the current one. */}}
+{{define "site-bar"}}{{$section := .Second}}{{with .First}}<header class="site-bar">
+  <a class="site-brand" href="/s/{{.Project.Slug}}{{with .TZ}}?tz={{.}}{{end}}">{{with index .Images "logo"}}<img class="logo" src="/s/{{$.First.Project.Slug}}/images/logo?v={{.}}" alt="">{{end}}{{.Project.Name}}</a>
+  <nav class="site-links" aria-label="{{.Project.Name}}">
+    <a href="/s/{{.Project.Slug}}{{with .TZ}}?tz={{.}}{{end}}"{{if eq $section "status"}} aria-current="page"{{end}}>status</a>
+    <a href="/s/{{.Project.Slug}}/history{{with .TZ}}?tz={{.}}{{end}}"{{if eq $section "incidents"}} aria-current="page"{{end}}>incidents</a>
+    {{range .NavLinks}}<a href="{{.URL}}" rel="noopener">{{.Label}}</a>{{end}}
+    {{with .Project.HomepageURL}}<a href="{{.}}" rel="noopener">back to {{$.First.Project.Name}}</a>{{end}}
+  </nav>
+</header>{{end}}{{end}}
+
 {{define "updates"}}<ol class="updates">
   {{range .First}}<li class="update-{{.Status}}"><p class="update-head"><strong>{{.Status}}</strong> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Second .AtMs}}</time></p><p class="update-body">{{.Body}}</p></li>{{end}}
 </ol>{{end}}

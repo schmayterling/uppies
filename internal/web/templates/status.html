@@ -3,15 +3,7 @@
 {{with index .Images "favicon"}}<link rel="icon" href="/s/{{$.Project.Slug}}/images/favicon?v={{.}}">{{end}}
 <link rel="stylesheet" href="/s/{{.Project.Slug}}/theme.css">{{end}}
 {{define "main"}}
-<header class="site-bar">
-  <a class="site-brand" href="/s/{{.Project.Slug}}{{with .TZ}}?tz={{.}}{{end}}">{{with index .Images "logo"}}<img class="logo" src="/s/{{$.Project.Slug}}/images/logo?v={{.}}" alt="">{{end}}{{.Project.Name}}</a>
-  {{if or .NavLinks .Project.HomepageURL}}
-  <nav class="site-links" aria-label="{{.Project.Name}}">
-    {{range .NavLinks}}<a href="{{.URL}}" rel="noopener">{{.Label}}</a>{{end}}
-    {{with .Project.HomepageURL}}<a href="{{.}}" rel="noopener">back to {{$.Project.Name}}</a>{{end}}
-  </nav>
-  {{end}}
-</header>
+{{template "site-bar" (pair . "status")}}
 <header class="page-head">
   <h1>status</h1>
   {{with .Project.Tagline}}<p class="muted">{{.}}</p>{{end}}
