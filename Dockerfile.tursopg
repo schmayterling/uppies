@@ -1,0 +1,36 @@
+FROM rust:1.99.1-bookworm@sha256:e6f2cff35d0f309acf8433b4f05878ed77092602c5065cc81801177da0bb3a9c AS build
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends cmake libclang-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+ADD --checksum=sha256:50dcf86ac4bd9cbc1eb9901d0fb3b51a96f3e4e93c4ac98f52a4cc73d3db355d \
+    https://codeload.github.com/tursodatabase/turso/tar.gz/37096726c6292144052cc7339295a47ecb599d0c /tmp/turso.tar.gz
+# Enable foreign-key checks for wire sessions while https://github.com/tursodatabase/turso/pull/11346 is pending.
+RUN tar -xzf /tmp/turso.tar.gz --strip-components=1 \
+    && sed -i -e '/^                            let factory = Arc::new(TursoPgFactory {/i\' \
+        -e '                            session.inner().set_foreign_keys_enabled(true);' postgres/server/lib.rs \
+    && test "$(grep -Fxc '                            session.inner().set_foreign_keys_enabled(true);' postgres/server/lib.rs)" -eq 1 \
+    && CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_STRIP=symbols \
+       cargo +1.99.1 build --locked --release --jobs 4 -p tursopg
+
+FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
+LABEL org.opencontainers.image.source="https://github.com/tursodatabase/turso" \
+      org.opencontainers.image.revision="37096726c6292144052cc7339295a47ecb599d0c" \
+      org.opencontainers.image.version="0.9.0-pre.6"
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-15 \
+    && rm -rf /var/lib/apt/lists/* \
+    && install -d -o 65532 -g 65532 /data
+COPY --from=build /src/target/release/tursopg /usr/local/bin/tursopg
+COPY --from=build /src/LICENSE.md /src/NOTICE.md /usr/share/doc/tursopg/
+COPY --from=build /src/licenses/ /usr/share/doc/tursopg/licenses/
+
+USER 65532:65532
+VOLUME ["/data"]
+EXPOSE 5432
+STOPSIGNAL SIGINT
+HEALTHCHECK --interval=5s --timeout=3s --start-period=5s --retries=5 \
+    CMD ["psql", "-XAtw", "host=127.0.0.1 port=5432 user=postgres dbname=postgres sslmode=disable", "-c", "SELECT 1"]
+ENTRYPOINT ["/usr/local/bin/tursopg"]
+CMD ["--server", "0.0.0.0:5432", "/data/tursopg.db"]
