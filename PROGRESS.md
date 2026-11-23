@@ -119,6 +119,13 @@ Each line names how it was verified.
   - The list of all monitors is arranged by dragging: a monitor to another place or into another category, a category as a whole by its name. Monitors have a `position` inside their category. `POST /admin/monitors/order` takes the arrangement as ordered `item` fields, `c:<category>` then `m:<id>` for each monitor in it.
   - The monitors table uses the same markup as the other tables. Round status icons are as tall as the text beside them.
   - Checked in Chromium and WebKit: a drag inside a category, into another category and of a whole category, each saved and still there after a reload.
+- Round 13 (2026-11-23). Schema version 17.
+  - Categories belong to each status page (`page_categories`, and `category` on `page_monitors`). There are no global categories, and a monitor has none of its own. The list of all monitors is flat and ordered by dragging.
+  - The editor is its own page, `/admin/projects/<id>/editor`: the left third holds the page's heading and every control, the right two thirds are the preview from the top of the window to the bottom. It arranges monitors and categories by dragging or with arrows, adds and removes categories, and sends the whole arrangement as ordered `item` fields (`c:<category>`, `m:<id>`) with at most one change.
+  - 88 by 31 badges are general: `/s/<slug>/88x31.svg` for a status page and `/s/<slug>/monitors/<id>/88x31.svg` for a component, with `show=status|uptime` (and `p50|p90|p95|p99` for a component), `days=`, `theme=light` and `label=`. The pixel font covers the lowercase alphabet. `p90.svg`, `p95.svg` and `p99.svg` still work.
+  - mstack ui pass. Read in full: `runtime/ui.md`, `runtime/ui-checks.md`, `design/README.md`, `design/BRIEF.md`, `design/corrections.md`, `design/polish/rules.md`, `design/polish/checklist.md`, `design/critique/rules.md`. Not read: the rest of `design/` (about 3.7 MB: taste, slop, variants, personality, references, micro, motion and more). `design/SKILL.md` does not exist.
+  - Ran `design/critique/_tools/check.mjs` on five public and eight admin pages (admin through a local proxy that adds the session cookie), and `lint-literals.sh` on the styles (0 literals to fix). Fixed from its findings: hover feedback sits inside `(hover: hover)`, tooltips stay outside on purpose. Section headings on public pages step up to a named 20px. Group labels and field labels differ from the text under them. Two font weights per screen instead of three. Five type sizes on the status page instead of six. Running text is capped at 75 characters. Touch screens get 16px form text. Every page has a description and a favicon. The top bar's brand and links share a size. The interface says "status page" where it said "project".
+  - Still failing in that checker: R12 wants an `og:image` on every page, and the logo preview in settings has no fixed size. Not rerun after the last batch: R2 on the editor, R4 on the editor and settings.
 - Checks run on 2026-11-23 on the admin overview:
   - Contrast, computed from the rendered colours. Dark theme: every text pairing measured is 7.4:1 or higher. Light theme: the lowest is 5.68:1 (muted headings on the sidebar). The requirement for body text is 4.5:1.
   - Script switched off: an admin page shows each dialog's form in place and hides the buttons that would open it. This needed a fix, because the dialog animation left dialogs invisible without script.
@@ -206,7 +213,7 @@ Each line names how it was verified.
 ## Next
 
 `ROADMAP.md` holds the planned order. The basics are done. The user wants a
-design pass on the status page and admin pages before any new feature. Twelve rounds are done (see above). Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
+design pass on the status page and admin pages before any new feature. Thirteen rounds are done (see above). Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
 
 ## Open risks
 

@@ -45,7 +45,7 @@
               </span>
               <span class="editor-look">
                 <select name="display-{{.ID}}" aria-label="how {{.Name}} is shown">
-                  {{range $.Choices.Displays}}<option value="{{.}}"{{if eq . $row.Display}} selected{{end}}>{{displayLabel .}}</option>{{end}}
+                  {{range $.Choices.Displays}}<option value="{{.}}"{{if eq . $row.Display}} selected{{end}}>show: {{.}}</option>{{end}}
                 </select>
                 <select name="fill-{{.ID}}" aria-label="graph fill of {{.Name}}">
                   {{range $.Choices.GraphFills}}<option value="{{.}}"{{if or (eq . $row.GraphFill) (and (eq . "default") (not $row.GraphFill))}} selected{{end}}>{{if eq . "default"}}fill: default{{else}}fill: {{.}}{{end}}</option>{{end}}
