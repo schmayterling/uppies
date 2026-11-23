@@ -300,6 +300,116 @@ alter table instance_images_new rename to instance_images;
 alter table projects add column graph_fill text not null default '' check (graph_fill in ('', 'gradient', 'filled', 'none'));
 alter table monitors add column graph_fill text not null default '' check (graph_fill in ('', 'gradient', 'filled', 'none'));
 `,
+	// Step 15 makes monitors belong to the install and not to one status page.
+	// A status page now lists the monitors it shows, each with its own place
+	// and look. Categories become a list of their own, so that one can exist
+	// before any monitor is in it. Alert channels belong to the install too, and each
+	// monitor names the channels it alerts. Monitors that were hidden from
+	// their status page are simply on no page. Events of a monitor no longer
+	// name a project: a page's timeline finds them through its monitors.
+	`
+create table page_monitors (
+	project_id integer not null references projects(id) on delete cascade,
+	monitor_id integer not null references monitors(id) on delete cascade,
+	position integer not null,
+	display text not null default 'bars' check (display in ('bars', 'latency', 'summary', 'minimal')),
+	graph_fill text not null default '' check (graph_fill in ('', 'gradient', 'filled', 'none')),
+	primary key (project_id, monitor_id)
+) strict, without rowid;
+create index page_monitors_monitor on page_monitors(monitor_id);
+insert into page_monitors (project_id, monitor_id, position, display, graph_fill)
+select project_id, id, row_number() over (partition by project_id order by category, name, id), display, graph_fill
+from monitors where public = 1;
+
+create table categories (
+	name text primary key check (length(name) between 1 and 80),
+	position integer not null
+) strict, without rowid;
+insert into categories (name, position)
+select category, row_number() over (order by category) from monitors where category <> '' group by category;
+
+create table monitor_channels (
+	monitor_id integer not null references monitors(id) on delete cascade,
+	channel_id integer not null references alert_channels(id) on delete cascade,
+	primary key (monitor_id, channel_id)
+) strict, without rowid;
+create index monitor_channels_channel on monitor_channels(channel_id);
+insert into monitor_channels (monitor_id, channel_id)
+select m.id, c.id from monitors m join alert_channels c on c.project_id = m.project_id;
+
+create table alert_channels_new (
+	id integer primary key,
+	kind text not null check (kind in ('webhook', 'discord', 'slack', 'email')),
+	url text not null check (length(url) between 1 and 2048),
+	created_at_ms integer not null
+) strict;
+insert into alert_channels_new select id, kind, url, created_at_ms from alert_channels;
+drop table alert_channels;
+alter table alert_channels_new rename to alert_channels;
+
+create table monitors_new (
+	id integer primary key,
+	name text not null check (length(name) between 1 and 120),
+	kind text not null check (kind in ('http', 'tcp', 'dns', 'ping', 'push')),
+	target text not null check (length(target) between 1 and 2048),
+	keyword text not null default '',
+	interval_s integer not null check (interval_s between 20 and 86400),
+	timeout_ms integer not null check (timeout_ms between 100 and 60000),
+	retries integer not null check (retries between 0 and 10),
+	retry_interval_s integer not null check (retry_interval_s between 1 and 3600),
+	recovery_checks integer not null check (recovery_checks between 1 and 10),
+	paused integer not null default 0 check (paused in (0, 1)),
+	status text not null default 'unknown' check (status in ('unknown', 'up', 'down')),
+	status_since_ms integer not null,
+	fail_streak integer not null default 0,
+	ok_streak integer not null default 0,
+	failing_since_ms integer not null default 0,
+	last_check_at_ms integer not null default 0,
+	last_latency_ms integer not null default 0,
+	last_error text not null default '',
+	created_at_ms integer not null,
+	push_token text not null default '',
+	last_push_at_ms integer not null default 0,
+	cert_expires_at_ms integer not null default 0,
+	cert_warned_days integer not null default 0,
+	category text not null default '' check (length(category) <= 80)
+) strict;
+insert into monitors_new (id, name, kind, target, keyword, interval_s, timeout_ms, retries,
+	retry_interval_s, recovery_checks, paused, status, status_since_ms, fail_streak, ok_streak,
+	failing_since_ms, last_check_at_ms, last_latency_ms, last_error, created_at_ms, push_token,
+	last_push_at_ms, cert_expires_at_ms, cert_warned_days, category)
+select id, name, kind, target, keyword, interval_s, timeout_ms, retries,
+	retry_interval_s, recovery_checks, paused, status, status_since_ms, fail_streak, ok_streak,
+	failing_since_ms, last_check_at_ms, last_latency_ms, last_error, created_at_ms, push_token,
+	last_push_at_ms, cert_expires_at_ms, cert_warned_days, category
+from monitors;
+drop table monitors;
+alter table monitors_new rename to monitors;
+create unique index monitors_push_token on monitors(push_token) where push_token <> '';
+
+create table events_new (
+	id integer primary key,
+	project_id integer references projects(id) on delete cascade,
+	kind text not null check (kind in ('monitor_down', 'monitor_up', 'incident_published', 'incident_update')),
+	at_ms integer not null,
+	monitor_id integer references monitors(id) on delete set null,
+	incident_id integer references incidents(id) on delete set null,
+	title text not null,
+	detail text not null default ''
+) strict;
+insert into events_new (id, project_id, kind, at_ms, monitor_id, incident_id, title, detail)
+select id, case when kind in ('monitor_down', 'monitor_up') then null else project_id end,
+	kind, at_ms, monitor_id, incident_id, title, detail
+from events;
+drop table events;
+alter table events_new rename to events;
+create index events_project on events(project_id, id);
+create index events_monitor on events(monitor_id);
+create index events_incident on events(incident_id);
+
+alter table projects add column position integer not null default 0;
+update projects set position = id;
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

@@ -20,7 +20,7 @@
       <tr>
         <th scope="row">
           <a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
-          <span class="meta cell-note target">{{with .Category}}{{.}} · {{end}}{{if eq .Kind "push"}}waits for the job to report in{{else}}{{.Target}}{{end}}{{if not .Public}} · hidden from the status page{{end}}</span>
+          <span class="meta cell-note target">{{with .Category}}{{.}} · {{end}}{{if eq .Kind "push"}}waits for the job to report in{{else}}{{.Target}}{{end}}</span>
         </th>
         <td>
           <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
@@ -127,7 +127,7 @@
   </div>
   <dialog id="delete-project" aria-labelledby="delete-project-heading">
     <h2 id="delete-project-heading">delete {{.Project.Name}}?</h2>
-    <p>its monitors, history and incidents are deleted with it. this cannot be undone.</p>
+    <p>its incidents, maintenance windows and settings are deleted with it. its monitors stay under monitors. this cannot be undone.</p>
     <form class="actions" method="post" action="/admin/projects/{{.Project.ID}}/delete">
       <button class="button danger" type="submit">delete project</button>
       <button class="button quiet" type="button" data-close-dialog>cancel</button>

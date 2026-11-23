@@ -587,6 +587,7 @@ code { font-family: var(--font-mono); font-size: var(--text-sm); }
 .area-flat { fill: color-mix(in oklab, var(--accent) 20%, transparent); }
 .area-top { stop-color: var(--accent); stop-opacity: 0.55; }
 .area-bottom { stop-color: var(--accent); stop-opacity: 0; }
+.checks { display: grid; gap: var(--space-1); inline-size: 100%; }
 /* the detail view of a monitor */
 .stats-wide { grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }
 @media (max-width: 520px) { .stats-wide { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

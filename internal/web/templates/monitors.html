@@ -1,0 +1,50 @@
+{{define "main"}}
+<div class="title-row">
+  <h1>monitors</h1>
+  <span class="actions">
+    <button class="button quiet" type="button" data-open-dialog="add-category">{{template "icon" "folder"}}new category</button>
+    <a class="button" href="/admin/monitors/new">{{template "icon" "plus"}}new monitor</a>
+  </span>
+</div>
+<p class="muted">everything uppies checks. a monitor belongs to the install: put it on any status page from that page's editor.</p>
+{{range .Groups}}
+<section aria-label="{{or .Category "no category"}}">
+  <div class="title-row group-title">
+    <h2>{{or .Category "no category"}}</h2>
+    {{if .Category}}<form method="post" action="/admin/categories/delete"><input type="hidden" name="name" value="{{.Category}}"><button class="button quiet" type="submit">delete category</button></form>{{end}}
+  </div>
+  {{if .Rows}}
+  <div class="table-scroll panel"><table class="dense">
+    <thead><tr><th>monitor</th><th>state</th><th>status pages</th><th>last check</th><th class="num">latency</th></tr></thead>
+    <tbody>
+      {{range .Rows}}
+      <tr>
+        <td><a class="row-title with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}<span>{{.Name}}<small class="target">{{if eq .Kind "push"}}push{{else}}{{.Target}}{{end}}</small></span></a></td>
+        <td><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>{{if eq .State "down"}}{{with .LastError}}<small class="meta">{{.}}</small>{{end}}{{end}}</td>
+        <td>{{range $i, $page := .Pages}}{{if $i}}, {{end}}<a class="quiet-link" href="/admin/projects/{{$page.ID}}">{{$page.Name}}</a>{{else}}<span class="meta">on none</span>{{end}}</td>
+        <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{utc .LastCheckAtMs}}</time>{{else}}<span class="meta">never</span>{{end}}</td>
+        <td class="num">{{if and .LastCheckAtMs (eq .State "ok")}}{{.LastLatencyMs}} ms{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table></div>
+  {{else}}
+  <p class="empty">no monitors in this category yet. choose it in a monitor's settings.</p>
+  {{end}}
+</section>
+{{else}}
+<p class="empty">no monitors yet.</p>
+{{end}}
+<dialog id="add-category" aria-labelledby="add-category-heading"{{if index .Problems "name"}} data-open-on-load{{end}}>
+  <h2 id="add-category-heading">new category</h2>
+  <p>categories group monitors here and on every status page that shows them.</p>
+  <form class="form" method="post" action="/admin/categories">
+    <div class="field">
+      <label for="category-name">name</label>
+      <input id="category-name" name="name" value="{{.NewCategory}}" required maxlength="80"{{if index .Problems "name"}} aria-invalid="true" aria-describedby="category-name-problem"{{end}}>
+      {{with index .Problems "name"}}<p class="problem" id="category-name-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="actions"><button class="button" type="submit">add category</button><button class="button quiet" type="button" data-close-dialog>cancel</button></div>
+  </form>
+</dialog>
+{{end}}

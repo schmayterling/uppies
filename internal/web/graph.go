@@ -16,10 +16,10 @@ const graphFillInherit = "default"
 // scopedGraphFills are the choices of a status page and of a monitor.
 var scopedGraphFills = append([]string{graphFillInherit}, store.GraphFills...)
 
-// graphFill picks how a graph is filled: the monitor's own choice, else its
-// status page's, else the instance's.
-func graphFill(instance store.InstanceSettings, project store.Project, m store.Monitor) string {
-	for _, fill := range []string{m.GraphFill, project.GraphFill, instance.GraphFill} {
+// graphFill picks how a graph is filled: the choice made for the monitor on
+// this status page, else the page's, else the instance's.
+func graphFill(instance store.InstanceSettings, project store.Project, placed string) string {
+	for _, fill := range []string{placed, project.GraphFill, instance.GraphFill} {
 		if fill != "" {
 			return fill
 		}

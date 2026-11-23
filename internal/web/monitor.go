@@ -62,8 +62,28 @@ type chartSlot struct {
 	Failed bool
 }
 
+// detailLook is how a monitor's detail view is drawn where it is shown: on a
+// status page that is the page's own lookback, backfill, zone and graph fill.
+type detailLook struct {
+	Days     int
+	Backfill string
+	Fill     string
+	Zone     *time.Location
+}
+
+// pageLook is the look of a status page's detail views, with the graph fill
+// chosen for one monitor on that page.
+func (s *Server) pageLook(ctx context.Context, project store.Project, placedFill string, zone *time.Location) (detailLook, error) {
+	instance, err := s.store.Instance(ctx)
+	return detailLook{
+		Days: project.HistoryDays, Backfill: project.Backfill, Zone: zone,
+		Fill: graphFill(instance, project, placedFill),
+	}, err
+}
+
 // monitorDetail gathers a monitor's last day of checks and its uptime history.
-func (s *Server) monitorDetail(ctx context.Context, project store.Project, m store.Monitor, zone *time.Location) (monitorDetail, error) {
+func (s *Server) monitorDetail(ctx context.Context, m store.Monitor, look detailLook) (monitorDetail, error) {
+	zone := look.Zone
 	nowMs := s.now().UnixMilli()
 	// The chart starts on a half hour, so that the slots line up with the clock.
 	firstSlotMs := (nowMs/detailBucketMs - (detailBuckets - 1)) * detailBucketMs
@@ -76,14 +96,14 @@ func (s *Server) monitorDetail(ctx context.Context, project store.Project, m sto
 		return monitorDetail{}, err
 	}
 	todayStartMs := store.DayStartMs(nowMs)
-	rollups, err := s.store.DailyRollups(ctx, project.ID, todayStartMs-int64(project.HistoryDays-1)*dayMs)
+	rollups, err := s.store.MonitorRollups(ctx, m.ID, todayStartMs-int64(look.Days-1)*dayMs)
 	if err != nil {
 		return monitorDetail{}, err
 	}
 
 	var detail monitorDetail
-	detail.Days, detail.Uptime = uptimeStrip(rollups[m.ID], todayStartMs, project.HistoryDays)
-	backfillDays(detail.Days, project.Backfill)
+	detail.Days, detail.Uptime = uptimeStrip(rollups, todayStartMs, look.Days)
+	backfillDays(detail.Days, look.Backfill)
 	detail.Samples = len(latencies)
 	var checks, failures int64
 	for _, b := range buckets {
@@ -91,7 +111,7 @@ func (s *Server) monitorDetail(ctx context.Context, project store.Project, m sto
 		failures += b.Failures
 	}
 	detail.Figures = []figure{
-		{Label: fmt.Sprintf("uptime, %d days", project.HistoryDays), Value: strings.TrimSuffix(detail.Uptime, " uptime")},
+		{Label: fmt.Sprintf("uptime, %d days", look.Days), Value: strings.TrimSuffix(detail.Uptime, " uptime")},
 		{Label: "checks, 24 h", Value: strconv.FormatInt(checks, 10)},
 		{Label: "failed, 24 h", Value: strconv.FormatInt(failures, 10)},
 	}
@@ -108,11 +128,7 @@ func (s *Server) monitorDetail(ctx context.Context, project store.Project, m sto
 	}
 	detail.Figures = append(detail.Figures, figure{Label: "slowest, 24 h", Value: slowest})
 	detail.Line, detail.Slots, detail.Peak = responseChart(buckets, firstSlotMs, zone)
-	instance, err := s.store.Instance(ctx)
-	if err != nil {
-		return monitorDetail{}, err
-	}
-	detail.Area = newGraphArea(graphFill(instance, project, m), detail.Line, chartHeight, "area-chart")
+	detail.Area = newGraphArea(look.Fill, detail.Line, chartHeight, "area-chart")
 	return detail, nil
 }
 
@@ -175,34 +191,43 @@ type monitorPage struct {
 var badgePercentiles = map[string]int{"p90.svg": 90, "p95.svg": 95, "p99.svg": 99}
 
 // publicMonitor returns the monitor a public address names, or ErrNotFound
-// when it is hidden or belongs to another project, so that neither can be told apart from a missing one.
-func (s *Server) publicMonitor(r *http.Request) (store.Project, store.Monitor, error) {
+// when the status page does not show it, so that a monitor on no page or on
+// another one cannot be told apart from a missing one.
+func (s *Server) publicMonitor(r *http.Request) (store.Project, store.PlacedMonitor, error) {
 	project, err := s.store.ProjectBySlug(r.Context(), r.PathValue("slug"))
 	if err != nil {
-		return store.Project{}, store.Monitor{}, err
+		return store.Project{}, store.PlacedMonitor{}, err
 	}
 	id, err := pathID(r)
 	if err != nil {
-		return store.Project{}, store.Monitor{}, err
+		return store.Project{}, store.PlacedMonitor{}, err
 	}
-	m, err := s.store.Monitor(r.Context(), id)
+	shown, err := s.store.MonitorsByProject(r.Context(), project.ID)
 	if err != nil {
-		return store.Project{}, store.Monitor{}, err
+		return store.Project{}, store.PlacedMonitor{}, err
 	}
-	if m.ProjectID != project.ID || !m.Public {
-		return store.Project{}, store.Monitor{}, store.ErrNotFound
+	for _, m := range shown {
+		if m.ID == id {
+			return project, m, nil
+		}
 	}
-	return project, m, nil
+	return store.Project{}, store.PlacedMonitor{}, store.ErrNotFound
 }
 
 func (s *Server) handleMonitorPage(w http.ResponseWriter, r *http.Request) {
-	project, m, err := s.publicMonitor(r)
+	project, placed, err := s.publicMonitor(r)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
+	m := placed.Monitor
 	zone, zoneName := pageZone(project, r.URL.Query().Get("tz"))
-	detail, err := s.monitorDetail(r.Context(), project, m, zone)
+	look, err := s.pageLook(r.Context(), project, placed.GraphFill, zone)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	detail, err := s.monitorDetail(r.Context(), m, look)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -252,7 +277,7 @@ func (s *Server) handleMonitorBadge(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	state, _ := componentState(m)
+	state, _ := componentState(m.Monitor)
 	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Header().Set("Cache-Control", "max-age=60")
 	if _, err := io.WriteString(w, percentileBadge(p, latencies, state)); err != nil {

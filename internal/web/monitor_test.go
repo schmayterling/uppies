@@ -99,15 +99,15 @@ func TestMonitorDetailPagesAndBadges(t *testing.T) {
 		t.Fatal(err)
 	}
 	monitor := store.Monitor{
-		ProjectID: projectID, Name: "api", Kind: "http", Target: "https://api.acme.example/health",
-		IntervalS: 60, TimeoutMs: 10_000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 1, Public: true, Display: "bars",
+		Name: "api", Kind: "http", Target: "https://api.acme.example/health",
+		IntervalS: 60, TimeoutMs: 10_000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 1,
 	}
-	apiID, err := s.store.CreateMonitor(ctx, monitor, 1)
+	apiID, err := s.createShown(ctx, projectID, monitor, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	monitor.Name, monitor.Public = "internal queue", false
-	hiddenID, err := s.store.CreateMonitor(ctx, monitor, 1)
+	monitor.Name = "internal queue"
+	hiddenID, err := s.store.CreateMonitor(ctx, monitor, 1) // on no status page
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,13 +169,13 @@ func TestMonitorDetailPagesAndBadges(t *testing.T) {
 
 	// The admin page of a monitor opens on an overview, with the errors the public page leaves out.
 	_, admin := s.get(t, s.admin, fmt.Sprintf("/admin/monitors/%d", apiID))
-	for _, want := range []string{`data-pane="overview"`, `data-pane="settings"`, "latest checks", "dial tcp 10.0.0.7:443: refused", "p95, 24 h", "open its public page", `class="admonition admonition-success"`} {
+	for _, want := range []string{`data-pane="overview"`, `data-pane="settings"`, "latest checks", "dial tcp 10.0.0.7:443: refused", "p95, 24 h", fmt.Sprintf(`shown on <a href="/s/acme/monitors/%d">Acme</a>`, apiID), `class="admonition admonition-success"`} {
 		if !strings.Contains(admin, want) {
 			t.Errorf("admin monitor page is missing %q", want)
 		}
 	}
-	if _, admin := s.get(t, s.admin, fmt.Sprintf("/admin/monitors/%d", hiddenID)); !strings.Contains(admin, "hidden from the status page") {
-		t.Error("the admin page of a hidden monitor must say that it is hidden")
+	if _, admin := s.get(t, s.admin, fmt.Sprintf("/admin/monitors/%d", hiddenID)); !strings.Contains(admin, "on no status page") {
+		t.Error("the admin page of a monitor that no status page shows must say so")
 	}
 }
 

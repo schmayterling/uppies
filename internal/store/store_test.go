@@ -27,11 +27,20 @@ func openTemp(t *testing.T) *Store {
 	return s
 }
 
-func newMonitor(projectID int64) Monitor {
+func newMonitor() Monitor {
 	return Monitor{
-		ProjectID: projectID, Name: "api", Kind: "http", Target: "https://example.com/health", Public: true,
+		Name: "api", Kind: "http", Target: "https://example.com/health",
 		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
 	}
+}
+
+// createPlaced adds a monitor and puts it on a status page.
+func createPlaced(ctx context.Context, s *Store, projectID, nowMs int64) (int64, error) {
+	id, err := s.CreateMonitor(ctx, newMonitor(), nowMs)
+	if err != nil {
+		return 0, err
+	}
+	return id, s.PlaceMonitor(ctx, projectID, id)
 }
 
 func TestRecordCheckTracksAnOutage(t *testing.T) {
@@ -42,7 +51,7 @@ func TestRecordCheckTracksAnOutage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	monitorID, err := s.CreateMonitor(ctx, newMonitor(projectID), day)
+	monitorID, err := createPlaced(ctx, s, projectID, day)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,33 +101,33 @@ func TestRecordCheckTracksAnOutage(t *testing.T) {
 	}
 }
 
-func TestDeletingAProjectRemovesItsMonitors(t *testing.T) {
+func TestDeletingAProjectKeepsItsMonitorsAndDropsTheirPlaces(t *testing.T) {
 	ctx := context.Background()
 	s := openTemp(t)
 	projectID, err := s.CreateProject(ctx, "acme", "Acme", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	monitorID, err := s.CreateMonitor(ctx, newMonitor(projectID), 1)
+	monitorID, err := createPlaced(ctx, s, projectID, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := s.DeleteProject(ctx, projectID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Monitor(ctx, monitorID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("monitor after project delete: got err=%v, want ErrNotFound", err)
+	// Monitors belong to the install since step 15, so only the place on the page goes.
+	if _, err := s.Monitor(ctx, monitorID); err != nil {
+		t.Fatalf("monitor after project delete: got err=%v, want it to stay", err)
+	}
+	if placed, err := s.PlacedMonitors(ctx); err != nil || len(placed) != 0 {
+		t.Fatalf("places after project delete: got %+v err=%v, want none", placed, err)
 	}
 }
 
 func TestSchemaRejectsOutOfRangeSettings(t *testing.T) {
 	ctx := context.Background()
 	s := openTemp(t)
-	projectID, err := s.CreateProject(ctx, "acme", "Acme", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	m := newMonitor(projectID)
+	m := newMonitor()
 	m.IntervalS = 19
 	if _, err := s.CreateMonitor(ctx, m, 1); err == nil {
 		t.Fatal("interval of 19 seconds was accepted, want a constraint error")
@@ -157,7 +166,7 @@ func TestEventsPageBackwards(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	monitorID, err := s.CreateMonitor(ctx, newMonitor(projectID), 1)
+	monitorID, err := createPlaced(ctx, s, projectID, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,8 +249,9 @@ func TestUpgradingAVersionOneFileKeepsItsDataAndAddsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(monitors) != 1 || !monitors[0].Public || monitors[0].Name != "api" {
-		t.Fatalf("monitors after upgrade: got %+v, want the one public monitor", monitors)
+	// Step 15 puts each monitor on the status page it used to belong to.
+	if len(monitors) != 1 || monitors[0].Name != "api" || monitors[0].Position != 1 || monitors[0].Display != "bars" {
+		t.Fatalf("monitors after upgrade: got %+v, want the one monitor, first on its page", monitors)
 	}
 	// The monitors table is rebuilt in step 5. Rows that point at a monitor must survive that.
 	rollups, err := s.DailyRollups(ctx, 7, 0)
@@ -252,40 +262,149 @@ func TestUpgradingAVersionOneFileKeepsItsDataAndAddsDefaults(t *testing.T) {
 		t.Fatalf("rollups after upgrade: got %+v, want the one day with 3 checks", got)
 	}
 	monitors[0].Kind, monitors[0].Target = "dns", "example.com"
-	if err := s.UpdateMonitor(ctx, monitors[0]); err != nil {
+	if err := s.UpdateMonitor(ctx, monitors[0].Monitor); err != nil {
 		t.Fatalf("a kind added in step 5 is refused after the upgrade: %v", err)
 	}
 	if err := s.DeleteProject(ctx, 7); err != nil {
 		t.Fatal(err)
 	}
-	if left, err := s.DailyRollups(ctx, 7, 0); err != nil || len(left) != 0 {
-		t.Fatalf("rollups after deleting the project: got %v err=%v, want none, so cascades still work", left, err)
+	// A monitor belongs to the install, so it outlives a status page that showed it.
+	if left, err := s.Monitors(ctx); err != nil || len(left) != 1 {
+		t.Fatalf("monitors after deleting the project: got %v err=%v, want the monitor to stay", left, err)
+	}
+	if kept, err := s.MonitorRollups(ctx, monitors[0].ID, 0); err != nil || len(kept) != 1 {
+		t.Fatalf("rollups after deleting the project: got %v err=%v, want the monitor's history to stay", kept, err)
 	}
 	if _, err := os.Stat(path + ".backup-v1"); err != nil {
 		t.Fatalf("no backup was written before the upgrade: %v", err)
 	}
 }
 
-func TestAnAlertChannelCanOnlyBeDeletedThroughItsProject(t *testing.T) {
+func TestAMonitorAlertsTheChannelsItNames(t *testing.T) {
 	ctx := context.Background()
 	s := openTemp(t)
-	mine, err := s.CreateProject(ctx, "mine", "Mine", 1)
+	first, err := s.CreateMonitor(ctx, newMonitor(), 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	theirs, err := s.CreateProject(ctx, "theirs", "Theirs", 1)
+	// A new channel is alerted by every monitor there is.
+	hook, err := s.CreateAlertChannel(ctx, AlertChannel{Kind: "webhook", URL: "https://example.com/hook"}, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	channelID, err := s.CreateAlertChannel(ctx, AlertChannel{ProjectID: mine, Kind: "webhook", URL: "https://example.com/hook"}, 1)
+	mail, err := s.CreateAlertChannel(ctx, AlertChannel{Kind: "email", URL: "ops@example.com"}, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.DeleteAlertChannel(ctx, theirs, channelID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("delete through another project: got err=%v, want ErrNotFound", err)
+	if channels, err := s.MonitorChannels(ctx, first); err != nil || len(channels) != 2 {
+		t.Fatalf("channels of a monitor that was there first: got %+v err=%v, want both", channels, err)
 	}
-	if err := s.DeleteAlertChannel(ctx, mine, channelID); err != nil {
-		t.Fatalf("delete through its own project: %v", err)
+	// A monitor added later names its own. An id that is no channel is left out.
+	second, err := s.CreateMonitor(ctx, newMonitor(), 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetMonitorChannels(ctx, second, []int64{mail, 999}); err != nil {
+		t.Fatal(err)
+	}
+	channels, err := s.MonitorChannels(ctx, second)
+	if err != nil || len(channels) != 1 || channels[0].ID != mail {
+		t.Fatalf("channels of the second monitor: got %+v err=%v, want only the email one", channels, err)
+	}
+	if err := s.DeleteAlertChannel(ctx, mail); err != nil {
+		t.Fatal(err)
+	}
+	if channels, err := s.MonitorChannels(ctx, second); err != nil || len(channels) != 0 {
+		t.Fatalf("after deleting its channel: got %+v err=%v, want none", channels, err)
+	}
+	if all, err := s.AlertChannels(ctx); err != nil || len(all) != 1 || all[0].ID != hook {
+		t.Fatalf("all channels: got %+v err=%v, want the webhook", all, err)
+	}
+	if err := s.DeleteAlertChannel(ctx, mail); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("deleting it twice: got err=%v, want ErrNotFound", err)
+	}
+}
+
+func TestAStatusPageListsMonitorsInItsOwnOrderAndStyle(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	one, err := s.CreateProject(ctx, "one", "One", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	two, err := s.CreateProject(ctx, "two", "Two", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []int64
+	for range 3 {
+		id, err := createPlaced(ctx, s, one, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	// Placing a monitor twice changes nothing. The same monitor can be on two pages.
+	if err := errors.Join(s.PlaceMonitor(ctx, one, ids[0]), s.PlaceMonitor(ctx, two, ids[0])); err != nil {
+		t.Fatal(err)
+	}
+	want := []Placement{
+		{MonitorID: ids[2], Display: "latency", GraphFill: "filled"},
+		{MonitorID: ids[0]},
+	}
+	if err := s.SetPlacements(ctx, one, want); err != nil {
+		t.Fatal(err)
+	}
+	placed, err := s.MonitorsByProject(ctx, one)
+	if err != nil || len(placed) != 2 {
+		t.Fatalf("page one: got %+v err=%v, want two monitors", placed, err)
+	}
+	if placed[0].MonitorID != ids[2] || placed[0].Display != "latency" || placed[0].GraphFill != "filled" ||
+		placed[1].MonitorID != ids[0] || placed[1].Display != "bars" || placed[1].Position != 2 {
+		t.Fatalf("page one: got %+v, want the saved order and styles, with bars where none was given", placed)
+	}
+	if other, err := s.MonitorsByProject(ctx, two); err != nil || len(other) != 1 || other[0].MonitorID != ids[0] {
+		t.Fatalf("page two: got %+v err=%v, want it untouched", other, err)
+	}
+	// Maintenance on any page that shows a monitor rests it. A monitor on no page never rests.
+	if _, err := s.CreateMaintenanceWindow(ctx, MaintenanceWindow{ProjectID: two, Title: "move", StartsAtMs: 10, EndsAtMs: 20}, 1); err != nil {
+		t.Fatal(err)
+	}
+	for id, wantResting := range map[int64]bool{ids[0]: true, ids[1]: false, ids[2]: false} {
+		if resting, err := s.InMaintenance(ctx, id, 15); err != nil || resting != wantResting {
+			t.Errorf("monitor %d during page two's maintenance: got %v err=%v, want %v", id, resting, err, wantResting)
+		}
+	}
+	// Categories are a list of their own. Deleting one leaves its monitors without a category.
+	if err := errors.Join(s.CreateCategory(ctx, "web"), s.CreateCategory(ctx, "core"), s.CreateCategory(ctx, "web")); err != nil {
+		t.Fatal(err)
+	}
+	m, err := s.Monitor(ctx, ids[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Category = "core"
+	if err := s.UpdateMonitor(ctx, m); err != nil {
+		t.Fatal(err)
+	}
+	if names, err := s.Categories(ctx); err != nil || !slices.Equal(names, []string{"web", "core"}) {
+		t.Fatalf("categories: got %v err=%v, want web then core, each once", names, err)
+	}
+	if err := s.DeleteCategory(ctx, "core"); err != nil {
+		t.Fatal(err)
+	}
+	if m, err := s.Monitor(ctx, ids[1]); err != nil || m.Category != "" {
+		t.Fatalf("monitor after its category was deleted: got %q err=%v, want no category", m.Category, err)
+	}
+	if names, err := s.PageNames(ctx, ids[0]); err != nil || !slices.Equal(names, []string{"One", "Two"}) {
+		t.Fatalf("pages that show the first monitor: got %v err=%v, want One and Two", names, err)
+	}
+	// Status pages keep the order they are given.
+	if err := s.SetProjectOrder(ctx, []int64{two, one}); err != nil {
+		t.Fatal(err)
+	}
+	if projects, err := s.Projects(ctx); err != nil || len(projects) != 2 || projects[0].ID != two {
+		t.Fatalf("projects after reordering: got %+v err=%v, want page two first", projects, err)
 	}
 }
 
@@ -378,7 +497,7 @@ func TestCheckQueriesForTheDetailView(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	monitorID, err := s.CreateMonitor(ctx, newMonitor(projectID), 1)
+	monitorID, err := createPlaced(ctx, s, projectID, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -54,11 +54,12 @@ func (s *Store) MaintenanceWindows(ctx context.Context, projectID, sinceMs int64
 	return windows, rows.Err()
 }
 
-// InMaintenance reports whether a window of the project covers atMs.
-func (s *Store) InMaintenance(ctx context.Context, projectID, atMs int64) (bool, error) {
+// InMaintenance reports whether a window of any status page that shows the monitor covers atMs.
+func (s *Store) InMaintenance(ctx context.Context, monitorID, atMs int64) (bool, error) {
 	var active bool
 	err := s.db.QueryRowContext(ctx, `
-		select exists (select 1 from maintenance_windows
-			where project_id = ? and starts_at_ms <= ? and ends_at_ms > ?)`, projectID, atMs, atMs).Scan(&active)
+		select exists (select 1 from maintenance_windows w
+			join page_monitors p on p.project_id = w.project_id
+			where p.monitor_id = ? and w.starts_at_ms <= ? and w.ends_at_ms > ?)`, monitorID, atMs, atMs).Scan(&active)
 	return active, err
 }

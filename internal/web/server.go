@@ -53,7 +53,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 	}
 	names := []string{
 		"index.html", "status.html", "error.html", "setup.html", "login.html", "dashboard.html",
-		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "monitor.html", "appearance.html", "instance.html", "users.html",
+		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "monitor.html", "alerts.html", "monitors.html", "appearance.html", "instance.html", "users.html",
 	}
 	for _, name := range names {
 		page, err := template.New("base.html").Funcs(templateFuncs).
@@ -121,11 +121,16 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("GET /admin/projects/{id}/settings", s.handleSettings)
 	admin("POST /admin/projects/{id}/settings", s.handleUpdateSettings)
 	admin("POST /admin/projects/{id}/images", s.handleUpdateImages)
-	admin("POST /admin/projects/{id}/channels", s.handleCreateChannel)
-	admin("POST /admin/projects/{id}/channels/{channel}/delete", s.handleDeleteChannel)
-	admin("POST /admin/projects/{id}/channels/{channel}/test", s.handleTestChannel)
-	admin("GET /admin/projects/{id}/monitors/new", s.handleNewMonitorForm)
-	admin("POST /admin/projects/{id}/monitors", s.handleCreateMonitor)
+	admin("GET /admin/alerts", s.handleAlerts)
+	admin("POST /admin/alerts", s.handleCreateChannel)
+	admin("POST /admin/alerts/{channel}/delete", s.handleDeleteChannel)
+	admin("POST /admin/alerts/{channel}/test", s.handleTestChannel)
+	admin("GET /admin/projects/{id}/monitors/new", s.handleNewMonitorOnPage)
+	admin("GET /admin/monitors", s.handleMonitors)
+	admin("GET /admin/monitors/new", s.handleNewMonitorForm)
+	admin("POST /admin/monitors", s.handleCreateMonitor)
+	admin("POST /admin/categories", s.handleCreateCategory)
+	admin("POST /admin/categories/delete", s.handleDeleteCategory)
 	admin("GET /admin/monitors/{id}", s.handleEditMonitorForm)
 	admin("POST /admin/monitors/{id}", s.handleUpdateMonitor)
 	admin("POST /admin/monitors/{id}/delete", s.handleDeleteMonitor)

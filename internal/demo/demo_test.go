@@ -30,6 +30,15 @@ func TestSeedShowsEveryKindAndStateAndRefusesASecondRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A hidden monitor is one that no status page shows.
+	onPages, err := st.PlacedMonitors(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	placed := make(map[int64]bool)
+	for _, p := range onPages {
+		placed[p.MonitorID] = true
+	}
 	seen := make(map[string]bool)
 	for _, m := range monitors {
 		// A day of checks every five minutes, so that a monitor's own page has something to chart.
@@ -44,7 +53,7 @@ func TestSeedShowsEveryKindAndStateAndRefusesASecondRun(t *testing.T) {
 		if m.Paused {
 			seen["paused"] = true
 		}
-		if !m.Public {
+		if !placed[m.ID] {
 			seen["hidden"] = true
 		}
 	}
@@ -79,7 +88,7 @@ func TestSeedShowsEveryKindAndStateAndRefusesASecondRun(t *testing.T) {
 	if open != 1 || resolved != 2 || drafts != 2 {
 		t.Errorf("incidents: got %d open, %d resolved, %d drafts, want 1, 2 and 2 (one draft per down monitor)", open, resolved, drafts)
 	}
-	channels, err := st.AlertChannels(ctx, hibi.ID)
+	channels, err := st.AlertChannels(ctx)
 	if err != nil || len(channels) != len(store.AlertChannelKinds) {
 		t.Errorf("channels: got %d err=%v, want one of each of the %d kinds", len(channels), err, len(store.AlertChannelKinds))
 	}
@@ -87,8 +96,12 @@ func TestSeedShowsEveryKindAndStateAndRefusesASecondRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resting, err := st.InMaintenance(ctx, billing.ID, now.UnixMilli()); err != nil || !resting {
-		t.Errorf("billing in maintenance: got %v err=%v, want a window running now", resting, err)
+	billed, err := st.MonitorsByProject(ctx, billing.ID)
+	if err != nil || len(billed) == 0 {
+		t.Fatalf("billing monitors: got %d err=%v, want some", len(billed), err)
+	}
+	if resting, err := st.InMaintenance(ctx, billed[0].MonitorID, now.UnixMilli()); err != nil || !resting {
+		t.Errorf("a billing monitor in maintenance: got %v err=%v, want a window running now", resting, err)
 	}
 
 	if err := Seed(ctx, st, now); !errors.Is(err, ErrNotEmpty) {

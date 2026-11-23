@@ -2,8 +2,6 @@ package web
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -21,7 +19,7 @@ func TestGraphFillTakesTheNarrowestChoice(t *testing.T) {
 		{"", "none", "none"},
 	}
 	for _, c := range cases {
-		got := graphFill(instance, store.Project{GraphFill: c.project}, store.Monitor{GraphFill: c.monitor})
+		got := graphFill(instance, store.Project{GraphFill: c.project}, c.monitor)
 		if got != c.want {
 			t.Errorf("page %q monitor %q: got %q, want %q", c.project, c.monitor, got, c.want)
 		}
@@ -49,11 +47,14 @@ func TestGraphFillIsSetForTheInstanceAStatusPageAndAMonitor(t *testing.T) {
 		t.Fatal(err)
 	}
 	monitor := store.Monitor{
-		ProjectID: projectID, Name: "api", Kind: "http", Target: "https://example.com",
-		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2, Public: true, Display: "latency",
+		Name: "api", Kind: "http", Target: "https://example.com",
+		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
 	}
-	monitorID, err := s.store.CreateMonitor(ctx, monitor, 1)
+	monitorID, err := s.createShown(ctx, projectID, monitor, 1)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.SetPlacements(ctx, projectID, []store.Placement{{MonitorID: monitorID, Display: "latency"}}); err != nil {
 		t.Fatal(err)
 	}
 	// Two days of response times, so that there is a line to fill under.
@@ -90,26 +91,20 @@ func TestGraphFillIsSetForTheInstanceAStatusPageAndAMonitor(t *testing.T) {
 	if statusHas(flat) || statusHas(gradient) {
 		t.Error("the status page chose no fill and a graph is still filled")
 	}
-	// The monitor's own setting wins over its status page, through the real form.
-	form := url.Values{
-		"name": {"api"}, "kind": {"http"}, "target": {"https://example.com"}, "interval_s": {"60"}, "timeout_s": {"5"},
-		"retries": {"2"}, "retry_interval_s": {"20"}, "recovery_checks": {"2"}, "public": {"on"}, "display": {"latency"},
-		"graph_fill": {"gradient"},
+	// The choice made for the monitor on this page wins over the page's own.
+	place := func(fill string) {
+		t.Helper()
+		if err := s.store.SetPlacements(ctx, projectID, []store.Placement{{MonitorID: monitorID, Display: "latency", GraphFill: fill}}); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if resp := s.post(t, s.admin, fmt.Sprintf("/admin/monitors/%d", monitorID), form, nil); resp.StatusCode != http.StatusSeeOther {
-		t.Fatalf("save monitor: got %d, want 303", resp.StatusCode)
-	}
+	place("gradient")
 	if !statusHas(gradient) {
-		t.Error("the monitor chose a gradient and its graph has none")
+		t.Error("the monitor's place chose a gradient and its graph has none")
 	}
-	// "default" hands the choice back to the status page.
-	form.Set("graph_fill", "default")
-	s.post(t, s.admin, fmt.Sprintf("/admin/monitors/%d", monitorID), form, nil)
+	// No choice hands it back to the status page.
+	place("")
 	if statusHas(gradient) {
-		t.Error("the monitor went back to the default and its graph is still filled")
-	}
-	form.Set("graph_fill", "sparkles")
-	if resp := s.post(t, s.admin, fmt.Sprintf("/admin/monitors/%d", monitorID), form, nil); resp.StatusCode != http.StatusUnprocessableEntity {
-		t.Errorf("an unknown fill: got %d, want 422", resp.StatusCode)
+		t.Error("the monitor's place went back to the default and its graph is still filled")
 	}
 }

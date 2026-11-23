@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -149,7 +150,7 @@ func firstDelay(m store.Monitor, now time.Time) time.Duration {
 // new state and the wait before the next check.
 func (e *Engine) checkOnce(ctx context.Context, m store.Monitor) (store.Monitor, time.Duration, error) {
 	interval := time.Duration(m.IntervalS) * time.Second
-	resting, err := e.store.InMaintenance(ctx, m.ProjectID, time.Now().UnixMilli())
+	resting, err := e.store.InMaintenance(ctx, m.ID, time.Now().UnixMilli())
 	if err != nil {
 		return m, 0, err
 	}
@@ -279,20 +280,27 @@ func (e *Engine) warnAboutCertificate(ctx context.Context, m store.Monitor, expi
 	return m, e.store.SetCertWarnedDays(ctx, m.ID, m.CertWarnedDays)
 }
 
-// sendAlerts delivers a change to the project's channels in the background.
+// sendAlerts delivers a change to the monitor's channels in the background.
 // Deliveries outlive a reload, and Run waits for them before it returns.
 func (e *Engine) sendAlerts(ctx context.Context, m store.Monitor, event alert.Event) {
-	project, err := e.store.ProjectByID(ctx, m.ProjectID)
-	if err != nil {
-		e.log.Error("load project for alert", "monitor_id", m.ID, "error", err)
-		return
-	}
-	channels, err := e.store.AlertChannels(ctx, m.ProjectID)
+	channels, err := e.store.MonitorChannels(ctx, m.ID)
 	if err != nil {
 		e.log.Error("load alert channels", "monitor_id", m.ID, "error", err)
 		return
 	}
-	event.Project = project.Name
+	if len(channels) == 0 {
+		return
+	}
+	// The alert names the status pages that show the monitor. An alert still
+	// goes out when they cannot be read, without them.
+	pages, err := e.store.PageNames(ctx, m.ID)
+	if err != nil {
+		e.log.Error("load status pages for alert", "monitor_id", m.ID, "error", err)
+	}
+	event.Project = strings.Join(pages, ", ")
+	if len(pages) == 0 {
+		event.Project = "on no status page"
+	}
 	if event.Down {
 		event.DownFor = 0
 	}

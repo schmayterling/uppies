@@ -71,7 +71,7 @@ func insertIncident(ctx context.Context, tx *sql.Tx, in Incident, firstUpdate st
 		// The join on monitors keeps a monitor of another project from being linked.
 		if _, err := tx.ExecContext(ctx, `
 			insert into incident_monitors (incident_id, monitor_id)
-			select ?, id from monitors where id = ? and project_id = ?`, id, monitorID, in.ProjectID); err != nil {
+			select ?, monitor_id from page_monitors where monitor_id = ? and project_id = ?`, id, monitorID, in.ProjectID); err != nil {
 			return 0, err
 		}
 	}

@@ -27,7 +27,7 @@ func TestAnOutageOpensADraftThatRecoveryCloses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	monitorID, err := s.CreateMonitor(ctx, newMonitor(projectID), 1)
+	monitorID, err := createPlaced(ctx, s, projectID, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestRecoveryLeavesAPublishedIncidentOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	monitorID, err := s.CreateMonitor(ctx, newMonitor(projectID), 1)
+	monitorID, err := createPlaced(ctx, s, projectID, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestAnIncidentCannotLinkAnotherProjectsMonitor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	theirMonitor, err := s.CreateMonitor(ctx, newMonitor(theirs), 1)
+	theirMonitor, err := createPlaced(ctx, s, theirs, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

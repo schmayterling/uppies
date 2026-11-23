@@ -68,7 +68,6 @@ func scanProject(row rowScanner) (Project, error) {
 // Monitor is one thing uppies checks, with its settings and current state.
 type Monitor struct {
 	ID             int64
-	ProjectID      int64
 	Name           string
 	Kind           string // "http", "tcp", "dns", "ping" or "push"
 	Target         string // a URL for http, host:port for tcp, a hostname for dns and ping
@@ -79,10 +78,8 @@ type Monitor struct {
 	RetryIntervalS int
 	RecoveryChecks int
 	Paused         bool
-	Public         bool // shown on the status page
-	// Display is how the status page draws the monitor: "bars", "latency", "summary" or "minimal".
-	Display string
-	// Category groups monitors on the status page and in tables. Empty for none.
+	// Category groups monitors in the admin's list of all monitors. Empty for
+	// none. A status page has its own categories, see Placement.
 	Category string
 
 	Tracker       health.Tracker
@@ -98,15 +95,12 @@ type Monitor struct {
 	CertExpiresAtMs int64
 	// CertWarnedDays is the last warning threshold already alerted on, 0 for none.
 	CertWarnedDays int
-	// GraphFill is how this monitor's graphs are filled: one of GraphFills, or
-	// empty to follow its status page.
-	GraphFill string
 }
 
-const monitorColumns = `id, project_id, name, kind, target, keyword, interval_s, timeout_ms, retries,
-	retry_interval_s, recovery_checks, paused, public, status, status_since_ms, fail_streak, ok_streak,
+const monitorColumns = `id, name, kind, target, keyword, interval_s, timeout_ms, retries,
+	retry_interval_s, recovery_checks, paused, status, status_since_ms, fail_streak, ok_streak,
 	failing_since_ms, last_check_at_ms, last_latency_ms, last_error, push_token, last_push_at_ms,
-	cert_expires_at_ms, cert_warned_days, display, category, graph_fill`
+	cert_expires_at_ms, cert_warned_days, category`
 
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -114,11 +108,11 @@ type rowScanner interface {
 
 func scanMonitor(row rowScanner) (Monitor, error) {
 	var m Monitor
-	err := row.Scan(&m.ID, &m.ProjectID, &m.Name, &m.Kind, &m.Target, &m.Keyword, &m.IntervalS, &m.TimeoutMs,
-		&m.Retries, &m.RetryIntervalS, &m.RecoveryChecks, &m.Paused, &m.Public, &m.Tracker.Status, &m.StatusSinceMs,
+	err := row.Scan(&m.ID, &m.Name, &m.Kind, &m.Target, &m.Keyword, &m.IntervalS, &m.TimeoutMs,
+		&m.Retries, &m.RetryIntervalS, &m.RecoveryChecks, &m.Paused, &m.Tracker.Status, &m.StatusSinceMs,
 		&m.Tracker.FailStreak, &m.Tracker.OKStreak, &m.Tracker.FailingSinceMs, &m.LastCheckAtMs,
 		&m.LastLatencyMs, &m.LastError, &m.PushToken, &m.LastPushAtMs, &m.CertExpiresAtMs, &m.CertWarnedDays,
-		&m.Display, &m.Category, &m.GraphFill)
+		&m.Category)
 	return m, err
 }
 
@@ -131,7 +125,7 @@ const sqliteConstraintUnique = 2067
 // CreateProject adds a project and returns its id, or ErrSlugTaken.
 func (s *Store) CreateProject(ctx context.Context, slug, name string, nowMs int64) (int64, error) {
 	res, err := s.db.ExecContext(ctx,
-		"insert into projects (slug, name, created_at_ms) values (?, ?, ?)", slug, name, nowMs)
+		"insert into projects (slug, name, created_at_ms, position) values (?, ?, ?, (select coalesce(max(position), 0) + 1 from projects))", slug, name, nowMs)
 	var sqliteErr *sqlite.Error
 	if errors.As(err, &sqliteErr) && sqliteErr.Code() == sqliteConstraintUnique {
 		return 0, ErrSlugTaken
@@ -142,9 +136,9 @@ func (s *Store) CreateProject(ctx context.Context, slug, name string, nowMs int6
 	return res.LastInsertId()
 }
 
-// Projects lists all projects by name.
+// Projects lists all projects in the order the admin gave them.
 func (s *Store) Projects(ctx context.Context) ([]Project, error) {
-	rows, err := s.db.QueryContext(ctx, "select "+projectColumns+" from projects order by name, id")
+	rows, err := s.db.QueryContext(ctx, "select "+projectColumns+" from projects order by position, id")
 	if err != nil {
 		return nil, err
 	}
@@ -224,11 +218,11 @@ func (s *Store) DeleteProject(ctx context.Context, id int64) error {
 // CreateMonitor adds a monitor in the unknown state and returns its id.
 func (s *Store) CreateMonitor(ctx context.Context, m Monitor, nowMs int64) (int64, error) {
 	res, err := s.db.ExecContext(ctx, `
-		insert into monitors (project_id, name, kind, target, keyword, interval_s, timeout_ms, retries,
-			retry_interval_s, recovery_checks, paused, public, push_token, display, category, graph_fill, status_since_ms, created_at_ms)
-		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		m.ProjectID, m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries,
-		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.Public, m.PushToken, displayOrDefault(m.Display), m.Category, m.GraphFill, nowMs, nowMs)
+		insert into monitors (name, kind, target, keyword, interval_s, timeout_ms, retries,
+			retry_interval_s, recovery_checks, paused, push_token, category, status_since_ms, created_at_ms)
+		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries,
+		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.PushToken, m.Category, nowMs, nowMs)
 	if err != nil {
 		return 0, err
 	}
@@ -250,18 +244,18 @@ func displayOrDefault(display string) string {
 func (s *Store) UpdateMonitor(ctx context.Context, m Monitor) error {
 	res, err := s.db.ExecContext(ctx, `
 		update monitors set name = ?, kind = ?, target = ?, keyword = ?, interval_s = ?, timeout_ms = ?,
-			retries = ?, retry_interval_s = ?, recovery_checks = ?, paused = ?, public = ?, push_token = ?,
-			display = ?, category = ?, graph_fill = ?
+			retries = ?, retry_interval_s = ?, recovery_checks = ?, paused = ?, push_token = ?,
+			category = ?
 		where id = ?`,
 		m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries, m.RetryIntervalS,
-		m.RecoveryChecks, m.Paused, m.Public, m.PushToken, displayOrDefault(m.Display), m.Category, m.GraphFill, m.ID)
+		m.RecoveryChecks, m.Paused, m.PushToken, m.Category, m.ID)
 	if err != nil {
 		return err
 	}
 	return requireOneRow(res)
 }
 
-// DeleteMonitor removes a monitor and its history.
+// DeleteMonitor removes a monitor and its history. It leaves every status page with it.
 func (s *Store) DeleteMonitor(ctx context.Context, id int64) error {
 	res, err := s.db.ExecContext(ctx, "delete from monitors where id = ?", id)
 	if err != nil {
@@ -291,15 +285,10 @@ func (s *Store) Monitor(ctx context.Context, id int64) (Monitor, error) {
 	return m, err
 }
 
-// Monitors lists every monitor, ordered by project, category and name.
+// Monitors lists every monitor by category, then name. Monitors without a
+// category come first.
 func (s *Store) Monitors(ctx context.Context) ([]Monitor, error) {
-	return s.monitors(ctx, "select "+monitorColumns+" from monitors order by project_id, category, name, id")
-}
-
-// MonitorsByProject lists one project's monitors by category, then name.
-// Monitors without a category come first.
-func (s *Store) MonitorsByProject(ctx context.Context, projectID int64) ([]Monitor, error) {
-	return s.monitors(ctx, "select "+monitorColumns+" from monitors where project_id = ? order by category, name, id", projectID)
+	return s.monitors(ctx, "select "+monitorColumns+" from monitors order by category, name, id")
 }
 
 func (s *Store) monitors(ctx context.Context, query string, args ...any) ([]Monitor, error) {

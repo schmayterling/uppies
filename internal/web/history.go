@@ -296,9 +296,7 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	names := make(map[int64]string, len(monitors))
 	for _, m := range monitors {
-		if m.Public {
-			names[m.ID] = m.Name
-		}
+		names[m.ID] = m.Name
 	}
 	views := make([]incidentView, 0, len(incidents))
 	for _, in := range incidents {

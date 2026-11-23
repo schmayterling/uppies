@@ -1,5 +1,5 @@
 {{define "main"}}
-<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">overview</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / {{if .Editing}}{{.Monitor.Name}}{{else}}new monitor{{end}}</nav>
+<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">overview</a> / <a href="/admin/monitors">monitors</a> / {{if .Editing}}{{.Monitor.Name}}{{else}}new monitor{{end}}</nav>
 <div class="settings">
 <h1>{{if .Editing}}{{.Monitor.Name}}{{else}}new monitor{{end}}</h1>
 {{if .Editing}}
@@ -9,9 +9,9 @@
 <div class="pane" id="pane-overview" data-pane="overview">
   <div class="admonition admonition-{{if eq .State "down"}}danger{{else if eq .State "ok"}}success{{else}}info{{end}}"{{if eq .State "down"}} role="alert"{{end}}>{{template "icon" (index .StateIcons .State)}}<div>
     <p><strong>{{.Word}}</strong>{{if and (eq .State "down") .Monitor.LastError}}: {{.Monitor.LastError}}{{end}}</p>
-    <p>{{if .Monitor.Public}}shown on the status page. <a href="/s/{{.Project.Slug}}/monitors/{{.Monitor.ID}}">open its public page</a>{{else}}hidden from the status page.{{end}}</p>
+    <p>{{if .Pages}}shown on {{range $i, $page := .Pages}}{{if $i}}, {{end}}<a href="/s/{{$page.Slug}}/monitors/{{$.Monitor.ID}}">{{$page.Name}}</a>{{end}}.{{else}}on no status page. add it from a status page's editor.{{end}}</p>
   </div></div>
-  {{template "monitor-detail" (pair .Detail .Project.HistoryDays)}}
+  {{template "monitor-detail" (pair .Detail .Lookback)}}
   <section aria-labelledby="checks-heading">
     <h2 id="checks-heading">latest checks</h2>
     {{if .Checks}}
@@ -28,6 +28,7 @@
 </div>
 <div class="pane" id="pane-settings" data-pane="settings">
 {{end}}
+{{if .Saved}}{{template "success" "saved."}}{{end}}
 {{if .Problems}}{{template "error" "the monitor was not saved. the fields with a problem are marked below."}}{{end}}
 {{with .PushURL}}
 <div class="admonition admonition-info">{{template "icon" "info"}}<div>
@@ -36,7 +37,8 @@
   <p class="hint">for example: curl -fsS {{.}}</p>
 </div></div>
 {{end}}
-<form method="post" action="{{if .Editing}}/admin/monitors/{{.Monitor.ID}}{{else}}/admin/projects/{{.Project.ID}}/monitors{{end}}">
+<form method="post" action="{{if .Editing}}/admin/monitors/{{.Monitor.ID}}{{else}}/admin/monitors{{end}}">
+  {{if .PlaceOn}}<input type="hidden" name="page" value="{{.PlaceOn}}">{{end}}
   <h2 class="group-title">what to check</h2>
   <div class="group">
     <div class="srow">
@@ -90,31 +92,20 @@
     </div>
   </div>
 
-  <h2 class="group-title">status page</h2>
+  <h2 class="group-title">organising and alerts</h2>
   <div class="group">
-    <label class="srow">
-      <span class="srow-copy"><span>show on the status page</span><small>a hidden monitor is still checked and still alerts.</small></span>
-      <span class="srow-control"><input class="switch" type="checkbox" name="public"{{if .Monitor.Public}} checked{{end}}></span>
-    </label>
     <div class="srow">
-      <label class="srow-copy" for="category"><span>category</span><small>monitors with the same category are listed together under it. leave it empty for none.</small></label>
+      <label class="srow-copy" for="category"><span>category</span><small>monitors with the same category are listed together, here and on status pages. leave it empty for none.</small></label>
       <div class="srow-control"><input id="category" name="category" value="{{.Monitor.Category}}" maxlength="80" list="categories"{{if index .Problems "category"}} aria-invalid="true"{{end}}>
         <datalist id="categories">{{range .Categories}}<option value="{{.}}">{{end}}</datalist></div>
       {{with index .Problems "category"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
-    <div class="srow">
-      <label class="srow-copy" for="display"><span>shown as</span><small>what the status page draws under the monitor's name.</small></label>
-      <div class="srow-control"><select id="display" name="display">
-        {{range .Displays}}<option value="{{.}}"{{if or (eq . $.Monitor.Display) (and (eq . "bars") (not $.Monitor.Display))}} selected{{end}}>{{displayLabel .}}</option>{{end}}
-      </select></div>
-      {{with index .Problems "display"}}<p class="problem srow-problem">{{.}}</p>{{end}}
-    </div>
-    <div class="srow">
-      <div class="srow-copy" id="graph-fill-label"><span>graph fill</span><small>what is drawn under the line of this monitor's graphs. default follows the status page.</small></div>
-      <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="graph-fill-label">
-        {{range .GraphFills}}<label><input type="radio" name="graph_fill" value="{{.}}"{{if or (eq . $.Monitor.GraphFill) (and (eq . "default") (not $.Monitor.GraphFill))}} checked{{end}}><span>{{.}}</span></label>{{end}}
-      </div></div>
-      {{with index .Problems "graph_fill"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    <div class="srow" data-stack>
+      <div class="srow-copy" id="channels-label"><span>alert channels</span><small>who is told when this monitor goes down or recovers. channels are added under <a href="/admin/alerts">alerts</a>.</small></div>
+      <div class="checks" role="group" aria-labelledby="channels-label">
+        {{range .Channels}}<label class="check"><input type="checkbox" name="channel" value="{{.ID}}"{{if contains $.ChannelIDs .ID}} checked{{end}}> <span class="with-icon">{{template "icon" (channelIcon .Kind)}}{{.Kind}}</span> <span class="target">{{.URL}}</span></label>
+        {{else}}<p class="meta">there are no alert channels yet.</p>{{end}}
+      </div>
     </div>
     <label class="srow">
       <span class="srow-copy"><span>paused</span><small>a paused monitor is not checked.</small></span>
@@ -123,7 +114,7 @@
   </div>
   <div class="savebar">
     <button class="button" type="submit">{{if .Editing}}save monitor{{else}}add monitor{{end}}</button>
-    <a class="button quiet" href="/admin/projects/{{.Project.ID}}">cancel</a>
+    <a class="button quiet" href="/admin/monitors">cancel</a>
     {{if .Editing}}<button class="button danger push-end" type="button" data-open-dialog="delete-monitor">{{template "icon" "trash"}}delete monitor</button>{{end}}
   </div>
 </form>

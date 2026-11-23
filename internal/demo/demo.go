@@ -88,7 +88,6 @@ func Seed(ctx context.Context, st *store.Store, now time.Time) error {
 		{Kind: "webhook", URL: "https://hibi.example/hooks/uptime"},
 	}
 	for _, c := range channels {
-		c.ProjectID = hibi
 		if _, err := st.CreateAlertChannel(ctx, c, nowMs); err != nil {
 			return err
 		}
@@ -140,14 +139,19 @@ func seedProject(ctx context.Context, st *store.Store, now time.Time, p store.Pr
 		return 0, nil, err
 	}
 	ids := make(map[string]int64, len(specs))
+	var shown []store.Placement
 	for _, spec := range specs {
 		monitorID, err := seedMonitor(ctx, st, now, id, spec)
 		if err != nil {
 			return 0, nil, err
 		}
 		ids[spec.name] = monitorID
+		if !spec.hidden {
+			shown = append(shown, store.Placement{MonitorID: monitorID, Display: spec.display})
+		}
 	}
-	return id, ids, nil
+	// The monitors are on the page already. This gives each its own look.
+	return id, ids, st.SetPlacements(ctx, id, shown)
 }
 
 // lastDayOfChecks makes up a check every five minutes for the day before now,
@@ -178,9 +182,14 @@ func lastDayOfChecks(nowMs int64, spec monitorSpec) []store.Check {
 func seedMonitor(ctx context.Context, st *store.Store, now time.Time, projectID int64, spec monitorSpec) (int64, error) {
 	nowMs := now.UnixMilli()
 	m := store.Monitor{
-		ProjectID: projectID, Name: spec.name, Kind: spec.kind, Target: spec.target, Keyword: spec.keyword,
+		Name: spec.name, Kind: spec.kind, Target: spec.target, Keyword: spec.keyword,
 		IntervalS: spec.intervalS, TimeoutMs: 10_000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
-		Paused: spec.paused, Public: !spec.hidden, Display: spec.display, Category: spec.category,
+		Paused: spec.paused, Category: spec.category,
+	}
+	if spec.category != "" {
+		if err := st.CreateCategory(ctx, spec.category); err != nil {
+			return 0, err
+		}
 	}
 	if spec.kind == "push" {
 		// A token goes into a URL, so the spaces of the name become dashes.
@@ -189,6 +198,13 @@ func seedMonitor(ctx context.Context, st *store.Store, now time.Time, projectID 
 	id, err := st.CreateMonitor(ctx, m, nowMs)
 	if err != nil {
 		return 0, err
+	}
+	// A monitor has to be on the page before its first checks, so that an
+	// outage drafts an incident there. A hidden one is on no page.
+	if !spec.hidden {
+		if err := st.PlaceMonitor(ctx, projectID, id); err != nil {
+			return 0, err
+		}
 	}
 
 	todayStartMs := store.DayStartMs(nowMs)

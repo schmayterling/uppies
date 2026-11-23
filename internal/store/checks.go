@@ -37,10 +37,8 @@ type CheckResult struct {
 // It returns ErrNotFound when the monitor was deleted while the check ran.
 func (s *Store) RecordCheck(ctx context.Context, r CheckResult) error {
 	return s.write(ctx, func(tx *sql.Tx) error {
-		var projectID int64
 		var name string
-		err := tx.QueryRowContext(ctx, "select project_id, name from monitors where id = ?", r.MonitorID).
-			Scan(&projectID, &name)
+		err := tx.QueryRowContext(ctx, "select name from monitors where id = ?", r.MonitorID).Scan(&name)
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -94,15 +92,41 @@ func (s *Store) RecordCheck(ctx context.Context, r CheckResult) error {
 			kind = "monitor_down"
 		}
 		if _, err := tx.ExecContext(ctx,
-			"insert into events (project_id, kind, at_ms, monitor_id, title, detail) values (?, ?, ?, ?, ?, ?)",
-			projectID, kind, r.AtMs, r.MonitorID, name, r.Error); err != nil {
+			"insert into events (kind, at_ms, monitor_id, title, detail) values (?, ?, ?, ?, ?)",
+			kind, r.AtMs, r.MonitorID, name, r.Error); err != nil {
 			return err
 		}
 		if r.Step.Change == health.WentDown {
-			return openDraftIncident(ctx, tx, projectID, name, r)
+			return openDraftIncidents(ctx, tx, name, r)
 		}
 		return resolveDraftIncidents(ctx, tx, r.MonitorID, r.AtMs)
 	})
+}
+
+// openDraftIncidents prepares a draft on every status page that shows the
+// monitor. A monitor on no page gets none.
+func openDraftIncidents(ctx context.Context, tx *sql.Tx, monitorName string, r CheckResult) error {
+	rows, err := tx.QueryContext(ctx, "select project_id from page_monitors where monitor_id = ? order by project_id", r.MonitorID)
+	if err != nil {
+		return err
+	}
+	var projectIDs []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return errors.Join(err, rows.Close())
+		}
+		projectIDs = append(projectIDs, id)
+	}
+	if err := errors.Join(rows.Err(), rows.Close()); err != nil {
+		return err
+	}
+	for _, projectID := range projectIDs {
+		if err := openDraftIncident(ctx, tx, projectID, monitorName, r); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // openDraftIncident prepares a private incident for a confirmed outage, so
@@ -163,14 +187,13 @@ type DayRollup struct {
 }
 
 // DailyRollups returns each monitor's days from sinceMs on, oldest first,
-// for all monitors of a project in one query.
+// for all monitors a status page shows in one query.
 func (s *Store) DailyRollups(ctx context.Context, projectID, sinceMs int64) (map[int64][]DayRollup, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		select r.monitor_id, r.day_start_ms, r.checks, r.failures, r.covered_ms, r.down_ms,
 			r.latency_sum_ms / max(r.checks, 1)
 		from daily_rollups r
-		join monitors m on m.id = r.monitor_id
-		where m.project_id = ? and r.day_start_ms >= ?
+		where r.monitor_id in (select monitor_id from page_monitors where project_id = ?) and r.day_start_ms >= ?
 		order by r.monitor_id, r.day_start_ms`, projectID, sinceMs)
 	if err != nil {
 		return nil, err
@@ -199,7 +222,9 @@ func (s *Store) PruneChecks(ctx context.Context, beforeMs int64) (int64, error) 
 
 // Event is one entry of the timeline.
 type Event struct {
-	ID         int64
+	ID int64
+	// ProjectID is the status page an incident's entry belongs to, and 0 for
+	// a monitor's entry, which belongs to every page that shows the monitor.
 	ProjectID  int64
 	Kind       string
 	AtMs       int64
@@ -216,8 +241,10 @@ func (s *Store) Events(ctx context.Context, projectID, beforeID int64, limit int
 		beforeID = 1<<63 - 1
 	}
 	rows, err := s.db.QueryContext(ctx, `
-		select id, project_id, kind, at_ms, monitor_id, incident_id, title, detail
-		from events where project_id = ? and id < ? order by id desc limit ?`, projectID, beforeID, limit)
+		select id, coalesce(project_id, 0), kind, at_ms, monitor_id, incident_id, title, detail
+		from events
+		where (project_id = ?1 or monitor_id in (select monitor_id from page_monitors where project_id = ?1)) and id < ?2
+		order by id desc limit ?3`, projectID, beforeID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +285,7 @@ func (s *Store) AllDailyRollups(ctx context.Context, sinceMs int64) (map[int64][
 // RecentEvents returns the newest timeline entries across all projects.
 func (s *Store) RecentEvents(ctx context.Context, limit int) ([]Event, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		select id, project_id, kind, at_ms, monitor_id, incident_id, title, detail
+		select id, coalesce(project_id, 0), kind, at_ms, monitor_id, incident_id, title, detail
 		from events order by id desc limit ?`, limit)
 	if err != nil {
 		return nil, err
@@ -390,4 +417,24 @@ func (s *Store) ImportChecks(ctx context.Context, monitorID int64, checks []Chec
 		}
 		return nil
 	})
+}
+
+// MonitorRollups returns one monitor's days from sinceMs on, oldest first.
+func (s *Store) MonitorRollups(ctx context.Context, monitorID, sinceMs int64) ([]DayRollup, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		select day_start_ms, checks, failures, covered_ms, down_ms, latency_sum_ms / max(checks, 1)
+		from daily_rollups where monitor_id = ? and day_start_ms >= ? order by day_start_ms`, monitorID, sinceMs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var days []DayRollup
+	for rows.Next() {
+		var d DayRollup
+		if err := rows.Scan(&d.DayStartMs, &d.Checks, &d.Failures, &d.CoveredMs, &d.DownMs, &d.LatencyAvgMs); err != nil {
+			return nil, err
+		}
+		days = append(days, d)
+	}
+	return days, rows.Err()
 }

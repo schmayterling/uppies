@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -35,8 +36,9 @@ const recentEventCount = 10
 // overviewRow is one monitor in the overview table.
 type overviewRow struct {
 	monitorRow
-	Project store.Project
-	Days    []dayCell
+	// Pages are the status pages that show the monitor.
+	Pages []store.Project
+	Days  []dayCell
 	// Uptime is the percentage alone, since the column heading already says what it is.
 	Uptime string
 }
@@ -73,7 +75,7 @@ type dashboardPage struct {
 // itself still renders.
 func (s *Server) adminChrome(r *http.Request, title string) chrome {
 	sections := map[string]string{
-		"/admin": "overview", "/admin/appearance": "appearance", "/admin/instance": "instance", "/admin/users": "users",
+		"/admin": "overview", "/admin/monitors": "monitors", "/admin/alerts": "alerts", "/admin/appearance": "appearance", "/admin/instance": "instance", "/admin/users": "users",
 	}
 	c := chrome{Title: title, Admin: true, Nav: nav{Section: sections[r.URL.Path]}, Favicon: s.faviconAddress(r)}
 	if instance, err := s.store.Instance(r.Context()); err != nil {
@@ -90,7 +92,7 @@ func (s *Server) adminChrome(r *http.Request, title string) chrome {
 		s.log.Error("load sidebar projects", "path", r.URL.Path, "error", err)
 		return c
 	}
-	monitors, err := s.store.Monitors(r.Context())
+	monitors, err := s.store.PlacedMonitors(r.Context())
 	if err != nil {
 		s.log.Error("load sidebar monitors", "path", r.URL.Path, "error", err)
 		return c
@@ -104,7 +106,7 @@ func (s *Server) adminChrome(r *http.Request, title string) chrome {
 	}
 	for _, m := range monitors {
 		entry := &c.Nav.Projects[position[m.ProjectID]]
-		switch state, _ := componentState(m); {
+		switch state, _ := componentState(m.Monitor); {
 		case state == stateDown:
 			entry.Down++
 			entry.State = stateDown
@@ -113,6 +115,43 @@ func (s *Server) adminChrome(r *http.Request, title string) chrome {
 		}
 	}
 	return c
+}
+
+// plainMonitors drops the places from a status page's monitors.
+func plainMonitors(placed []store.PlacedMonitor) []store.Monitor {
+	monitors := make([]store.Monitor, len(placed))
+	for i, p := range placed {
+		monitors[i] = p.Monitor
+	}
+	return monitors
+}
+
+// pagesByMonitor maps each monitor to the status pages that show it, in the pages' order.
+func (s *Server) pagesByMonitor(ctx context.Context) (map[int64][]store.Project, error) {
+	projects, err := s.store.Projects(ctx)
+	if err != nil {
+		return nil, err
+	}
+	placed, err := s.store.PlacedMonitors(ctx)
+	if err != nil {
+		return nil, err
+	}
+	on := make(map[int64]map[int64]bool)
+	for _, p := range placed {
+		if on[p.MonitorID] == nil {
+			on[p.MonitorID] = make(map[int64]bool)
+		}
+		on[p.MonitorID][p.ProjectID] = true
+	}
+	pages := make(map[int64][]store.Project, len(on))
+	for monitorID, projectIDs := range on {
+		for _, project := range projects {
+			if projectIDs[project.ID] {
+				pages[monitorID] = append(pages[monitorID], project)
+			}
+		}
+	}
+	return pages, nil
 }
 
 func monitorRows(monitors []store.Monitor) []monitorRow {
@@ -125,9 +164,9 @@ func monitorRows(monitors []store.Monitor) []monitorRow {
 }
 
 // newOverviewRow adds the 30-day bar and the uptime figure to a monitor row.
-func newOverviewRow(row monitorRow, project store.Project, rollups []store.DayRollup, todayStartMs int64) overviewRow {
+func newOverviewRow(row monitorRow, pages []store.Project, rollups []store.DayRollup, todayStartMs int64) overviewRow {
 	days, uptime := uptimeStrip(rollups, todayStartMs, overviewDays)
-	return overviewRow{monitorRow: row, Project: project, Days: days, Uptime: strings.TrimSuffix(uptime, " uptime")}
+	return overviewRow{monitorRow: row, Pages: pages, Days: days, Uptime: strings.TrimSuffix(uptime, " uptime")}
 }
 
 func (s *Server) dashboard(r *http.Request) (dashboardPage, error) {
@@ -158,6 +197,10 @@ func (s *Server) dashboard(r *http.Request) (dashboardPage, error) {
 	byID := make(map[int64]store.Project, len(projects))
 	for _, p := range projects {
 		byID[p.ID] = p
+	}
+	pages, err := s.pagesByMonitor(ctx)
+	if err != nil {
+		return page, err
 	}
 	page.HasProjects = len(projects) > 0
 	page.Total = len(monitors)
@@ -194,7 +237,7 @@ func (s *Server) dashboard(r *http.Request) (dashboardPage, error) {
 		default:
 			page.Waiting++
 		}
-		page.Rows = append(page.Rows, newOverviewRow(row, byID[row.ProjectID], rollups[row.ID], todayStartMs))
+		page.Rows = append(page.Rows, newOverviewRow(row, pages[row.ID], rollups[row.ID], todayStartMs))
 	}
 	for _, in := range incidents {
 		if listed[in.ID] {
@@ -427,8 +470,8 @@ func (s *Server) projectPage(r *http.Request) (projectPage, error) {
 		return projectPage{}, err
 	}
 	var rows []overviewRow
-	for _, row := range monitorRows(monitors) {
-		rows = append(rows, newOverviewRow(row, project, rollups[row.ID], todayStartMs))
+	for _, row := range monitorRows(plainMonitors(monitors)) {
+		rows = append(rows, newOverviewRow(row, []store.Project{project}, rollups[row.ID], todayStartMs))
 	}
 
 	page := projectPage{
@@ -461,51 +504,6 @@ func (s *Server) handleDeleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 	s.monitorsChanged()
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
-}
-
-type monitorFormPage struct {
-	Chrome   chrome
-	Project  store.Project
-	Monitor  store.Monitor
-	Kinds    []string
-	Displays []string
-	// GraphFills are the graph fill choices, the first one meaning "as the status page says".
-	GraphFills []string
-	// Categories are the ones already used in the project, offered as suggestions.
-	Categories []string
-	Editing    bool
-	Problems   map[string]string
-	// PushURL is where a push monitor's job reports in, empty for other kinds.
-	PushURL string
-	// The overview of an existing monitor: its state, its detail view and its
-	// latest checks, with times in the project's zone.
-	State  string
-	Word   string
-	Detail monitorDetail
-	Checks []store.Check
-	Zone   *time.Location
-	// StateIcons names the icon of the notice for each state.
-	StateIcons map[string]string
-}
-
-// stateIcons are the icons of the state notice on the monitor overview.
-var stateIcons = map[string]string{stateOK: "circle-check", stateDown: "circle-x", stateWarn: "info", stateNone: "info"}
-
-// latestChecks is how many checks the monitor overview lists.
-const latestChecks = 20
-
-// monitorOverview fills in the overview of an existing monitor.
-func (s *Server) monitorOverview(r *http.Request, page *monitorFormPage) error {
-	var err error
-	page.Zone, _ = pageZone(page.Project, "")
-	page.State, page.Word = componentState(page.Monitor)
-	page.StateIcons = stateIcons
-	page.Detail, err = s.monitorDetail(r.Context(), page.Project, page.Monitor, page.Zone)
-	if err != nil {
-		return err
-	}
-	page.Checks, err = s.store.RecentChecks(r.Context(), page.Monitor.ID, latestChecks)
-	return err
 }
 
 // kindLabels names each monitor kind in the form.
@@ -558,15 +556,6 @@ func pushURL(r *http.Request, m store.Monitor) string {
 	return scheme + "://" + r.Host + "/push/" + m.PushToken
 }
 
-// defaultMonitor holds the settings a new monitor starts with: a check every
-// minute, down after the third failed check in a row, up after two good ones.
-func defaultMonitor(projectID int64) store.Monitor {
-	return store.Monitor{
-		ProjectID: projectID, Kind: check.KindHTTP, IntervalS: 60, TimeoutMs: 10_000,
-		Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2, Public: true,
-	}
-}
-
 // formInt reads a whole number in [low, high] from a form field.
 func formInt(form url.Values, field string, low, high int, problems map[string]string) int {
 	n, err := strconv.Atoi(strings.TrimSpace(form.Get(field)))
@@ -586,17 +575,9 @@ func parseMonitorForm(form url.Values, m store.Monitor) (store.Monitor, map[stri
 	m.Target = strings.TrimSpace(form.Get("target"))
 	m.Keyword = form.Get("keyword")
 	m.Paused = form.Get("paused") == "on"
-	m.Public = form.Get("public") == "on"
 	m.Category = strings.TrimSpace(form.Get("category"))
 	if len(m.Category) > 80 {
 		problems["category"] = "keep the category to 80 characters."
-	}
-	m.GraphFill = scopedGraphFill(form, m.GraphFill, problems)
-	if display := form.Get("display"); display != "" {
-		m.Display = display
-		if !slices.Contains(store.MonitorDisplays, display) {
-			problems["display"] = "choose one of the options."
-		}
 	}
 
 	if m.Name == "" || len(m.Name) > 120 {
@@ -629,150 +610,6 @@ func parseMonitorForm(form url.Values, m store.Monitor) (store.Monitor, map[stri
 	return m, problems
 }
 
-func (s *Server) handleNewMonitorForm(w http.ResponseWriter, r *http.Request) {
-	id, err := pathID(r)
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	project, err := s.store.ProjectByID(r.Context(), id)
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	s.render(w, r, http.StatusOK, "monitor_form.html", monitorFormPage{
-		Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: defaultMonitor(id), Kinds: check.Kinds, Displays: store.MonitorDisplays, GraphFills: scopedGraphFills, Categories: s.categories(r, project.ID),
-	})
-}
-
-func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
-	id, err := pathID(r)
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	project, err := s.store.ProjectByID(r.Context(), id)
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	if err := r.ParseForm(); err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	m, problems := parseMonitorForm(r.PostForm, defaultMonitor(id))
-	if len(problems) > 0 {
-		s.render(w, r, http.StatusUnprocessableEntity, "monitor_form.html", monitorFormPage{
-			Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, GraphFills: scopedGraphFills, Categories: s.categories(r, project.ID), Problems: problems,
-		})
-		return
-	}
-	monitorID, err := s.store.CreateMonitor(r.Context(), m, s.now().UnixMilli())
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	s.monitorsChanged()
-	if m.Kind == check.KindPush {
-		// Go to the monitor's page, which shows the address the job must call.
-		http.Redirect(w, r, fmt.Sprintf("/admin/monitors/%d", monitorID), http.StatusSeeOther)
-		return
-	}
-	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d", id), http.StatusSeeOther)
-}
-
-// categories lists the category names in use in a project. A failure is
-// logged and gives none, since they are only suggestions in a form.
-func (s *Server) categories(r *http.Request, projectID int64) []string {
-	monitors, err := s.store.MonitorsByProject(r.Context(), projectID)
-	if err != nil {
-		s.log.Error("load categories", "project_id", projectID, "error", err)
-		return nil
-	}
-	var names []string
-	for _, m := range monitors {
-		if m.Category != "" && !slices.Contains(names, m.Category) {
-			names = append(names, m.Category)
-		}
-	}
-	return names
-}
-
-// monitorAndProject loads the monitor named by the path and its project.
-func (s *Server) monitorAndProject(r *http.Request) (store.Monitor, store.Project, error) {
-	id, err := pathID(r)
-	if err != nil {
-		return store.Monitor{}, store.Project{}, err
-	}
-	m, err := s.store.Monitor(r.Context(), id)
-	if err != nil {
-		return store.Monitor{}, store.Project{}, err
-	}
-	project, err := s.store.ProjectByID(r.Context(), m.ProjectID)
-	return m, project, err
-}
-
-func (s *Server) handleEditMonitorForm(w http.ResponseWriter, r *http.Request) {
-	m, project, err := s.monitorAndProject(r)
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	page := monitorFormPage{
-		Chrome: s.adminChrome(r, m.Name), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, GraphFills: scopedGraphFills, Categories: s.categories(r, project.ID), Editing: true,
-		PushURL: pushURL(r, m),
-	}
-	if err := s.monitorOverview(r, &page); err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	s.render(w, r, http.StatusOK, "monitor_form.html", page)
-}
-
-func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
-	current, project, err := s.monitorAndProject(r)
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	if err := r.ParseForm(); err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	m, problems := parseMonitorForm(r.PostForm, current)
-	if len(problems) > 0 {
-		page := monitorFormPage{
-			Chrome: s.adminChrome(r, current.Name), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, GraphFills: scopedGraphFills, Categories: s.categories(r, project.ID), Editing: true, Problems: problems,
-		}
-		if err := s.monitorOverview(r, &page); err != nil {
-			s.fail(w, r, err)
-			return
-		}
-		s.render(w, r, http.StatusUnprocessableEntity, "monitor_form.html", page)
-		return
-	}
-	if err := s.store.UpdateMonitor(r.Context(), m); err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	s.monitorsChanged()
-	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d", project.ID), http.StatusSeeOther)
-}
-
-func (s *Server) handleDeleteMonitor(w http.ResponseWriter, r *http.Request) {
-	m, project, err := s.monitorAndProject(r)
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	if err := s.store.DeleteMonitor(r.Context(), m.ID); err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	s.monitorsChanged()
-	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d", project.ID), http.StatusSeeOther)
-}
-
 type incidentFormPage struct {
 	Chrome   chrome
 	Project  store.Project
@@ -799,7 +636,8 @@ func (s *Server) incidentForm(r *http.Request) (incidentFormPage, error) {
 	if err != nil {
 		return page, err
 	}
-	page.Monitors, err = s.store.MonitorsByProject(r.Context(), id)
+	placed, err := s.store.MonitorsByProject(r.Context(), id)
+	page.Monitors = plainMonitors(placed)
 	return page, err
 }
 

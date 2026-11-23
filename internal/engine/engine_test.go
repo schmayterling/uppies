@@ -41,10 +41,13 @@ func TestCheckOnceFollowsAnOutageFromStartToRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	monitorID, err := st.CreateMonitor(ctx, store.Monitor{
-		ProjectID: projectID, Name: "api", Kind: "http", Target: server.URL,
+		Name: "api", Kind: "http", Target: server.URL,
 		IntervalS: 60, TimeoutMs: 2000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
 	}, 1)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.PlaceMonitor(ctx, projectID, monitorID); err != nil {
 		t.Fatal(err)
 	}
 	var alerts struct {
@@ -61,7 +64,7 @@ func TestCheckOnceFollowsAnOutageFromStartToRecovery(t *testing.T) {
 		alerts.Unlock()
 	}))
 	defer chat.Close()
-	if _, err := st.CreateAlertChannel(ctx, store.AlertChannel{ProjectID: projectID, Kind: "slack", URL: chat.URL}, 1); err != nil {
+	if _, err := st.CreateAlertChannel(ctx, store.AlertChannel{Kind: "slack", URL: chat.URL}, 1); err != nil {
 		t.Fatal(err)
 	}
 	m, err := st.Monitor(ctx, monitorID)
@@ -133,10 +136,13 @@ func TestCheckOnceDoesNotRecordACancelledCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	monitorID, err := st.CreateMonitor(context.Background(), store.Monitor{
-		ProjectID: projectID, Name: "api", Kind: "http", Target: server.URL,
+		Name: "api", Kind: "http", Target: server.URL,
 		IntervalS: 60, TimeoutMs: 5000, Retries: 0, RetryIntervalS: 20, RecoveryChecks: 1,
 	}, 1)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.PlaceMonitor(context.Background(), projectID, monitorID); err != nil {
 		t.Fatal(err)
 	}
 	m, err := st.Monitor(context.Background(), monitorID)
@@ -248,10 +254,13 @@ func TestCheckOnceRestsDuringMaintenance(t *testing.T) {
 		t.Fatal(err)
 	}
 	monitorID, err := st.CreateMonitor(ctx, store.Monitor{
-		ProjectID: projectID, Name: "api", Kind: "http", Target: server.URL,
+		Name: "api", Kind: "http", Target: server.URL,
 		IntervalS: 60, TimeoutMs: 2000, Retries: 0, RetryIntervalS: 20, RecoveryChecks: 1,
 	}, 1)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.PlaceMonitor(ctx, projectID, monitorID); err != nil {
 		t.Fatal(err)
 	}
 	m, err := st.Monitor(ctx, monitorID)

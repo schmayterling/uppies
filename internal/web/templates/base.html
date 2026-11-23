@@ -24,6 +24,8 @@
     <nav aria-label="main">
       <ul class="nav-list">
         <li><a class="nav-item" href="/admin" title="overview"{{if eq .Chrome.Nav.Section "overview"}} aria-current="page"{{end}}>{{template "icon" "layout-dashboard"}}<span class="nav-label">overview</span></a></li>
+        <li><a class="nav-item" href="/admin/monitors" title="monitors"{{if eq .Chrome.Nav.Section "monitors"}} aria-current="page"{{end}}>{{template "icon" "activity"}}<span class="nav-label">monitors</span></a></li>
+        <li><a class="nav-item" href="/admin/alerts" title="alerts"{{if eq .Chrome.Nav.Section "alerts"}} aria-current="page"{{end}}>{{template "icon" "bell"}}<span class="nav-label">alerts</span></a></li>
         <li><a class="nav-item" href="/admin/appearance" title="appearance"{{if eq .Chrome.Nav.Section "appearance"}} aria-current="page"{{end}}>{{template "icon" "palette"}}<span class="nav-label">appearance</span></a></li>
         <li><a class="nav-item" href="/admin/instance" title="instance"{{if eq .Chrome.Nav.Section "instance"}} aria-current="page"{{end}}>{{template "icon" "server"}}<span class="nav-label">instance</span></a></li>
         <li><a class="nav-item" href="/admin/users" title="users"{{if eq .Chrome.Nav.Section "users"}} aria-current="page"{{end}}>{{template "icon" "users"}}<span class="nav-label">users</span></a></li>

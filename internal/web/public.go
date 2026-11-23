@@ -205,17 +205,15 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	monitors, err := s.store.Monitors(r.Context())
+	placed, err := s.store.PlacedMonitors(r.Context())
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	// Only what the public may see counts: hidden monitors are left out.
+	// A status page counts the monitors it shows, and no others.
 	visible := make(map[int64][]store.Monitor)
-	for _, m := range monitors {
-		if m.Public {
-			visible[m.ProjectID] = append(visible[m.ProjectID], m)
-		}
+	for _, m := range placed {
+		visible[m.ProjectID] = append(visible[m.ProjectID], m.Monitor)
 	}
 	instance, err := s.store.Instance(r.Context())
 	if err != nil {
@@ -348,12 +346,33 @@ func (s *Server) handleBadge(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// groupByCategory keeps a status page's order and pulls the monitors of one
+// category together, at the place of the first of them. A category's heading
+// then appears once, however the page's list was arranged. Monitors without a
+// category come first, so that none of them reads as part of the category above it.
+func groupByCategory(placed []store.PlacedMonitor) []store.PlacedMonitor {
+	order := []string{""}
+	byCategory := map[string][]store.PlacedMonitor{"": nil}
+	for _, m := range placed {
+		if _, seen := byCategory[m.Category]; !seen {
+			order = append(order, m.Category)
+		}
+		byCategory[m.Category] = append(byCategory[m.Category], m)
+	}
+	grouped := make([]store.PlacedMonitor, 0, len(placed))
+	for _, category := range order {
+		grouped = append(grouped, byCategory[category]...)
+	}
+	return grouped
+}
+
 // statusPage gathers everything the public sees about a project.
 func (s *Server) statusPage(ctx context.Context, project store.Project, askedZone string) (statusPage, error) {
-	monitors, err := s.store.MonitorsByProject(ctx, project.ID)
+	placed, err := s.store.MonitorsByProject(ctx, project.ID)
 	if err != nil {
 		return statusPage{}, err
 	}
+	monitors := groupByCategory(placed)
 	todayStartMs := store.DayStartMs(s.now().UnixMilli())
 	sinceMs := todayStartMs - int64(project.HistoryDays-1)*dayMs
 	rollups, err := s.store.DailyRollups(ctx, project.ID, sinceMs)
@@ -389,12 +408,9 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 	var shown []store.Monitor
 	lastCategory := ""
 	for _, m := range monitors {
-		if !m.Public {
-			continue
-		}
-		shown = append(shown, m)
+		shown = append(shown, m.Monitor)
 		names[m.ID] = m.Name
-		state, word := componentState(m)
+		state, word := componentState(m.Monitor)
 		days, uptime := uptimeStrip(rollups[m.ID], todayStartMs, project.HistoryDays)
 		backfillDays(days, project.Backfill)
 		view := componentView{ID: m.ID, Name: m.Name, State: state, Word: word, Days: days, Uptime: uptime, Display: m.Display}
@@ -411,7 +427,7 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 			}
 		case "latency":
 			view.Spark, view.SparkDays, view.Latency = latencyLine(rollups[m.ID], todayStartMs, project.HistoryDays)
-			view.Area = newGraphArea(graphFill(instance, project, m), view.Spark, sparkHeight, fmt.Sprintf("area-%d", m.ID))
+			view.Area = newGraphArea(graphFill(instance, project, m.GraphFill), view.Spark, sparkHeight, fmt.Sprintf("area-%d", m.ID))
 		}
 		page.Components = append(page.Components, view)
 	}

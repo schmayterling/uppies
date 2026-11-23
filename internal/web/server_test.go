@@ -15,6 +15,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -70,6 +71,15 @@ func newSite(t *testing.T) *site {
 		t.Fatalf("setup: got status %d, want 303", resp.StatusCode)
 	}
 	return s
+}
+
+// createShown adds a monitor and puts it on a status page.
+func (s *site) createShown(ctx context.Context, projectID int64, m store.Monitor, nowMs int64) (int64, error) {
+	id, err := s.store.CreateMonitor(ctx, m, nowMs)
+	if err != nil {
+		return 0, err
+	}
+	return id, s.store.PlaceMonitor(ctx, projectID, id)
 }
 
 func (s *site) post(t *testing.T, client *http.Client, path string, form url.Values, header http.Header) *http.Response {
@@ -174,8 +184,8 @@ func TestStatusPageShowsOnlyWhatIsPublic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	monitorID, err := s.store.CreateMonitor(ctx, store.Monitor{
-		ProjectID: projectID, Name: "payments api", Kind: "http", Target: "http://10.0.0.7:9000/internal-health", Public: true,
+	monitorID, err := s.createShown(ctx, projectID, store.Monitor{
+		Name: "payments api", Kind: "http", Target: "http://10.0.0.7:9000/internal-health",
 		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
 	}, 1)
 	if err != nil {
@@ -221,59 +231,78 @@ func TestStatusPageShowsOnlyWhatIsPublic(t *testing.T) {
 	}
 }
 
-func TestAlertChannelsAreManagedFromSettings(t *testing.T) {
+func TestAlertChannelsBelongToTheInstallAndMonitorsChooseThem(t *testing.T) {
 	ctx := context.Background()
 	s := newSite(t)
-	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	otherID, err := s.store.CreateProject(ctx, "other", "Other", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
 	var delivered atomic.Int32
 	chat := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		delivered.Add(1)
 	}))
 	defer chat.Close()
-	settings := fmt.Sprintf("/admin/projects/%d", projectID)
+	const alerts = "/admin/alerts"
 
-	resp := s.post(t, s.anonymous, settings+"/channels", url.Values{"kind": {"slack"}, "url": {chat.URL}}, nil)
+	resp := s.post(t, s.anonymous, alerts, url.Values{"kind": {"slack"}, "url": {chat.URL}}, nil)
 	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/admin/login" {
 		t.Fatalf("anonymous add: got %d to %q, want 303 to /admin/login", resp.StatusCode, resp.Header.Get("Location"))
 	}
-	resp = s.post(t, s.admin, settings+"/channels", url.Values{"kind": {"slack"}, "url": {"ftp://example.com"}}, nil)
+	resp = s.post(t, s.admin, alerts, url.Values{"kind": {"slack"}, "url": {"ftp://example.com"}}, nil)
 	if resp.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("add with an ftp url: got %d, want 422", resp.StatusCode)
 	}
-	resp = s.post(t, s.admin, settings+"/channels", url.Values{"kind": {"email"}, "url": {chat.URL}}, nil)
+	resp = s.post(t, s.admin, alerts, url.Values{"kind": {"email"}, "url": {chat.URL}}, nil)
 	if resp.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("add an email channel with a url: got %d, want 422", resp.StatusCode)
 	}
-	resp = s.post(t, s.admin, settings+"/channels", url.Values{"kind": {"slack"}, "url": {chat.URL}}, nil)
+	resp = s.post(t, s.admin, alerts, url.Values{"kind": {"slack"}, "url": {chat.URL}}, nil)
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("add: got %d, want 303", resp.StatusCode)
 	}
-	channels, err := s.store.AlertChannels(ctx, projectID)
+	channels, err := s.store.AlertChannels(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(channels) != 1 {
 		t.Fatalf("got %d channel(s), want exactly the one added by the admin", len(channels))
 	}
-	channel := fmt.Sprintf("/channels/%d", channels[0].ID)
+	channel := fmt.Sprintf("%s/%d", alerts, channels[0].ID)
+	if status, page := s.get(t, s.admin, alerts); status != http.StatusOK || !strings.Contains(page, chat.URL) {
+		t.Errorf("alerts page: got %d, want 200 with the channel listed", status)
+	}
 
-	resp = s.post(t, s.admin, settings+channel+"/test", nil, nil)
+	resp = s.post(t, s.admin, channel+"/test", nil, nil)
 	if resp.StatusCode != http.StatusOK || delivered.Load() != 1 {
 		t.Fatalf("test alert: got %d with %d delivery, want 200 with 1", resp.StatusCode, delivered.Load())
 	}
-	resp = s.post(t, s.admin, fmt.Sprintf("/admin/projects/%d%s/delete", otherID, channel), nil, nil)
-	if resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("remove through another project: got %d, want 404", resp.StatusCode)
+
+	// A monitor chooses its channels in its own form. A new one starts with all of them offered.
+	form := url.Values{
+		"name": {"api"}, "kind": {"http"}, "target": {"https://example.com"}, "interval_s": {"60"}, "timeout_s": {"5"},
+		"retries": {"2"}, "retry_interval_s": {"20"}, "recovery_checks": {"2"},
+		"channel": {strconv.FormatInt(channels[0].ID, 10)},
 	}
-	resp = s.post(t, s.admin, settings+channel+"/delete", nil, nil)
-	channels, err = s.store.AlertChannels(ctx, projectID)
+	if resp := s.post(t, s.admin, "/admin/monitors", form, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("create a monitor: got %d, want 303", resp.StatusCode)
+	}
+	monitors, err := s.store.Monitors(ctx)
+	if err != nil || len(monitors) != 1 {
+		t.Fatalf("monitors: got %d err=%v, want the one just made", len(monitors), err)
+	}
+	if alerted, err := s.store.MonitorChannels(ctx, monitors[0].ID); err != nil || len(alerted) != 1 {
+		t.Fatalf("channels of the new monitor: got %d err=%v, want 1", len(alerted), err)
+	}
+	form.Del("channel")
+	if resp := s.post(t, s.admin, fmt.Sprintf("/admin/monitors/%d", monitors[0].ID), form, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("save the monitor without channels: got %d, want 303", resp.StatusCode)
+	}
+	if alerted, err := s.store.MonitorChannels(ctx, monitors[0].ID); err != nil || len(alerted) != 0 {
+		t.Fatalf("channels after unticking: got %d err=%v, want 0", len(alerted), err)
+	}
+
+	if resp := s.post(t, s.admin, alerts+"/999/delete", nil, nil); resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("remove a channel that does not exist: got %d, want 404", resp.StatusCode)
+	}
+	resp = s.post(t, s.admin, channel+"/delete", nil, nil)
+	channels, err = s.store.AlertChannels(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,16 +319,16 @@ func TestStatusPageFollowsTheProjectSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	monitor := store.Monitor{
-		ProjectID: projectID, Kind: "http", Target: "https://example.com",
+		Kind: "http", Target: "https://example.com",
 		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
 	}
-	monitor.Name, monitor.Public = "website", true
-	websiteID, err := s.store.CreateMonitor(ctx, monitor, 1)
+	monitor.Name = "website"
+	websiteID, err := s.createShown(ctx, projectID, monitor, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	monitor.Name, monitor.Public = "internal queue", false
-	hiddenID, err := s.store.CreateMonitor(ctx, monitor, 1)
+	monitor.Name = "internal queue"
+	hiddenID, err := s.store.CreateMonitor(ctx, monitor, 1) // on no status page
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -365,8 +394,8 @@ func TestStatusPageFooterTimezoneDomainAndBadge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	monitorID, err := s.store.CreateMonitor(ctx, store.Monitor{
-		ProjectID: projectID, Name: "website", Kind: "http", Target: "https://example.com", Public: true,
+	monitorID, err := s.createShown(ctx, projectID, store.Monitor{
+		Name: "website", Kind: "http", Target: "https://example.com",
 		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
 	}, 1)
 	if err != nil {
@@ -667,6 +696,65 @@ func TestSignInPageLayoutAndBackgroundAreChosenInAppearance(t *testing.T) {
 	}
 }
 
+func TestMonitorsBelongToTheInstallAndAreListedByCategory(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status, _ := s.get(t, s.anonymous, "/admin/monitors"); status != http.StatusSeeOther {
+		t.Fatalf("monitors without a session: got %d, want 303", status)
+	}
+	// A category can exist before any monitor is in it.
+	if resp := s.post(t, s.admin, "/admin/categories", url.Values{"name": {""}}, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("a category without a name: got %d, want 422", resp.StatusCode)
+	}
+	if resp := s.post(t, s.admin, "/admin/categories", url.Values{"name": {"core"}}, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("add a category: got %d, want 303", resp.StatusCode)
+	}
+	form := url.Values{
+		"name": {"database"}, "kind": {"tcp"}, "target": {"db.example.com:5432"}, "interval_s": {"60"}, "timeout_s": {"5"},
+		"retries": {"2"}, "retry_interval_s": {"20"}, "recovery_checks": {"2"}, "category": {"storage"},
+	}
+	// One monitor on no status page, with a category that is new, and one on a page.
+	if resp := s.post(t, s.admin, "/admin/monitors", form, nil); resp.Header.Get("Location") != "/admin/monitors" {
+		t.Fatalf("create on no page: got %d to %q, want a redirect to the list", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	form.Set("name", "website")
+	form.Set("category", "")
+	form.Set("page", strconv.FormatInt(projectID, 10))
+	if resp := s.post(t, s.admin, "/admin/monitors", form, nil); resp.Header.Get("Location") != fmt.Sprintf("/admin/projects/%d", projectID) {
+		t.Fatalf("create on a page: got %d to %q, want a redirect to the page", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	_, page := s.get(t, s.admin, "/admin/monitors")
+	// Uncategorised first, then the categories in the order they were made, the empty one included.
+	order := []string{"no category", "website", "Acme", "<h2>core</h2>", "no monitors in this category yet", "<h2>storage</h2>", "database", "on none"}
+	at := 0
+	for _, want := range order {
+		next := strings.Index(page[at:], want)
+		if next < 0 {
+			t.Fatalf("monitors page: %q is missing or out of order, wanted the order %v", want, order)
+		}
+		at += next + len(want)
+	}
+	// Only the monitor that was put on the page is public there.
+	if _, status := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(status, "website") || strings.Contains(status, "database") {
+		t.Error("the status page must show the monitor placed on it and not the other one")
+	}
+	// Deleting a category keeps its monitors. Deleting a status page keeps them too.
+	if resp := s.post(t, s.admin, "/admin/categories/delete", url.Values{"name": {"storage"}}, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("delete a category: got %d, want 303", resp.StatusCode)
+	}
+	if resp := s.post(t, s.admin, fmt.Sprintf("/admin/projects/%d/delete", projectID), nil, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("delete the status page: got %d, want 303", resp.StatusCode)
+	}
+	_, page = s.get(t, s.admin, "/admin/monitors")
+	if strings.Contains(page, "<h2>storage</h2>") || !strings.Contains(page, "database") || !strings.Contains(page, "website") {
+		t.Error("after deleting a category and a status page, both monitors must remain and the category be gone")
+	}
+}
+
 func TestAPushMonitorGetsATokenThatTheJobReportsTo(t *testing.T) {
 	ctx := context.Background()
 	s := newSite(t)
@@ -678,7 +766,9 @@ func TestAPushMonitorGetsATokenThatTheJobReportsTo(t *testing.T) {
 		"name": {"nightly backup"}, "kind": {"push"}, "interval_s": {"3600"}, "timeout_s": {"10"},
 		"retries": {"0"}, "retry_interval_s": {"60"}, "recovery_checks": {"1"},
 	}
-	resp := s.post(t, s.admin, fmt.Sprintf("/admin/projects/%d/monitors", projectID), form, nil)
+	// The form names the status page the new monitor starts on.
+	form.Set("page", strconv.FormatInt(projectID, 10))
+	resp := s.post(t, s.admin, "/admin/monitors", form, nil)
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("create: got %d, want 303", resp.StatusCode)
 	}
@@ -714,8 +804,8 @@ func TestPlannedMaintenanceIsAnnouncedAndShownWhileRunning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	monitorID, err := s.store.CreateMonitor(ctx, store.Monitor{
-		ProjectID: projectID, Name: "website", Kind: "http", Target: "https://example.com", Public: true,
+	monitorID, err := s.createShown(ctx, projectID, store.Monitor{
+		Name: "website", Kind: "http", Target: "https://example.com",
 		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
 	}, 1)
 	if err != nil {
@@ -762,7 +852,7 @@ func TestOverviewSumsUpEveryProject(t *testing.T) {
 	s := newSite(t)
 	nowMs := time.Now().UnixMilli()
 	monitor := store.Monitor{
-		Kind: "http", Target: "https://example.com", Public: true,
+		Kind: "http", Target: "https://example.com",
 		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
 	}
 	for _, slug := range []string{"alpha", "beta"} {
@@ -770,8 +860,8 @@ func TestOverviewSumsUpEveryProject(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		monitor.ProjectID, monitor.Name = projectID, slug+" api"
-		monitorID, err := s.store.CreateMonitor(ctx, monitor, 1)
+		monitor.Name = slug + " api"
+		monitorID, err := s.createShown(ctx, projectID, monitor, 1)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -918,20 +1008,21 @@ func TestStatusPageGroupsMonitorsByCategory(t *testing.T) {
 		t.Fatal(err)
 	}
 	monitor := store.Monitor{
-		ProjectID: projectID, Kind: "http", Target: "https://example.com", Public: true,
+		Kind: "http", Target: "https://example.com",
 		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
 	}
 	for _, m := range []struct{ name, category string }{
 		{"zebra api", "web"}, {"alpha site", "web"}, {"database", "infrastructure"}, {"loose check", ""},
 	} {
 		monitor.Name, monitor.Category = m.name, m.category
-		if _, err := s.store.CreateMonitor(ctx, monitor, 1); err != nil {
+		if _, err := s.createShown(ctx, projectID, monitor, 1); err != nil {
 			t.Fatal(err)
 		}
 	}
 	_, page := s.get(t, s.anonymous, "/s/acme")
-	// Uncategorised monitors come first, then each category once, with its monitors by name.
-	order := []string{"loose check", "<h3>infrastructure</h3>", "database", "<h3>web</h3>", "alpha site", "zebra api"}
+	// Uncategorised monitors come first, then each category once, at the place of
+	// its first monitor in the page's own order, which here is the order they were added in.
+	order := []string{"loose check", "<h3>web</h3>", "zebra api", "alpha site", "<h3>infrastructure</h3>", "database"}
 	at := 0
 	for _, want := range order {
 		next := strings.Index(page[at:], want)
@@ -1028,8 +1119,8 @@ func TestLookbackLengthAndBackfillAreFree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	monitorID, err := s.store.CreateMonitor(ctx, store.Monitor{
-		ProjectID: projectID, Name: "website", Kind: "http", Target: "https://example.com", Public: true,
+	monitorID, err := s.createShown(ctx, projectID, store.Monitor{
+		Name: "website", Kind: "http", Target: "https://example.com",
 		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
 	}, 1)
 	if err != nil {

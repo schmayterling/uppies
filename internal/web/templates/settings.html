@@ -3,9 +3,8 @@
 <div class="settings">
 <h1>settings</h1>
 <nav class="tabs" aria-label="settings sections">
-  <a href="#pane-general" data-tab="general">general</a><a href="#pane-look" data-tab="look">look</a><a href="#pane-images" data-tab="images">logo</a><a href="#pane-alerts" data-tab="alerts">alerts</a><a href="#pane-advanced" data-tab="advanced">advanced</a><a href="#pane-badge" data-tab="badge">badge</a>
+  <a href="#pane-general" data-tab="general">general</a><a href="#pane-look" data-tab="look">look</a><a href="#pane-images" data-tab="images">logo</a><a href="#pane-advanced" data-tab="advanced">advanced</a><a href="#pane-badge" data-tab="badge">badge</a>
 </nav>
-{{with .Notice}}{{if $.NoticeFailed}}{{template "error" .}}{{else}}{{template "success" .}}{{end}}{{end}}
 {{if .Problems}}{{template "error" "some settings were not saved. the fields with a problem are marked below."}}{{end}}
 
 <form method="post" action="/admin/projects/{{.Project.ID}}/settings">
@@ -168,46 +167,6 @@
   </div>
   <div class="savebar"><button class="button" type="submit">save images</button></div>
 </form>
-</div>
-
-<div class="pane" id="pane-alerts" data-pane="alerts">
-<div class="title-row group-title">
-  <h2>alerts</h2>
-  <button class="button quiet" type="button" data-open-dialog="add-channel">{{template "icon" "plus"}}add channel</button>
-</div>
-<div class="group">
-  {{range .Channels}}
-  <div class="srow">
-    <span class="srow-copy"><span class="with-icon">{{template "icon" (channelIcon .Kind)}}{{.Kind}}</span><small class="target">{{.URL}}</small></span>
-    <span class="srow-control">
-      <form method="post" action="/admin/projects/{{$.Project.ID}}/channels/{{.ID}}/test"><button class="button quiet" type="submit">send test</button></form>
-      <form method="post" action="/admin/projects/{{$.Project.ID}}/channels/{{.ID}}/delete"><button class="button quiet" type="submit">remove</button></form>
-    </span>
-  </div>
-  {{else}}
-  <p class="empty">no channels yet, so nobody is told about outages.</p>
-  {{end}}
-</div>
-<p class="hint">each channel gets a message when a monitor of this project goes down, when it recovers, and before a certificate expires.</p>
-<dialog id="add-channel" aria-labelledby="add-channel-heading"{{if or (index .Problems "kind") (index .Problems "url")}} data-open-on-load{{end}}>
-  <h2 id="add-channel-heading">add an alert channel</h2>
-  <form class="form" method="post" action="/admin/projects/{{.Project.ID}}/channels">
-    <div class="field">
-      <label for="kind">kind</label>
-      <select id="kind" name="kind" aria-describedby="kind-hint">
-        {{range .ChannelKinds}}<option value="{{.}}"{{if eq . $.NewChannel.Kind}} selected{{end}}>{{.}}</option>{{end}}
-      </select>
-      <p class="hint" id="kind-hint">webhook sends json with every detail. discord and slack send one line of text to an incoming webhook. email needs uppies to be started with an smtp server.</p>
-      {{with index .Problems "kind"}}<p class="problem">{{.}}</p>{{end}}
-    </div>
-    <div class="field">
-      <label for="url">url or email address</label>
-      <input id="url" name="url" value="{{.NewChannel.URL}}" required maxlength="2048" autocapitalize="none" spellcheck="false"{{if index .Problems "url"}} aria-invalid="true" aria-describedby="url-problem"{{end}}>
-      {{with index .Problems "url"}}<p class="problem" id="url-problem">{{.}}</p>{{end}}
-    </div>
-    <div class="actions"><button class="button" type="submit">add channel</button><button class="button quiet" type="button" data-close-dialog>cancel</button></div>
-  </form>
-</dialog>
 </div>
 
 <div class="pane" id="pane-badge" data-pane="badge">
