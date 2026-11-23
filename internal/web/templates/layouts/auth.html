@@ -1,0 +1,12 @@
+{{define "auth-layout"}}
+<body class="auth auth-{{or .Chrome.AuthLayout "centered"}}">
+<div class="auth-art auth-art-{{or .Chrome.AuthBackground "plain"}}" aria-hidden="true">{{if and .Chrome.AuthImage (eq .Chrome.AuthBackground "image")}}<img src="/sign-in-background?v={{.Chrome.AuthImage}}" alt="">{{end}}</div>
+<div class="auth-side">
+<main class="auth-card">
+  <p class="auth-brand">{{template "status-icon" "check"}}<span class="wordmark">{{or .Chrome.Brand "uppies"}}</span></p>
+{{template "main" .}}
+</main>
+<p class="auth-foot meta">{{if .Chrome.SignInLink}}<a href="/admin">sign in</a>{{else}}<a href="/">view the status pages</a>{{end}}</p>
+</div>
+</body>
+{{end}}

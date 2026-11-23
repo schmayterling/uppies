@@ -12,7 +12,7 @@ import (
 )
 
 func TestLoadIndexCalendarCountsEveryPublishedIncident(t *testing.T) {
-	grid := template.Must(template.ParseFS(templateFiles, "templates/incident_calendar.html"))
+	grid := template.Must(template.ParseFS(templateFiles, "templates/partials/incident_calendar.html"))
 	for _, backend := range []store.Backend{store.SQLite, store.TursoSQLite} {
 		t.Run(string(backend), func(t *testing.T) {
 			ctx := t.Context()

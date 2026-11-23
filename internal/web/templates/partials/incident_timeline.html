@@ -1,0 +1,27 @@
+{{define "days"}}<ol class="tl">
+  {{range .First}}
+  {{if .QuietDays}}
+  <li class="tl-day tl-calm">
+    <p class="tl-when"><span class="tl-date">{{.Date}}</span></p>
+    <p class="tl-quiet">{{if eq .QuietDays 1}}no incidents{{else}}{{.QuietDays}} days without incidents{{end}}</p>
+  </li>
+  {{else}}
+  <li class="tl-day">
+    <div class="tl-when"><h3 class="tl-date">{{.Date}}</h3><span class="chip chip-plain">{{.Ago}}</span></div>
+    <div class="tl-what">
+      {{range .Incidents}}
+      <article class="tl-incident">
+        <h4>{{.Title}}</h4>
+        <p class="chips"><span class="chip chip-plain">{{.Impact}} impact</span>{{range .Affected}}<span class="chip chip-plain">{{.}}</span>{{end}}</p>
+        {{template "updates" (pair .Updates $.Second)}}
+      </article>
+      {{end}}
+    </div>
+  </li>
+  {{end}}
+  {{end}}
+</ol>{{end}}
+
+{{define "updates"}}<ol class="updates">
+  {{range .First}}<li class="update-{{.Status}}"><p class="update-head"><strong>{{.Status}}</strong> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Second .AtMs}}</time></p><p class="update-body">{{.Body}}</p></li>{{end}}
+</ol>{{end}}

@@ -1,0 +1,12 @@
+{{define "admin-layout"}}
+<body class="admin">
+{{sidebarSymbols}}
+<a class="skip" href="#content">skip to the content</a>
+<div class="shell">
+{{- template "admin-sidebar" .}}
+  <main class="content" id="content" tabindex="-1">
+{{block "main" .}}{{end}}
+  </main>
+</div>
+</body>
+{{end}}

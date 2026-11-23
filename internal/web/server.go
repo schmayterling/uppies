@@ -20,7 +20,7 @@ import (
 	"uppies/internal/store"
 )
 
-//go:embed templates/*.html
+//go:embed templates/*.html templates/layouts/*.html templates/partials/*.html
 var templateFiles embed.FS
 
 //go:embed static
@@ -101,7 +101,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 	}
 	for _, name := range names {
 		page, err := template.New("base.html").Funcs(templateFuncs).Funcs(pageAssets).
-			ParseFS(templateFiles, "templates/base.html", "templates/index_incidents.html", "templates/incident_calendar.html", "templates/"+name)
+			ParseFS(templateFiles, "templates/base.html", "templates/layouts/*.html", "templates/partials/*.html", "templates/"+name)
 		if err != nil {
 			return nil, err
 		}
