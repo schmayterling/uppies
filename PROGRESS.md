@@ -15,7 +15,7 @@ timeline view and public status pages for several projects from one install.
 go build ./... && go vet ./... && go test -race ./...
 ```
 
-Last run: 2026-11-22, all five packages passed.
+Last run: 2026-11-23, all six packages passed.
 
 ## Done and verified
 
@@ -27,6 +27,10 @@ Each line names how it was verified.
 - Check engine (`internal/engine`): one goroutine per monitor, at most 32 checks at once, reload on change, raw checks pruned after 48 hours. Verified by tests for one check cycle. The scheduling loop itself and pruning are verified only by the manual run below.
 - Web layer (`internal/web`): status pages, first-run setup, sign-in with a rate limit, projects, monitors, incidents, timeline. Verified by handler tests for the access rules and by the manual run below.
 - Manual end-to-end run on 2026-11-22 with the real binary and a local target: setup, refused requests (303 without a session, 403 cross-site, 422 invalid input, 429 after five failed sign-ins), an outage confirmed 22 seconds after the target stopped (interval 20 s, 2 retries 1 s apart), recovery confirmed 40 seconds after it came back, the draft incident opened and resolved, and a clean exit on SIGTERM.
+- Alerts (`internal/alert`, sent from `internal/engine`): a plain webhook with JSON, Discord and Slack, on confirmed down and up, with up to three attempts for network errors and 429 or 5xx answers. Verified by tests against local receivers and by a manual run on 2026-11-23 in which a real outage and recovery each produced one message per channel.
+- Outside heartbeat (`-heartbeat-url`): one request a minute to a URL you choose. Verified by a test and by the manual run.
+- Schema version 2: status page settings on projects, a `public` flag on monitors, and the `alert_channels` table. Verified by a test that upgrades a version 1 file and by starting the new binary on the version 1 demo database (2 projects and 201 rollups kept).
+- Project settings page: alert channels (add, remove, send test) and status page settings (name, tagline, homepage, theme, accent hue, days of history, face, custom CSS). Verified by handler tests and the manual run. The themed status page was captured once at 1280 wide.
 - Status page rendered and measured at 1280 and 390 CSS pixels wide in the light theme: no horizontal overflow, 90 day cells on wide screens and 30 on narrow ones. The dark theme was looked at once before the last style fixes and not measured.
 
 ## Done but not verified
@@ -34,7 +38,8 @@ Each line names how it was verified.
 - Colour contrast of the status colours on each surface was not measured. The values come unchanged from the token file.
 - Keyboard-only use and screen reader output were not checked.
 - Behaviour with many monitors (hundreds) was not measured. There are no memory or speed figures yet.
-- The admin pages were captured once at 1280 wide before the last style fixes and not again.
+- The admin pages were captured once at 1280 wide before the last style fixes and not again. The settings page was never captured.
+- Discord and Slack alerts were checked against a local receiver only, never against the real services. The field names come from their documentation.
 
 ## Decisions
 
@@ -48,18 +53,25 @@ Each line names how it was verified.
 - 2026-11-22: A day with under one hour of downtime is drawn as a disruption, a day with one hour or more as an outage. This threshold is a judgment call and has no source.
 - 2026-11-22: Cross-site form posts are refused with `http.CrossOriginProtection` from the standard library in place of CSRF tokens.
 
+- 2026-11-23: Alerts go out as webhooks only (plain JSON, Discord, Slack). Email is postponed because SMTP needs server settings, credentials and TLS choices.
+- 2026-11-23: uppies does not hold back alerts when every monitor fails at once. Without an independent reference it could not tell its own network loss from a real total outage, and staying silent in a real outage is the worse error. The outside heartbeat covers the case where uppies itself is down.
+- 2026-11-23: A project's look is served as its own stylesheet at `/s/<address>/theme.css`. This keeps the content security policy free of inline styles. The accent setting is a hue only: lightness and chroma stay fixed so contrast holds in both themes.
+- 2026-11-23: Custom CSS is accepted as written. Only the signed-in admin can set it, and CSS cannot run scripts under the current policy.
+- 2026-11-23: A hidden monitor is still checked and still alerts. It is left out of the status page, its banner and the "affects" line of incidents.
+
 ## Do not repeat
 
 - Do not put the raw check error into text that can become public. A test caught this once (`TestStatusPageShowsOnlyWhatIsPublic`).
 - `sqlite3 .lint fkey-indexes` reports `daily_rollups(monitor_id)` and `incident_monitors(incident_id)` as unindexed. Both are the leading column of a WITHOUT ROWID primary key, so the report is a false positive.
+- Do not undo a temporary test edit with `git checkout <file>` while that file has other uncommitted changes. It discarded a new migration once. Copy the file aside and copy it back.
 - Headless Chrome will not lay a page out narrower than about 500 pixels. For phone widths, use device metrics emulation over the DevTools protocol.
 
 ## Next
 
 In this order, one signed commit per step:
 
-1. Alerts: SMTP email and webhook first, sent on confirmed down and up.
-2. Scheduled maintenance windows that mute alerts and do not count as downtime.
+1. Scheduled maintenance windows that mute alerts and do not count as downtime.
+2. Email alerts over SMTP.
 3. Config file mode: monitors, projects and alert channels from YAML, read-only in the UI.
 4. REST API with keys.
 5. More monitor kinds: ping, DNS, push for cron jobs, and certificate expiry warnings.
