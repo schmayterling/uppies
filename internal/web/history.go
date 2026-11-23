@@ -117,6 +117,8 @@ func incidentMap(incidents []store.Incident, year int, now time.Time, zone *time
 		totals[key] = t
 	}
 
+	// Days are stepped at noon, so "after today" must compare against the end of today.
+	endOfToday := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, zone)
 	first := time.Date(year, time.January, 1, 12, 0, 0, 0, zone)
 	last := time.Date(year, time.December, 31, 12, 0, 0, 0, zone)
 	day := first.AddDate(0, 0, -int(first.Weekday()))
@@ -124,7 +126,7 @@ func incidentMap(incidents []store.Incident, year int, now time.Time, zone *time
 	for !day.After(last) {
 		week := make([]heatCell, 0, 7)
 		for range 7 {
-			cell := heatCell{Blank: day.Year() != year || day.After(now)}
+			cell := heatCell{Blank: day.Year() != year || day.After(endOfToday)}
 			if !cell.Blank {
 				t := totals[day.Format(time.DateOnly)]
 				cell.Level = t.level

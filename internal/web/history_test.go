@@ -37,7 +37,7 @@ func TestRecentDayGroupsKeepsQuietDays(t *testing.T) {
 }
 
 func TestIncidentMap(t *testing.T) {
-	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	now := time.Date(2026, 3, 10, 9, 0, 0, 0, time.UTC) // before noon: today must still count as a past day
 	incidents := []store.Incident{
 		incidentAt("a", "minor", time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)),
 		incidentAt("b", "critical", time.Date(2026, 1, 1, 15, 0, 0, 0, time.UTC)),
