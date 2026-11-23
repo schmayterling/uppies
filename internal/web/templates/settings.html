@@ -27,6 +27,11 @@
       <div class="srow-control"><input id="homepage_url" name="homepage_url" value="{{.Project.HomepageURL}}" maxlength="2048" placeholder="https://example.com" autocapitalize="none" spellcheck="false"{{if index .Problems "homepage_url"}} aria-invalid="true"{{end}}></div>
       {{with index .Problems "homepage_url"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
+    <div class="srow" data-stack>
+      <label class="srow-copy" for="nav_links"><span>top bar links</span><small>links shown in the bar at the top of the status page, one per line, written as: label | https://example.com. up to 6.</small></label>
+      <textarea id="nav_links" name="nav_links" rows="3" maxlength="2000" spellcheck="false" placeholder="docs | https://docs.example.com"{{if index .Problems "nav_links"}} aria-invalid="true"{{end}}>{{.Project.NavLinks}}</textarea>
+      {{with index .Problems "nav_links"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
     <div class="srow">
       <label class="srow-copy" for="domain"><span>custom domain</span><small>point this hostname at uppies through your reverse proxy, and its front page becomes this status page.</small></label>
       <div class="srow-control"><input id="domain" name="domain" value="{{.Project.Domain}}" maxlength="253" placeholder="status.example.com" autocapitalize="none" spellcheck="false"{{if index .Problems "domain"}} aria-invalid="true"{{end}}></div>

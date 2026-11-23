@@ -76,6 +76,7 @@ func Seed(ctx context.Context, st *store.Store, now time.Time) error {
 		Slug: "hibi", Name: "hibi", Tagline: "notes that sync, most of the time.", HomepageURL: "https://example.com",
 		AccentHue: 330, Theme: "auto", ShowFace: true, HistoryDays: 90, ShowPoweredBy: true, Timezone: "Asia/Manila",
 		FooterText: "questions? write to help@hibi.example",
+		NavLinks:   "docs | https://example.com/docs\nsupport | https://example.com/support",
 	}, hibiMonitors)
 	if err != nil {
 		return err

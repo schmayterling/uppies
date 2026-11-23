@@ -129,6 +129,12 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	p.ShowFace = form.Get("show_face") == "on"
 	p.CustomCSS = form.Get("custom_css")
 	p.FooterText = strings.TrimSpace(form.Get("footer_text"))
+	p.NavLinks = strings.TrimSpace(strings.ReplaceAll(form.Get("nav_links"), "\r", ""))
+	if _, problem := parseNavLinks(p.NavLinks); problem != "" {
+		problems["nav_links"] = problem
+	} else if len(p.NavLinks) > 2000 {
+		problems["nav_links"] = "the links are too long."
+	}
 	p.ShowPoweredBy = form.Get("show_powered_by") == "on"
 	p.NoIndex = form.Get("noindex") == "on"
 	p.Timezone = strings.TrimSpace(form.Get("timezone"))

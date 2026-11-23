@@ -3,10 +3,18 @@
 {{with index .Images "favicon"}}<link rel="icon" href="/s/{{$.Project.Slug}}/images/favicon?v={{.}}">{{end}}
 <link rel="stylesheet" href="/s/{{.Project.Slug}}/theme.css">{{end}}
 {{define "main"}}
+<header class="site-bar">
+  <a class="site-brand" href="/s/{{.Project.Slug}}{{with .TZ}}?tz={{.}}{{end}}">{{with index .Images "logo"}}<img class="logo" src="/s/{{$.Project.Slug}}/images/logo?v={{.}}" alt="">{{end}}{{.Project.Name}}</a>
+  {{if or .NavLinks .Project.HomepageURL}}
+  <nav class="site-links" aria-label="{{.Project.Name}}">
+    {{range .NavLinks}}<a href="{{.URL}}" rel="noopener">{{.Label}}</a>{{end}}
+    {{with .Project.HomepageURL}}<a href="{{.}}" rel="noopener">back to {{$.Project.Name}}</a>{{end}}
+  </nav>
+  {{end}}
+</header>
 <header class="page-head">
-  <h1>{{with index .Images "logo"}}<img class="logo" src="/s/{{$.Project.Slug}}/images/logo?v={{.}}" alt="">{{end}}{{.Project.Name}}</h1>
+  <h1>status</h1>
   {{with .Project.Tagline}}<p class="muted">{{.}}</p>{{end}}
-  {{with .Project.HomepageURL}}<p><a href="{{.}}" rel="noopener">back to {{$.Project.Name}}</a></p>{{end}}
 </header>
 
 <section class="banner banner-{{.BannerState}}" aria-label="current status">
@@ -27,11 +35,11 @@
 {{if .Maintenance}}
 <section aria-labelledby="maintenance-heading">
   <h2 id="maintenance-heading">planned maintenance</h2>
-  <ul class="rows">
+  <ul class="cards">
     {{range .Maintenance}}
-    <li class="row">
-      <span>{{.Title}}{{if .Running}} <strong>now</strong>{{end}}</span>
-      <span class="meta"><time datetime="{{rfc3339 .StartsAtMs}}">{{local $.Zone .StartsAtMs}}</time> to <time datetime="{{rfc3339 .EndsAtMs}}">{{local $.Zone .EndsAtMs}}</time></span>
+    <li class="incident maintenance{{if .Running}} maintenance-now{{end}}">
+      <h3>{{.Title}}{{if .Running}} <span class="chip">under way</span>{{end}}</h3>
+      <p class="meta"><time datetime="{{rfc3339 .StartsAtMs}}">{{local $.Zone .StartsAtMs}}</time> to <time datetime="{{rfc3339 .EndsAtMs}}">{{local $.Zone .EndsAtMs}}</time></p>
     </li>
     {{end}}
   </ul>
@@ -84,7 +92,7 @@
     <h2 id="history-heading">past incidents</h2>
     <a class="meta" href="/s/{{.Project.Slug}}/history{{with .TZ}}?tz={{.}}{{end}}">incident history</a>
   </div>
-  {{template "days" (pair .Recent .Zone)}}
+  {{if .Calm}}<p class="muted">no incidents in the last 7 days.</p>{{else}}{{template "days" (pair .Recent .Zone)}}{{end}}
 </section>
 
 <form class="zone-picker meta" method="get" action="/s/{{.Project.Slug}}">

@@ -265,6 +265,9 @@ alter table projects add column lookback_days integer not null default 90 check 
 update projects set lookback_days = history_days;
 alter table projects add column backfill text not null default 'none' check (backfill in ('none', 'up', 'degraded', 'down'));
 `,
+	`
+alter table projects add column nav_links text not null default '' check (length(nav_links) <= 2000);
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

@@ -75,9 +75,14 @@ type statusPage struct {
 	Images map[string]int64
 	// ZoneName is the timezone times are shown in, Zones the ones offered, and
 	// TZ the visitor's own choice when it differs from the project's.
-	ZoneName    string
-	Zones       []string
-	TZ          string
+	ZoneName string
+	Zones    []string
+	TZ       string
+	// NavLinks are the project's own links for the bar at the top.
+	NavLinks []navLink
+	// Calm is true when none of the recent days had an incident, so the page
+	// says so in a sentence instead of drawing a timeline of nothing.
+	Calm        bool
 	Overall     overallStatus
 	BannerState string
 	BannerText  string
@@ -348,6 +353,9 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 		}
 	}
 	page.Recent = recentDayGroups(resolved, s.now(), zone)
+	page.Calm = len(resolved) == 0 || (len(page.Recent) == 1 && page.Recent[0].QuietDays > 0)
+	// Saved links were checked when they were saved, so a problem here is not expected and shows none.
+	page.NavLinks, _ = parseNavLinks(project.NavLinks)
 	nowMs := s.now().UnixMilli()
 	windows, err := s.store.MaintenanceWindows(ctx, project.ID, nowMs)
 	if err != nil {
