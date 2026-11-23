@@ -204,6 +204,21 @@ type chrome struct {
 	Admin bool // show the admin navigation
 	// Unbranded drops the "uppies" suffix from the browser title.
 	Unbranded bool
+	// Nav is the sidebar of the admin pages.
+	Nav nav
+}
+
+// nav is the admin sidebar: where you are, and every project with its state.
+type nav struct {
+	OnOverview bool
+	Projects   []navProject
+}
+
+type navProject struct {
+	store.Project
+	State   string // the worst state among the project's monitors
+	Down    int
+	Current bool
 }
 
 var templateFuncs = template.FuncMap{

@@ -20,11 +20,6 @@ const timelinePageSize = 50
 
 var slugPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$`)
 
-type projectSummary struct {
-	Project  store.Project
-	Monitors []monitorRow
-}
-
 // monitorRow is a monitor with its state in words, for admin tables.
 type monitorRow struct {
 	store.Monitor
@@ -32,12 +27,80 @@ type monitorRow struct {
 	Word  string
 }
 
+// overviewDays is the length of the uptime bar in the overview table.
+const overviewDays = 30
+
+const recentEventCount = 10
+
+// overviewRow is one monitor in the overview table.
+type overviewRow struct {
+	monitorRow
+	Project store.Project
+	Days    []dayCell
+	// Uptime is the percentage alone, since the column heading already says what it is.
+	Uptime string
+}
+
+// attentionItem is something the admin should look at now.
+type attentionItem struct {
+	State string
+	Text  string
+	Note  string
+	Href  string
+}
+
+type overviewEvent struct {
+	eventRow
+	Project string
+}
+
 type dashboardPage struct {
-	Chrome   chrome
-	Projects []projectSummary
-	Name     string
-	Slug     string
-	Problems map[string]string
+	Chrome chrome
+	// Counts of monitors by state, for the strip at the top.
+	Up, Down, Paused, Waiting, Total int
+	OpenIncidents                    int
+	Attention                        []attentionItem
+	Rows                             []overviewRow
+	Events                           []overviewEvent
+	HasProjects                      bool
+	Name                             string
+	Slug                             string
+	Problems                         map[string]string
+}
+
+// adminChrome builds the frame of an admin page: its title and the sidebar.
+// A sidebar that cannot be loaded is logged and left empty, so the page
+// itself still renders.
+func (s *Server) adminChrome(r *http.Request, title string) chrome {
+	c := chrome{Title: title, Admin: true, Nav: nav{OnOverview: r.URL.Path == "/admin"}}
+	projects, err := s.store.Projects(r.Context())
+	if err != nil {
+		s.log.Error("load sidebar projects", "path", r.URL.Path, "error", err)
+		return c
+	}
+	monitors, err := s.store.Monitors(r.Context())
+	if err != nil {
+		s.log.Error("load sidebar monitors", "path", r.URL.Path, "error", err)
+		return c
+	}
+	position := make(map[int64]int, len(projects))
+	for i, p := range projects {
+		position[p.ID] = i
+		prefix := fmt.Sprintf("/admin/projects/%d", p.ID)
+		current := r.URL.Path == prefix || strings.HasPrefix(r.URL.Path, prefix+"/")
+		c.Nav.Projects = append(c.Nav.Projects, navProject{Project: p, State: stateNone, Current: current})
+	}
+	for _, m := range monitors {
+		entry := &c.Nav.Projects[position[m.ProjectID]]
+		switch state, _ := componentState(m); {
+		case state == stateDown:
+			entry.Down++
+			entry.State = stateDown
+		case state == stateOK && entry.State == stateNone:
+			entry.State = stateOK
+		}
+	}
+	return c
 }
 
 func monitorRows(monitors []store.Monitor) []monitorRow {
@@ -50,21 +113,89 @@ func monitorRows(monitors []store.Monitor) []monitorRow {
 }
 
 func (s *Server) dashboard(r *http.Request) (dashboardPage, error) {
-	page := dashboardPage{Chrome: chrome{Title: "projects", Admin: true}}
-	projects, err := s.store.Projects(r.Context())
+	ctx := r.Context()
+	page := dashboardPage{Chrome: s.adminChrome(r, "overview")}
+	projects, err := s.store.Projects(ctx)
 	if err != nil {
 		return page, err
 	}
-	monitors, err := s.store.Monitors(r.Context())
+	monitors, err := s.store.Monitors(ctx)
 	if err != nil {
 		return page, err
 	}
-	byProject := make(map[int64][]store.Monitor)
-	for _, m := range monitors {
-		byProject[m.ProjectID] = append(byProject[m.ProjectID], m)
+	todayStartMs := store.DayStartMs(s.now().UnixMilli())
+	rollups, err := s.store.AllDailyRollups(ctx, todayStartMs-(overviewDays-1)*dayMs)
+	if err != nil {
+		return page, err
 	}
+	incidents, err := s.store.OpenIncidents(ctx)
+	if err != nil {
+		return page, err
+	}
+	events, err := s.store.RecentEvents(ctx, recentEventCount)
+	if err != nil {
+		return page, err
+	}
+
+	byID := make(map[int64]store.Project, len(projects))
 	for _, p := range projects {
-		page.Projects = append(page.Projects, projectSummary{Project: p, Monitors: monitorRows(byProject[p.ID])})
+		byID[p.ID] = p
+	}
+	page.HasProjects = len(projects) > 0
+	page.Total = len(monitors)
+	// An outage opens a draft incident. The two are one thing to look at, so
+	// the draft is reached through its monitor's line and not listed again.
+	draftOf := make(map[int64]int64)
+	for _, in := range incidents {
+		if in.Published {
+			continue
+		}
+		for _, monitorID := range in.MonitorIDs {
+			draftOf[monitorID] = in.ID
+		}
+	}
+	listed := make(map[int64]bool)
+	for _, row := range monitorRows(monitors) {
+		switch {
+		case row.Paused:
+			page.Paused++
+		case row.State == stateDown:
+			page.Down++
+			item := attentionItem{
+				State: stateDown, Text: row.Name + " is down", Note: row.LastError,
+				Href: fmt.Sprintf("/admin/monitors/%d", row.ID),
+			}
+			if draftID, drafted := draftOf[row.ID]; drafted {
+				listed[draftID] = true
+				item.Note = "a draft incident is ready to publish"
+				item.Href = fmt.Sprintf("/admin/incidents/%d", draftID)
+			}
+			page.Attention = append(page.Attention, item)
+		case row.State == stateOK:
+			page.Up++
+		default:
+			page.Waiting++
+		}
+		days, uptime := uptimeStrip(rollups[row.ID], todayStartMs, overviewDays)
+		uptime = strings.TrimSuffix(uptime, " uptime")
+		page.Rows = append(page.Rows, overviewRow{monitorRow: row, Project: byID[row.ProjectID], Days: days, Uptime: uptime})
+	}
+	for _, in := range incidents {
+		if listed[in.ID] {
+			continue
+		}
+		item := attentionItem{State: stateWarn, Text: in.Title, Href: fmt.Sprintf("/admin/incidents/%d", in.ID)}
+		if in.Published {
+			page.OpenIncidents++
+			item.Note = "open incident, " + in.Status
+		} else {
+			item.Note = "draft incident, not on the status page"
+		}
+		page.Attention = append(page.Attention, item)
+	}
+	for _, e := range events {
+		row := eventRow{Event: e, Word: eventWords[e.Kind]}
+		page.Events = append(page.Events, overviewEvent{eventRow: row, Project: byID[e.ProjectID].Name})
 	}
 	return page, nil
 }
@@ -261,7 +392,7 @@ func (s *Server) projectPage(r *http.Request) (projectPage, error) {
 	}
 
 	page := projectPage{
-		Chrome:      chrome{Title: project.Name, Admin: true},
+		Chrome:      s.adminChrome(r, project.Name),
 		Project:     project,
 		Monitors:    monitorRows(monitors),
 		Incidents:   incidents,
@@ -409,7 +540,7 @@ func (s *Server) handleNewMonitorForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, http.StatusOK, "monitor_form.html", monitorFormPage{
-		Chrome: chrome{Title: "new monitor", Admin: true}, Project: project, Monitor: defaultMonitor(id), Kinds: check.Kinds,
+		Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: defaultMonitor(id), Kinds: check.Kinds,
 	})
 }
 
@@ -431,7 +562,7 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 	m, problems := parseMonitorForm(r.PostForm, defaultMonitor(id))
 	if len(problems) > 0 {
 		s.render(w, r, http.StatusUnprocessableEntity, "monitor_form.html", monitorFormPage{
-			Chrome: chrome{Title: "new monitor", Admin: true}, Project: project, Monitor: m, Kinds: check.Kinds, Problems: problems,
+			Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: m, Kinds: check.Kinds, Problems: problems,
 		})
 		return
 	}
@@ -470,7 +601,7 @@ func (s *Server) handleEditMonitorForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, http.StatusOK, "monitor_form.html", monitorFormPage{
-		Chrome: chrome{Title: m.Name, Admin: true}, Project: project, Monitor: m, Kinds: check.Kinds, Editing: true,
+		Chrome: s.adminChrome(r, m.Name), Project: project, Monitor: m, Kinds: check.Kinds, Editing: true,
 		PushURL: pushURL(r, m),
 	})
 }
@@ -488,7 +619,7 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	m, problems := parseMonitorForm(r.PostForm, current)
 	if len(problems) > 0 {
 		s.render(w, r, http.StatusUnprocessableEntity, "monitor_form.html", monitorFormPage{
-			Chrome: chrome{Title: current.Name, Admin: true}, Project: project, Monitor: m, Kinds: check.Kinds, Editing: true, Problems: problems,
+			Chrome: s.adminChrome(r, current.Name), Project: project, Monitor: m, Kinds: check.Kinds, Editing: true, Problems: problems,
 		})
 		return
 	}
@@ -527,7 +658,7 @@ type incidentFormPage struct {
 
 func (s *Server) incidentForm(r *http.Request) (incidentFormPage, error) {
 	page := incidentFormPage{
-		Chrome:   chrome{Title: "new incident", Admin: true},
+		Chrome:   s.adminChrome(r, "new incident"),
 		Statuses: store.IncidentStatuses,
 		Impacts:  store.IncidentImpacts,
 		Incident: store.Incident{Impact: "minor", Status: "investigating"},
@@ -626,7 +757,7 @@ func (s *Server) incidentPage(r *http.Request) (incidentPage, error) {
 	if err != nil {
 		return page, err
 	}
-	page.Chrome = chrome{Title: page.Incident.Title, Admin: true}
+	page.Chrome = s.adminChrome(r, page.Incident.Title)
 	page.Project, err = s.store.ProjectByID(r.Context(), page.Incident.ProjectID)
 	if err != nil {
 		return page, err

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en"{{if .Chrome.Admin}} data-density="tool"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,23 +8,47 @@
 <link rel="stylesheet" href="/static/app.css">
 {{block "head" .}}{{end}}
 </head>
-<body{{if .Chrome.Admin}} class="admin"{{end}}>
 {{if .Chrome.Admin}}
-<header class="topbar">
-  <div class="topbar-inner">
+<body class="admin">
+<a class="skip" href="#content">skip to the content</a>
+<div class="shell">
+  <aside class="sidebar">
     <a class="wordmark" href="/admin">uppies</a>
-    <nav aria-label="admin">
-      <a href="/admin">projects</a>
-      <a href="/">status pages</a>
+    <nav aria-label="main">
+      <ul class="nav-list">
+        <li><a class="nav-item" href="/admin"{{if .Chrome.Nav.OnOverview}} aria-current="page"{{end}}>overview</a></li>
+      </ul>
+      <h2 class="nav-heading" id="nav-projects">projects</h2>
+      <ul class="nav-list" aria-labelledby="nav-projects">
+        {{range .Chrome.Nav.Projects}}
+        <li><a class="nav-item" href="/admin/projects/{{.ID}}"{{if .Current}} aria-current="true"{{end}}>
+          <span class="state-{{.State}}">{{template "mark" .State}}</span>
+          <span class="nav-name">{{.Name}}</span>
+          {{if .Down}}<span class="nav-count state-down">{{.Down}} down</span>{{end}}
+        </a></li>
+        {{else}}
+        <li class="nav-empty">none yet</li>
+        {{end}}
+        <li><a class="nav-item nav-add" href="/admin#new-project">new project</a></li>
+      </ul>
     </nav>
-    <form method="post" action="/admin/logout"><button class="button quiet" type="submit">sign out</button></form>
-  </div>
-</header>
-{{end}}
-<main class="column">
+    <div class="sidebar-foot">
+      <a class="nav-item" href="/">status pages</a>
+      <form method="post" action="/admin/logout"><button class="nav-item" type="submit">sign out</button></form>
+    </div>
+  </aside>
+  <main class="content" id="content">
 {{block "main" .}}{{end}}
+  </main>
+</div>
+</body>
+{{else}}
+<body>
+<main class="column">
+{{template "main" .}}
 </main>
 </body>
+{{end}}
 </html>
 
 {{define "mark"}}<svg class="mark mark-{{.}}" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">{{if eq . "ok"}}<circle cx="6" cy="6" r="5"/>{{else if eq . "warn"}}<path d="M6 1 11.5 11H.5Z"/>{{else if eq . "down"}}<rect x="1" y="1" width="10" height="10" rx="2"/>{{else}}<circle class="hollow" cx="6" cy="6" r="4"/>{{end}}</svg>{{end}}

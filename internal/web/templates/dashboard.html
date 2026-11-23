@@ -1,27 +1,77 @@
 {{define "main"}}
-<h1>projects</h1>
-{{if .Projects}}
-{{range .Projects}}
-<section class="card">
-  <div class="card-head">
-    <h2><a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a></h2>
-    <a class="meta" href="/s/{{.Project.Slug}}">/s/{{.Project.Slug}}</a>
-  </div>
-  {{if .Monitors}}
-  <ul class="rows">
-    {{range .Monitors}}<li class="row"><span>{{.Name}}</span><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span></li>{{end}}
-  </ul>
-  {{else}}
-  <p class="muted">no monitors yet. <a href="/admin/projects/{{.Project.ID}}/monitors/new">add the first one.</a></p>
-  {{end}}
-</section>
-{{end}}
-{{else}}
-<p class="muted">no projects yet. a project is one status page with its own monitors and incidents.</p>
+<div class="title-row">
+  <h1>overview</h1>
+  <a class="button" href="#new-project">new project</a>
+</div>
+
+{{if .Rows}}
+<dl class="stats" aria-label="monitors by state">
+  <div class="stat"><dt>up</dt><dd><span class="stat-value">{{.Up}}</span> <span class="meta">of {{.Total}}</span></dd></div>
+  <div class="stat"><dt>down</dt><dd><span class="stat-value{{if .Down}} state-down{{end}}">{{.Down}}</span></dd></div>
+  <div class="stat"><dt>open incidents</dt><dd><span class="stat-value{{if .OpenIncidents}} state-warn{{end}}">{{.OpenIncidents}}</span></dd></div>
+  <div class="stat"><dt>paused</dt><dd><span class="stat-value">{{.Paused}}</span></dd></div>
+  <div class="stat"><dt>not checked yet</dt><dd><span class="stat-value">{{.Waiting}}</span></dd></div>
+</dl>
 {{end}}
 
-<section aria-labelledby="new-project-heading">
+{{if .Attention}}
+<section aria-labelledby="attention-heading">
+  <h2 id="attention-heading">needs attention</h2>
+  <ul class="panel list">
+    {{range .Attention}}
+    <li><a class="list-row" href="{{.Href}}">
+      <span class="state state-{{.State}}">{{template "mark" .State}}{{.Text}}</span>
+      <span class="meta list-note">{{.Note}}</span>
+    </a></li>
+    {{end}}
+  </ul>
+</section>
+{{end}}
+
+<section aria-labelledby="monitors-heading">
+  <h2 id="monitors-heading">monitors</h2>
+  {{if .Rows}}
+  <div class="panel table-scroll">
+  <table class="dense">
+    <thead><tr><th scope="col">monitor</th><th scope="col">project</th><th scope="col">state</th><th scope="col">last {{len (index .Rows 0).Days}} days</th><th scope="col" class="number">uptime</th><th scope="col" class="number">latency</th></tr></thead>
+    <tbody>
+      {{range .Rows}}
+      <tr>
+        <th scope="row"><a href="/admin/monitors/{{.ID}}">{{.Name}}</a></th>
+        <td><a class="quiet-link" href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a></td>
+        <td><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span></td>
+        <td><div class="strip mini" role="img" aria-label="uptime {{.Uptime}}">{{range .Days}}<span class="day day-{{.State}}" title="{{.Label}}"></span>{{end}}</div></td>
+        <td class="number">{{.Uptime}}</td>
+        <td class="number">{{if and .LastCheckAtMs (eq .State "ok") (ne .Kind "push")}}{{.LastLatencyMs}} ms{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{else if .HasProjects}}
+  <p class="panel empty">no monitors yet. open a project in the sidebar and add the first one.</p>
+  {{else}}
+  <p class="panel empty">nothing is monitored yet. create a project below, then add monitors to it.</p>
+  {{end}}
+</section>
+
+{{if .Events}}
+<section aria-labelledby="activity-heading">
+  <h2 id="activity-heading">recent activity</h2>
+  <ol class="panel list">
+    {{range .Events}}
+    <li class="list-row">
+      <span><strong>{{.Title}}</strong> {{.Word}} <span class="meta">in {{.Project}}</span></span>
+      <time class="meta" datetime="{{rfc3339 .AtMs}}">{{utc .AtMs}}</time>
+    </li>
+    {{end}}
+  </ol>
+</section>
+{{end}}
+
+<section aria-labelledby="new-project-heading" id="new-project">
   <h2 id="new-project-heading">new project</h2>
+  <p class="muted">a project is one status page with its own monitors and incidents.</p>
   <form class="form narrow" method="post" action="/admin/projects">
     <div class="field">
       <label for="name">name</label>

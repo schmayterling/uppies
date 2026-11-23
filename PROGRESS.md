@@ -41,6 +41,7 @@ Each line names how it was verified.
 - Email alerts over SMTP (`internal/alert/email.go`, flags `-smtp-addr` and `-smtp-from`). Verified by a test against a fake server and by the manual run against a local fake server. Not tried against a real mail server, so STARTTLS and sign-in are untested.
 - Maintenance windows per project: no checks during a window, announced on the status page. Verified by engine and handler tests and by the manual run.
 - Dockerfile: written and not built, because the Docker daemon on this machine was not running. The same static Linux build command it uses was run by hand and produced a 15 MB binary.
+- Admin frame and overview, design round 1 (2026-11-23): every admin page sits in a 256-pixel sidebar that lists the projects with their state, and the home page is an overview with a strip of counts, a "needs attention" list, one table of all monitors with a 30-day bar, and recent activity. Verified by a handler test. Rendered and measured at 1440 wide in light and dark and at 390 wide: no horizontal overflow, no link or button under 24 pixels tall, four type sizes.
 - Status page rendered and measured at 1280 and 390 CSS pixels wide in the light theme: no horizontal overflow, 90 day cells on wide screens and 30 on narrow ones. The dark theme was looked at once before the last style fixes and not measured.
 
 ## Done but not verified
@@ -80,6 +81,9 @@ Each line names how it was verified.
 - 2026-11-23: The SMTP password comes from the environment, never from a flag, so it does not show in a process list.
 - 2026-11-23: Certificate warnings are alerts only. They are not in the timeline, because the timeline's kinds are fixed by a schema constraint and adding one needs a table rebuild.
 
+- 2026-11-23: The admin uses a sidebar plus content layout at desktop density (13-pixel text, 28-pixel controls). References looked at: the dashboards of Uptime Kuma, Peekaping and Checkmate. Taken from them: a sidebar for navigation, a strip of counts, a list of what is down, and a small uptime bar on every monitor row. Not taken: coloured pills on every row and a grid of cards.
+- 2026-11-23: An outage and its draft incident are one line in "needs attention", linked to the draft.
+
 ## Do not repeat
 
 - Do not put the raw check error into text that can become public. A test caught this once (`TestStatusPageShowsOnlyWhatIsPublic`).
@@ -90,7 +94,7 @@ Each line names how it was verified.
 ## Next
 
 `ROADMAP.md` holds the planned order. The basics are done. The user wants a
-design pass on the status page and admin pages before any new feature. Work one item at a time, one signed commit per step.
+design pass on the status page and admin pages before any new feature. Round 1 (admin frame and overview) is done. The project page, the forms and the settings page still have their first-version layout inside the new frame. Work one item at a time, one signed commit per step.
 
 ## Open risks
 

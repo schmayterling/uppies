@@ -640,3 +640,52 @@ func TestPlannedMaintenanceIsAnnouncedAndShownWhileRunning(t *testing.T) {
 		}
 	}
 }
+
+func TestOverviewSumsUpEveryProject(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	nowMs := time.Now().UnixMilli()
+	monitor := store.Monitor{
+		Kind: "http", Target: "https://example.com", Public: true,
+		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
+	}
+	for _, slug := range []string{"alpha", "beta"} {
+		projectID, err := s.store.CreateProject(ctx, slug, slug+" project", 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		monitor.ProjectID, monitor.Name = projectID, slug+" api"
+		monitorID, err := s.store.CreateMonitor(ctx, monitor, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		step := health.Step{Tracker: health.Tracker{Status: health.Up}}
+		if slug == "beta" {
+			step = health.Step{Tracker: health.Tracker{Status: health.Down, FailingSinceMs: nowMs}, Change: health.WentDown}
+		}
+		err = s.store.RecordCheck(ctx, store.CheckResult{MonitorID: monitorID, AtMs: nowMs, OK: slug == "alpha", Error: "status 503", Step: step})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	status, page := s.get(t, s.admin, "/admin")
+	if status != http.StatusOK {
+		t.Fatalf("overview: got %d, want 200", status)
+	}
+	page = html.UnescapeString(page)
+	for _, want := range []string{
+		`<span class="stat-value">1</span> <span class="meta">of 2</span>`, // one of two monitors is up
+		`<span class="stat-value state-down">1</span>`,                     // one is down
+		"beta api is down",
+		"a draft incident is ready to publish",
+		"alpha project", "beta project", "1 down", // the sidebar lists both projects and flags the one with an outage
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("overview is missing %q", want)
+		}
+	}
+	if got := strings.Count(page, "beta api is down"); got != 1 {
+		t.Errorf("the outage and its draft incident appear %d times, want one line for both", got)
+	}
+}

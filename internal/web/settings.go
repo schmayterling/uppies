@@ -49,7 +49,7 @@ func (s *Server) settingsPage(r *http.Request) (settingsPage, error) {
 	if err != nil {
 		return page, err
 	}
-	page.Chrome = chrome{Title: page.Project.Name + " settings", Admin: true}
+	page.Chrome = s.adminChrome(r, page.Project.Name+" settings")
 	page.Images, err = s.store.ProjectImageVersions(r.Context(), id)
 	if err != nil {
 		return page, err
