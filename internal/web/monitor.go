@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image/png"
 	"io"
 	"net/http"
 	"strconv"
@@ -188,8 +189,11 @@ type monitorPage struct {
 // badgeKinds are what a component's 88x31 badge can show.
 var badgeKinds = []string{"status", "uptime", "bars", "line", "p50", "p90", "p95", "p99"}
 
-// badgePercentiles maps the file names of the percentile badges to their percentile.
-var badgePercentiles = map[string]int{"p90.svg": 90, "p95.svg": 95, "p99.svg": 99}
+// badgePercentiles maps each short badge address to its percentile.
+var badgePercentiles = map[string]int{
+	"p90.png": 90, "p95.png": 95, "p99.png": 99,
+	"p90.svg": 90, "p95.svg": 95, "p99.svg": 99,
+}
 
 // publicMonitor returns the monitor a public address names, or ErrNotFound
 // when the status page does not show it, so that a monitor on no page or on
@@ -262,15 +266,16 @@ func (s *Server) handleMonitorPage(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleMonitorBadge serves an 88x31 image of one monitor on a status
-// page. "88x31.svg" takes what to show from the address: show=status, uptime,
+// page. The show option selects status, uptime,
 // p50, p90, p95 or p99, with days= for the uptime, and theme= and label= for
-// the look. "p90.svg", "p95.svg" and "p99.svg" are short for the percentiles.
+// the look. The percentile badges also have shorter addresses such as p99.png.
 func (s *Server) handleMonitorBadge(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	show := query.Get("show")
-	if p, short := badgePercentiles[r.PathValue("badge")]; short {
+	badge := r.PathValue("badge")
+	if p, short := badgePercentiles[badge]; short {
 		show = fmt.Sprintf("p%d", p)
-	} else if r.PathValue("badge") != "88x31.svg" {
+	} else if badge != "88x31.png" && badge != "88x31.svg" {
 		http.NotFound(w, r)
 		return
 	}
@@ -387,9 +392,16 @@ var pageBadgeWords = map[overallStatus]string{
 }
 
 func (s *Server) writeBadge(w http.ResponseWriter, r *http.Request, spec badgeSpec) {
-	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Header().Set("Cache-Control", "max-age=60")
-	if _, err := io.WriteString(w, drawBadge(spec)); err != nil {
+	var err error
+	if strings.HasSuffix(r.URL.Path, ".png") {
+		w.Header().Set("Content-Type", "image/png")
+		err = png.Encode(w, rasterBadge(spec))
+	} else {
+		w.Header().Set("Content-Type", "image/svg+xml")
+		_, err = io.WriteString(w, drawBadge(spec))
+	}
+	if err != nil {
 		s.log.Error("write badge", "path", r.URL.Path, "error", err)
 	}
 }

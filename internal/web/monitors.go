@@ -89,7 +89,7 @@ func newBadgeBuilder(r *http.Request, monitorID int64, pages []store.Project) ba
 	if _, err := strconv.Atoi(b.Days); err == nil && b.Show == "uptime" {
 		options.Set("days", b.Days)
 	}
-	b.Path = fmt.Sprintf("/s/%s/monitors/%d/88x31.svg?%s", b.Slug, monitorID, options.Encode())
+	b.Path = fmt.Sprintf("/s/%s/monitors/%d/88x31.png?%s", b.Slug, monitorID, options.Encode())
 	scheme := "http"
 	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
 		scheme = "https"

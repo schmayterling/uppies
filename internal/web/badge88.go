@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"html"
+	"image"
 	"net/url"
 	"strconv"
 	"strings"
@@ -11,8 +12,7 @@ import (
 	"uppies/internal/store"
 )
 
-// An 88x31 badge uses SVG paths and a built-in pixel font. The same
-// values and options produce the same SVG bytes.
+// Both badge formats share the chart geometry and the built-in pixel font.
 
 // badgeGlyphs is a 5 by 7 pixel font with the characters a badge needs.
 var badgeGlyphs = map[rune][7]string{
@@ -68,11 +68,9 @@ func badgeTextWidth(text string, scale int) int {
 	return (len(text)*glyphAdvance - 1) * scale
 }
 
-// badgeText returns the path data that draws text with its top left corner at
-// x, y. Each run of lit pixels in a row becomes one rectangle. A character
-// without a glyph leaves a gap.
-func badgeText(text string, x, y, scale int) string {
-	var d strings.Builder
+// badgeTextRects draws each run of lit pixels in one rectangle.
+func badgeTextRects(text string, x, y, scale int) []image.Rectangle {
+	var rects []image.Rectangle
 	for i, char := range text {
 		glyph := badgeGlyphs[char]
 		for row, pixels := range glyph {
@@ -84,12 +82,22 @@ func badgeText(text string, x, y, scale int) string {
 				for col+1 < len(pixels) && pixels[col+1] == '#' {
 					col++
 				}
-				fmt.Fprintf(&d, "M%d %dh%dv%dh-%dz",
-					x+(i*glyphAdvance+start)*scale, y+row*scale, (col-start+1)*scale, scale, (col-start+1)*scale)
+				left := x + (i*glyphAdvance+start)*scale
+				top := y + row*scale
+				width := (col - start + 1) * scale
+				rects = append(rects, image.Rect(left, top, left+width, top+scale))
 			}
 		}
 	}
-	return d.String()
+	return rects
+}
+
+func badgeRectPath(rects []image.Rectangle) string {
+	var path strings.Builder
+	for _, r := range rects {
+		fmt.Fprintf(&path, "M%d %dh%dv%dh-%dz", r.Min.X, r.Min.Y, r.Dx(), r.Dy(), r.Dx())
+	}
+	return path.String()
 }
 
 // badgeValue formats a response time in milliseconds or tenths of a second.
@@ -111,7 +119,8 @@ type badgeSpec struct {
 	State                string
 	Light                bool
 	Title                string
-	Bars, Line           string
+	Bars                 []image.Rectangle
+	Line                 []badgePoint
 	// Hue overrides the state's accent when it is non-negative.
 	Hue int
 }
@@ -142,44 +151,35 @@ func badgeWord(text string, max int) string {
 	return strings.TrimSpace(word.String())
 }
 
-// drawBadge layers a subdued chart behind a small label and a prominent value.
-func drawBadge(spec badgeSpec) string {
-	edge := badgeColours[spec.State]
-	ground, ink, quiet := "#16181a", "#fff", "#d0d5d9"
-	accent := badgeDarkAccents[spec.State]
-	if spec.Light {
-		ground, ink, quiet = "#fff", "#16181a", "#36424c"
-		accent = edge
-	}
-	if spec.Hue >= 0 {
-		edge = fmt.Sprintf("hsl(%d 45%% 32%%)", spec.Hue)
-		accent = edge
-		if !spec.Light {
-			accent = fmt.Sprintf("hsl(%d 45%% 66%%)", spec.Hue)
-		}
-	}
-
-	title := html.EscapeString(spec.Title)
-	var b strings.Builder
-	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" shape-rendering="crispEdges" role="img" aria-label="%s"><title>%s</title>`,
-		badgeWidth, badgeHeight, badgeWidth, badgeHeight, title, title)
-	fmt.Fprintf(&b, `<rect width="%d" height="%d" fill="%s"/><rect x="1" y="1" width="%d" height="%d" fill="%s"/>`,
-		badgeWidth, badgeHeight, edge, badgeWidth-2, badgeHeight-2, ground)
-	if spec.Bars != "" {
-		fmt.Fprintf(&b, `<path fill="%s" fill-opacity=".23" d="%s"/>`, accent, spec.Bars)
-	}
-	if spec.Line != "" {
-		fmt.Fprintf(&b, `<path fill="none" stroke="%s" stroke-opacity=".4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision" d="%s"/>`, accent, spec.Line)
-	}
+func badgeOverlays(spec badgeSpec) (labelRects, valueRects []image.Rectangle) {
 	label := strings.TrimSpace(spec.Label + " " + spec.Window)
-	fmt.Fprintf(&b, `<path fill="%s" d="%s"/>`, quiet, badgeText(label, badgeInset, 4, 1))
 	scale := 2
 	if badgeTextWidth(spec.Value, scale) > badgeWidth-2*badgeInset {
 		scale = 1
 	}
 	x := badgeWidth - badgeInset - badgeTextWidth(spec.Value, scale)
 	y := badgeHeight - 4 - 7*scale
-	fmt.Fprintf(&b, `<path fill="%s" d="%s"/></svg>`, ink, badgeText(spec.Value, x, y, scale))
+	return badgeTextRects(label, badgeInset, 4, 1), badgeTextRects(spec.Value, x, y, scale)
+}
+
+// drawBadge layers a chart behind a small label and a prominent value.
+func drawBadge(spec badgeSpec) string {
+	palette := paletteForBadge(spec)
+	title := html.EscapeString(spec.Title)
+	var b strings.Builder
+	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" shape-rendering="crispEdges" role="img" aria-label="%s"><title>%s</title>`,
+		badgeWidth, badgeHeight, badgeWidth, badgeHeight, title, title)
+	fmt.Fprintf(&b, `<rect width="%d" height="%d" fill="%s"/><rect x="1" y="1" width="%d" height="%d" fill="%s"/>`,
+		badgeWidth, badgeHeight, palette.edge.css, badgeWidth-2, badgeHeight-2, palette.background.css)
+	if len(spec.Bars) > 0 {
+		fmt.Fprintf(&b, `<path fill="%s" fill-opacity=".23" d="%s"/>`, palette.chart.css, badgeRectPath(spec.Bars))
+	}
+	if len(spec.Line) > 0 {
+		fmt.Fprintf(&b, `<path fill="none" stroke="%s" stroke-opacity=".4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision" d="%s"/>`, palette.chart.css, badgeLinePath(spec.Line))
+	}
+	label, value := badgeOverlays(spec)
+	fmt.Fprintf(&b, `<path fill="%s" d="%s"/><path fill="%s" d="%s"/></svg>`,
+		palette.label.css, badgeRectPath(label), palette.value.css, badgeRectPath(value))
 	return b.String()
 }
 
@@ -240,10 +240,10 @@ const badgeBarDays = 27
 
 // badgeBars leaves gaps for days without data. Long windows share one bar
 // across adjacent days, sized by the worst day with data in that group.
-func badgeBars(days []dayCell) string {
+func badgeBars(days []dayCell) []image.Rectangle {
 	const plotWidth = badgeWidth - 2
 	count := min(len(days), badgeBarDays)
-	var path strings.Builder
+	var bars []image.Rectangle
 	for i := range count {
 		start, end := i*len(days)/count, (i+1)*len(days)/count
 		height := 0
@@ -266,17 +266,21 @@ func badgeBars(days []dayCell) string {
 		if height > 0 {
 			left, right := 1+i*plotWidth/count, 1+(i+1)*plotWidth/count
 			// Leave a one-pixel gap at the right of each slot.
-			width := right - left - 1
-			fmt.Fprintf(&path, "M%d %dh%dv%dh-%dz", left, badgeHeight-1-height, width, height, width)
+			bars = append(bars, image.Rect(left, badgeHeight-1-height, right-1, badgeHeight-1))
 		}
 	}
-	return path.String()
+	return bars
+}
+
+type badgePoint struct {
+	image.Point
+	connected bool
 }
 
 // badgeLine draws a line across a series with gaps wherever samples are negative.
-func badgeLine(samples []int64, peak int64) string {
+func badgeLine(samples []int64, peak int64) []badgePoint {
 	const plotInset, plotTop, plotBottom = 2, 4, badgeHeight - 3
-	var path strings.Builder
+	var points []badgePoint
 	connected := false
 	for i, ms := range samples {
 		if ms < 0 {
@@ -288,13 +292,21 @@ func badgeLine(samples []int64, peak int64) string {
 			x = badgeWidth / 2
 		}
 		y := plotBottom - int(float64(ms)/float64(max(1, peak))*(plotBottom-plotTop))
-		if connected {
-			fmt.Fprintf(&path, "L%d %d", x, y)
+		points = append(points, badgePoint{Point: image.Pt(x, y), connected: connected})
+		connected = true
+	}
+	return points
+}
+
+func badgeLinePath(points []badgePoint) string {
+	var path strings.Builder
+	for _, point := range points {
+		if point.connected {
+			fmt.Fprintf(&path, "L%d %d", point.X, point.Y)
 		} else {
 			// A rounded zero-length line is a dot when the sample has no neighbours.
-			fmt.Fprintf(&path, "M%d %dh0", x, y)
+			fmt.Fprintf(&path, "M%d %dh0", point.X, point.Y)
 		}
-		connected = true
 	}
 	return path.String()
 }

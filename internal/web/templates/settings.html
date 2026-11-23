@@ -213,12 +213,12 @@
     <span class="srow-control"><a href="/s/{{.Project.Slug}}/badge.svg"><img src="/s/{{.Project.Slug}}/badge.svg" alt="the status badge"></a></span>
   </div>
   <div class="srow">
-    <span class="srow-copy"><span>88x31, state</span><small class="target">/s/{{.Project.Slug}}/88x31.svg</small></span>
-    <span class="srow-control"><img class="badge88" src="/s/{{.Project.Slug}}/88x31.svg" width="88" height="31" alt="the state of this status page as an 88x31 image"><img class="badge88" src="/s/{{.Project.Slug}}/88x31.svg?theme=light" width="88" height="31" alt="the same on a white ground"></span>
+    <span class="srow-copy"><span>88x31, state</span><small class="target">/s/{{.Project.Slug}}/88x31.png</small></span>
+    <span class="srow-control"><img class="badge88" src="/s/{{.Project.Slug}}/88x31.png" width="88" height="31" alt="the state of this status page as an 88x31 image"><img class="badge88" src="/s/{{.Project.Slug}}/88x31.png?theme=light" width="88" height="31" alt="the same on a white ground"></span>
   </div>
   <div class="srow">
-    <span class="srow-copy"><span>88x31, uptime</span><small class="target">/s/{{.Project.Slug}}/88x31.svg?show=uptime&amp;days=30</small></span>
-    <span class="srow-control"><img class="badge88" src="/s/{{.Project.Slug}}/88x31.svg?show=uptime&amp;days=30" width="88" height="31" alt="the uptime of this status page over 30 days as an 88x31 image"></span>
+    <span class="srow-copy"><span>88x31, uptime</span><small class="target">/s/{{.Project.Slug}}/88x31.png?show=uptime&amp;days=30</small></span>
+    <span class="srow-control"><img class="badge88" src="/s/{{.Project.Slug}}/88x31.png?show=uptime&amp;days=30" width="88" height="31" alt="the uptime of this status page over 30 days as an 88x31 image"></span>
   </div>
 </div>
 <p class="hint">use theme=light for a white background, label= for a custom label, or days= for the uptime window.</p>
@@ -226,11 +226,11 @@
 <div class="group">
   {{range .Components}}
   <div class="srow">
-    <span class="srow-copy"><span>{{.Name}}</span><small class="target">/s/{{$.Project.Slug}}/monitors/{{.MonitorID}}/88x31.svg?show=status, uptime, p50, p90, p95 or p99</small></span>
+    <span class="srow-copy"><span>{{.Name}}</span><small class="target">/s/{{$.Project.Slug}}/monitors/{{.MonitorID}}/88x31.png?show=status, uptime, p50, p90, p95 or p99</small></span>
     <span class="srow-control badge-row">
-      <img class="badge88" src="/s/{{$.Project.Slug}}/monitors/{{.MonitorID}}/88x31.svg?show=status" width="88" height="31" alt="the state of {{.Name}}">
-      <img class="badge88" src="/s/{{$.Project.Slug}}/monitors/{{.MonitorID}}/88x31.svg?show=uptime" width="88" height="31" alt="the uptime of {{.Name}}">
-      <img class="badge88" src="/s/{{$.Project.Slug}}/monitors/{{.MonitorID}}/88x31.svg?show=p95" width="88" height="31" alt="the p95 response time of {{.Name}}">
+      <img class="badge88" src="/s/{{$.Project.Slug}}/monitors/{{.MonitorID}}/88x31.png?show=status" width="88" height="31" alt="the state of {{.Name}}">
+      <img class="badge88" src="/s/{{$.Project.Slug}}/monitors/{{.MonitorID}}/88x31.png?show=uptime" width="88" height="31" alt="the uptime of {{.Name}}">
+      <img class="badge88" src="/s/{{$.Project.Slug}}/monitors/{{.MonitorID}}/88x31.png?show=p95" width="88" height="31" alt="the p95 response time of {{.Name}}">
       <a class="button quiet" href="/admin/monitors/{{.MonitorID}}?b_page={{$.Project.Slug}}#pane-badges">badge builder</a>
     </span>
   </div>

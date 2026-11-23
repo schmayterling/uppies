@@ -36,8 +36,9 @@ Uppies is under active development. See "Not built yet" for planned features.
   colour, light or dark theme, 7 to 365 days of history, timezone, footer
   text, your own CSS, and which monitors are shown. A page can live on its own
   domain, drop the "powered by" line and ask search engines to stay away.
-- Serves a status badge per project at `/s/<address>/badge.svg` for readmes
-  and other sites.
+- Serves badges for readmes and other sites. The status-page settings and
+  monitor badge builder provide 88x31 PNGs with state, uptime, and component
+  latency variants. The general status badge is at `/s/<address>/badge.svg`.
 - Has an admin with more than one account, its own theme, and instance
   settings for the public list's site name, navbar links, and visibility.
 - Offers a [versioned JSON API](API.md) for status pages, monitors, incidents,

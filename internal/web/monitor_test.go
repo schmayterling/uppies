@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"fmt"
+	"image/png"
 	"net/http"
 	"net/url"
 	"strings"
@@ -133,7 +134,7 @@ func TestBadgeGraphsKeepGapsAndOlderOutages(t *testing.T) {
 	history[0] = dayCell{State: stateDown}
 	history[1] = dayCell{State: stateOK}
 	history[364] = dayCell{State: stateOK}
-	bars := badgeBars(history)
+	bars := badgeRectPath(badgeBars(history))
 	if strings.Count(bars, "M") != 2 || !strings.Contains(bars, "M1 23h2v7") || !strings.Contains(bars, "M83 8h3v22") {
 		t.Errorf("badge bars should keep the early outage and leave missing periods empty: %s", bars)
 	}
@@ -145,20 +146,21 @@ func TestBadgeGraphsKeepGapsAndOlderOutages(t *testing.T) {
 		{StartMs: 3 * detailBucketMs, Checks: 1, LatencyAvgMs: 25},
 	}
 	spec := lineSpec("api", buckets, 0, stateOK)
-	if spec.Value != "75ms" || strings.Count(spec.Line, "M") != 2 || strings.Count(spec.Line, "L") != 1 {
+	path := badgeLinePath(spec.Line)
+	if spec.Value != "75ms" || strings.Count(path, "M") != 2 || strings.Count(path, "L") != 1 {
 		t.Errorf("badge line should include zero latency and break at failed buckets: %+v", spec)
 	}
-	if zero := lineSpec("api", buckets[:1], 0, stateOK); zero.Value != "0ms" || zero.Line == "" {
+	if zero := lineSpec("api", buckets[:1], 0, stateOK); zero.Value != "0ms" || len(zero.Line) == 0 {
 		t.Errorf("a zero-latency check still has a value and a dot: %+v", zero)
 	}
-	if empty := lineSpec("api", buckets[2:3], 0, stateDown); empty.Value != "--" || empty.Line != "" {
+	if empty := lineSpec("api", buckets[2:3], 0, stateDown); empty.Value != "--" || len(empty.Line) != 0 {
 		t.Errorf("a failed check cannot produce a latency value or a line: %+v", empty)
 	}
 }
 
 func TestBadgeTextDrawsOneRectanglePerRunOfPixels(t *testing.T) {
 	// A dash is one row of five pixels: one rectangle, three rows down.
-	if got, want := badgeText("-", 10, 20, 2), "M10 26h10v2h-10z"; got != want {
+	if got, want := badgeRectPath(badgeTextRects("-", 10, 20, 2)), "M10 26h10v2h-10z"; got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 	if got := badgeTextWidth("p99", 1); got != 17 {
@@ -216,7 +218,7 @@ func TestMonitorDetailPagesAndBadges(t *testing.T) {
 			t.Errorf("public monitor page is missing %q", want)
 		}
 	}
-	if strings.Contains(page, "badges-heading") || strings.Contains(page, "88x31.svg") {
+	if strings.Contains(page, "badges-heading") || strings.Contains(page, "88x31.svg") || strings.Contains(page, "88x31.png") {
 		t.Error("the public monitor page should leave badge previews and embed code to the admin builder")
 	}
 	// What a check failed with can name private hosts, so the public page never shows it.
@@ -272,9 +274,43 @@ func TestMonitorDetailPagesAndBadges(t *testing.T) {
 			t.Errorf("%s: got %d, want an image with %q", path, status, want)
 		}
 	}
+	for _, path := range []string{
+		public + "/88x31.png", public + "/88x31.png?show=bars", public + "/88x31.png?show=line",
+		public + "/88x31.png?show=p95&color=200&label=api&theme=light", public + "/p99.png",
+		"/s/acme/88x31.png", "/s/acme/88x31.png?show=uptime&theme=light&days=7",
+	} {
+		resp, err := s.anonymous.Get(s.server.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		img, err := png.Decode(resp.Body)
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Fatal(closeErr)
+		}
+		if err != nil || resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Type") != "image/png" {
+			t.Fatalf("%s: HTTP %d, type %q, decode error %v", path, resp.StatusCode, resp.Header.Get("Content-Type"), err)
+		}
+		if bounds := img.Bounds(); bounds.Dx() != 88 || bounds.Dy() != 31 {
+			t.Errorf("%s: got size %v, want 88x31", path, bounds.Size())
+		}
+	}
+	pngPath := public + "/88x31.png?show=p95"
+	_, firstPNG := s.get(t, s.anonymous, pngPath)
+	_, nextPNG := s.get(t, s.anonymous, pngPath)
+	_, lightPNG := s.get(t, s.anonymous, pngPath+"&theme=light")
+	if firstPNG != nextPNG || firstPNG == lightPNG {
+		t.Error("the same data must give the same PNG, and theme changes must alter it")
+	}
+	for _, path := range []string{
+		fmt.Sprintf("/s/acme/monitors/%d/88x31.png", hiddenID), public + "/88x31.png?show=invalid",
+	} {
+		if status, _ := s.get(t, s.anonymous, path); status != http.StatusNotFound {
+			t.Errorf("%s: got %d, want 404", path, status)
+		}
+	}
 	// The monitor's admin page has a builder that turns choices into the badge's address.
 	_, builder := s.get(t, s.admin, fmt.Sprintf("/admin/monitors/%d?b_show=p95&b_theme=light&b_color=200&b_label=API!", apiID))
-	if want := public + "/88x31.svg?color=200&amp;label=api&amp;show=p95&amp;theme=light"; !strings.Contains(builder, want) {
+	if want := public + "/88x31.png?color=200&amp;label=api&amp;show=p95&amp;theme=light"; !strings.Contains(builder, want) {
 		t.Errorf("badge builder: the page is missing the address %q", want)
 	}
 	if _, none := s.get(t, s.admin, fmt.Sprintf("/admin/monitors/%d", hiddenID)); !strings.Contains(none, "a badge lives under a status page") {
@@ -282,7 +318,7 @@ func TestMonitorDetailPagesAndBadges(t *testing.T) {
 	}
 	// The status page's settings list the badges of every component it shows, and of no other monitor.
 	_, badges := s.get(t, s.admin, fmt.Sprintf("/admin/projects/%d/settings", projectID))
-	if !strings.Contains(badges, public+"/88x31.svg?show=uptime") || strings.Contains(badges, fmt.Sprintf("/monitors/%d/88x31.svg", hiddenID)) {
+	if !strings.Contains(badges, public+"/88x31.png?show=uptime") || strings.Contains(badges, fmt.Sprintf("/monitors/%d/88x31.png", hiddenID)) {
 		t.Error("the settings must list the badges of the components on the page, and none for a monitor that is not on it")
 	}
 	builderLink := fmt.Sprintf("/admin/monitors/%d?b_page=acme#pane-badges", apiID)
