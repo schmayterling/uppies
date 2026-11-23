@@ -382,6 +382,32 @@ select {
 .select-list [role="option"] { display: flex; align-items: center; min-block-size: var(--control-height); padding-inline: var(--space-2); border-radius: var(--radius-control); cursor: pointer; white-space: nowrap; }
 .select-list [role="option"].active { background: var(--hover); }
 .select-list [role="option"][aria-selected="true"] { font-weight: var(--weight-semibold); }
+/* with script, a file field is a button and the name of the chosen file */
+.file { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-inline-size: 0; }
+input[type="file"].file-native { position: absolute; inline-size: 1px; min-block-size: 0; block-size: 1px; overflow: hidden; clip-path: inset(50%); }
+.file-native:focus-visible + .button { outline: 2px solid var(--accent); outline-offset: 2px; }
+.file-native[aria-invalid="true"] + .button { border-color: var(--status-danger); }
+.file .button { cursor: pointer; }
+.file-name { color: var(--muted); font-size: var(--text-ui); overflow-wrap: anywhere; }
+.file-chosen .file-name { color: var(--ink); }
+/* with script, a date and time field is a button and a panel with a month in it */
+.datetime { position: relative; display: grid; }
+.datetime-button[aria-expanded="true"] .icon { rotate: none; }
+.select-value.placeholder { color: var(--muted); }
+.datetime-panel { position: fixed; inset: auto; margin: 0; padding: var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-card); background: var(--elevated); box-shadow: var(--shadow-popover); color: var(--ink); font-size: var(--text-ui); }
+.datetime-panel:popover-open { display: grid; gap: var(--space-2); animation: tip var(--motion-fast) var(--ease-out); }
+.datetime-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.datetime-month { font-weight: var(--weight-semibold); }
+.datetime-grid { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.datetime-grid th { inline-size: var(--space-6); block-size: var(--space-5); padding: 0; color: var(--muted); font-size: var(--text-sm); font-weight: var(--weight-regular); text-align: center; }
+.datetime-grid td { padding: 0; }
+.datetime-day { display: grid; place-items: center; inline-size: var(--space-6); block-size: var(--space-6); padding: 0; border: 1px solid transparent; border-radius: var(--radius-control); background: none; color: var(--ink); font: inherit; cursor: pointer; }
+.datetime-day:hover { background: var(--hover); }
+.datetime-day.today { border-color: var(--border-strong); }
+.datetime-day[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--background); font-weight: var(--weight-semibold); }
+.datetime-time { display: flex; align-items: center; gap: var(--space-1-5); padding-block-start: var(--space-2); border-block-start: 1px solid var(--border); color: var(--muted); }
+.datetime-time input { inline-size: calc(var(--space-6) + var(--space-2)); text-align: center; font-variant-numeric: tabular-nums; }
+.datetime-time .button { margin-inline-start: auto; }
 /* a tick box drawn by the page: checked fills the middle with the accent */
 input[type="checkbox"]:not(.switch) { appearance: none; flex: none; inline-size: var(--space-4); block-size: var(--space-4); margin: 0; border: 1px solid var(--border-control); border-radius: var(--space-1); background: var(--elevated); cursor: pointer; transition: border-color var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out); }
 input[type="checkbox"]:not(.switch):hover { border-color: var(--ink); }

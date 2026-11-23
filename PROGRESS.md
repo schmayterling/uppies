@@ -85,6 +85,11 @@ Each line names how it was verified.
   - The incident timeline has the day and how long ago it was on the left, and each incident on the right with chips and its updates on a rail: a dot per update in its status colour and a line that stops short of the dots. Open incidents on the status page use the same rail.
   - On admin pages a script replaces each select with a button and a list drawn by the page. Tick boxes, number fields and file fields are restyled in CSS.
   - Checked in a browser: both sign-in layouts (512 and 768 pixels of 1280 in split), an upload of 1.3 MB, the select by click and by key events, the menu opening above its sentence, 90 tooltip columns over the latency line.
+- Design round 8 (2026-11-23).
+  - The public list of status pages has three layouts, set under appearance: rows and cards are a page with a top bar and a summary sentence, compact is the small centred card.
+  - On admin pages a script replaces the date and time fields with a button and a month panel (arrow keys move by day and week, the time is two fields), and the file fields with a button and the file's name. The fields themselves stay in the form and carry the value.
+  - Checked with a script that drives real clicks and key presses, in Chromium and in WebKit (Playwright 1.65.1, WebKit build 2388), at 1280 wide in the dark theme and 390 wide in the light theme: sign-in, the select by keyboard and its role tree (a combobox named by its label, a listbox, the chosen option marked selected), the date picker, the file field, the three list layouts, the status page, the history page with its date rule in one column, the timezone menu closing on a tap outside, the latency tooltip. No horizontal overflow anywhere. The first run found two bugs, both fixed: a script error on opening the date picker, and the hidden file field keeping its width.
+  - The script and its screenshots are outside the repo, in `captures/check/`.
 - Checks run on 2026-11-23 on the admin overview:
   - Contrast, computed from the rendered colours. Dark theme: every text pairing measured is 7.4:1 or higher. Light theme: the lowest is 5.68:1 (muted headings on the sidebar). The requirement for body text is 4.5:1.
   - Script switched off: an admin page shows each dialog's form in place and hides the buttons that would open it. This needed a fix, because the dialog animation left dialogs invisible without script.
@@ -93,9 +98,9 @@ Each line names how it was verified.
 
 ## Done but not verified
 
-- The date and time field for maintenance windows still opens the browser's own picker. It is the last native control.
-- The custom select was not tried with a screen reader, in Safari or in Firefox. Its list uses the Popover API.
-- Round 7 was looked at in the dark theme at 1280 wide only. The narrow layout of the new timeline and the top bar was not rendered.
+- Firefox was not checked. The Firefox build that Playwright 1.65.1 downloads does not start on this machine ("Could not find profile folder"), with a temporary profile and with a fixed one.
+- No screen reader was run. The role tree of the custom select was read in Chromium and WebKit, which is what a screen reader is given, but nobody listened to it.
+- Safari itself was not driven, only Playwright's WebKit build.
 - Colour contrast of the status colours on each surface was not measured. The values come unchanged from the token file.
 - Keyboard-only use and screen reader output were not checked.
 - Behaviour with many monitors (hundreds) was not measured. There are no memory or speed figures yet.
@@ -169,7 +174,7 @@ Each line names how it was verified.
 ## Next
 
 `ROADMAP.md` holds the planned order. The basics are done. The user wants a
-design pass on the status page and admin pages before any new feature. Seven rounds are done (see above). Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
+design pass on the status page and admin pages before any new feature. Eight rounds are done (see above). Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
 
 ## Open risks
 
