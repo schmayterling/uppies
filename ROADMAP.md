@@ -18,14 +18,17 @@ paid services include as standard.
 - Alerts by email and to a webhook, Discord or Slack, and an outside heartbeat.
 - Planned maintenance windows.
 - A Dockerfile.
+- Monitor categories and a choice of displays per monitor.
+- An incident history page with a year map and a timeline.
+- An admin with a sidebar, an overview of every monitor, dialogs and icons.
 - Status page settings: logo, favicon, tagline, homepage link, theme, accent
   colour, days of history, timezone, footer, custom CSS, custom domain, hidden
   monitors, no vendor name, search engine opt-out, and a badge.
 
 ## Before the next features
 
-The look and layout of the status page and the admin pages get a design pass
-first.
+A design pass on the status page and the admin pages is under way. Most pages
+are done. What is left is listed in `PROGRESS.md`.
 
 ## 1. Telling people what is happening
 
@@ -38,7 +41,8 @@ first.
 3. **Alert message templates.** Changing what an alert says is the most
    requested customization in other monitors.
 4. **A password on a status page**, for pages meant for a team or a customer.
-5. **Order and groups on the status page.** Monitors are listed by name today.
+5. **A chosen order on the status page.** Monitors are grouped by category and
+   listed by name today.
 6. **Documented class names for custom CSS**, kept stable between releases, so
    that a custom style survives an upgrade.
 7. **Alert quality.** Repeat an alert while something stays down, and tell an

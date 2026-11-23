@@ -25,6 +25,11 @@ and several planned features are missing (see "Not built yet").
 - Sends an alert when a monitor goes down and when it recovers, by email or
   to a plain webhook (JSON), Discord or Slack. The alert says what failed, why, and on
   recovery for how long.
+- Groups monitors into categories, and lets each monitor choose how the status
+  page draws it: daily bars, a response time line, uptime figures, or just its
+  name and state.
+- Keeps an incident history page per project, with a year map of incidents and
+  a timeline of every update.
 - Lets you shape each status page: logo, favicon, tagline, link to your homepage, accent
   colour, light or dark theme, 30, 60 or 90 days of history, timezone, footer
   text, your own CSS, and which monitors are shown. A page can live on its own

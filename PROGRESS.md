@@ -44,6 +44,17 @@ Each line names how it was verified.
 - Admin frame and overview, design round 1 (2026-11-23): every admin page sits in a 256-pixel sidebar that lists the projects with their state, and the home page is an overview with a strip of counts, a "needs attention" list, one table of all monitors with a 30-day bar, and recent activity. Verified by a handler test. Rendered and measured at 1440 wide in light and dark and at 390 wide: no horizontal overflow, no link or button under 24 pixels tall, four type sizes.
 - Demo data (`internal/demo`, flag `-demo`): fills an empty database with every monitor kind and state, history, incidents, maintenance, channels and page settings. Verified by a test and by starting a server on it.
 - Design round 2 (2026-11-23), asked for by the user: content centred next to the sidebar, a sidebar that hides and remembers it, icons from Lucide and Simple Icons served as one sprite, dialogs for the new-project form, planning maintenance and the three delete confirmations, and a drawn chevron on every select. Checked in a browser at 1600 wide: equal space left and right of the content, the dialog opens with focus in its first field, the sidebar hides and comes back, no link or button under 24 pixels tall. The admin pages now load one small script (`static/admin.js`). Status pages still load none.
+- Design round 3 (2026-11-23), all asked for by the user. Each item is one or two signed commits, covered by handler tests unless noted.
+  - Project page, monitor form, incident pages and settings page rebuilt in the new frame. Settings and forms use grouped rows after mux's settings: label and help on the left, control on the right, full content width.
+  - Admonitions (error, warning, info, success) for form-level messages.
+  - A tooltip per day on every uptime bar, drawn without script.
+  - Each monitor chooses how the status page draws it: daily bars, a response time line, three uptime figures, or name and state only (schema version 6).
+  - Easy look settings per status page: theme, accent swatches, background (neutral or paper), corners and typeface, with a custom hue and custom CSS under "advanced".
+  - Monitor categories, used to group monitors on the status page and named in the admin tables (schema version 7).
+  - Past incidents on the status page are listed by day for the last 7 days, quiet days included.
+  - An incident history page at `/s/<address>/history`: a year map of incidents in the style of a contribution graph, and a timeline of status updates by day with a link that hides quiet days.
+  - Dialogs for adding an alert channel and for posting an incident update.
+  - Looked at in a browser on the demo data: settings page, incident page with its dialog, status page with all four displays, history page. Not looked at after their rebuild: monitor form, new-incident form, project page.
 - Status page rendered and measured at 1280 and 390 CSS pixels wide in the light theme: no horizontal overflow, 90 day cells on wide screens and 30 on narrow ones. The dark theme was looked at once before the last style fixes and not measured.
 
 ## Done but not verified
@@ -90,18 +101,25 @@ Each line names how it was verified.
 - 2026-11-23: The sidebar hides completely and does not shrink to a rail of icons, because it has few destinations.
 - 2026-11-23: Icons are copied into the repository as one SVG sprite, with their licenses in `THIRD_PARTY.md`. Slack has no icon in Simple Icons, so its channel uses a generic one.
 
+- 2026-11-23: Settings pages follow mux's settings: bordered groups of rows, one save button per form. They fill the content width, as the user asked.
+- 2026-11-23: A monitor's category is a plain name on the monitor, not a table of its own. Monitors with the same name group together. Renaming a category means editing its monitors.
+- 2026-11-23: The incident history shows one calendar year at a time, in the project's timezone.
+- 2026-11-23: Look settings that a form does not send keep their value, so older forms and scripts still save.
+
 ## Do not repeat
 
 - Do not put the raw check error into text that can become public. A test caught this once (`TestStatusPageShowsOnlyWhatIsPublic`).
 - `sqlite3 .lint fkey-indexes` reports `daily_rollups(monitor_id)` and `incident_monitors(incident_id)` as unindexed. Both are the leading column of a WITHOUT ROWID primary key, so the report is a false positive.
 - Do not undo a temporary test edit with `git checkout <file>` while that file has other uncommitted changes. It discarded a new migration once. Copy the file aside and copy it back.
+- Chain the commit after the tests with `&&`. A commit went in once with a failing test because the chain used `;`.
+- The `git checkout <file>` mistake above happened a second time on 2026-11-23, after a test mutation in a file that also held new code. Always copy the file aside first.
 - In zsh, `rm -f name*` fails when nothing matches and stops a command chain. Name the files.
 - Headless Chrome will not lay a page out narrower than about 500 pixels. For phone widths, use device metrics emulation over the DevTools protocol.
 
 ## Next
 
 `ROADMAP.md` holds the planned order. The basics are done. The user wants a
-design pass on the status page and admin pages before any new feature. Round 1 (admin frame and overview) is done. The project page, the forms and the settings page still have their first-version layout inside the new frame. Work one item at a time, one signed commit per step.
+design pass on the status page and admin pages before any new feature. Three rounds are done (see above). Still open in the design pass: the public list of status pages and the error page, month labels on the incident map, and the checks never run: contrast, a keyboard walk, and the admin with script switched off. Work one item at a time, one signed commit per step.
 
 ## Open risks
 
