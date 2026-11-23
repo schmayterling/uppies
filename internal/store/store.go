@@ -487,6 +487,10 @@ alter table monitors add column auto_resolve_incident text not null default 'dra
 alter table incidents add column source_monitor_id integer references monitors(id) on delete set null;
 create index incidents_source_monitor on incidents(source_monitor_id);
 `,
+	// Step 22 makes a monitor's contribution to overall status page-specific.
+	`
+alter table page_monitors add column exclude_from_status integer not null default 0 check (exclude_from_status in (0, 1));
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

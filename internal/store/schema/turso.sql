@@ -1,4 +1,4 @@
--- Fresh Uppies schema, version 21.
+-- Fresh Uppies schema, version 22.
 create table if not exists projects (
 	id integer primary key,
 	slug text not null unique check (length(slug) between 1 and 64),
@@ -196,6 +196,7 @@ create table if not exists page_monitors (
 	display text not null default 'bars' check (display in ('bars', 'latency', 'summary', 'minimal')),
 	graph_fill text not null default '' check (graph_fill in ('', 'gradient', 'filled', 'none')),
 	category text not null default '' check (length(category) <= 80),
+	exclude_from_status integer not null default 0 check (exclude_from_status in (0, 1)),
 	primary key (project_id, monitor_id)
 ) strict;
 

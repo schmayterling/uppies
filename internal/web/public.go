@@ -218,10 +218,11 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	// A status page counts the monitors it shows, and no others.
-	visible := make(map[int64][]store.Monitor)
+	counted := make(map[int64][]store.Monitor)
 	for _, m := range placed {
-		visible[m.ProjectID] = append(visible[m.ProjectID], m.Monitor)
+		if !m.ExcludeFromStatus {
+			counted[m.ProjectID] = append(counted[m.ProjectID], m.Monitor)
+		}
 	}
 	instance, err := s.store.Instance(r.Context())
 	if err != nil {
@@ -246,9 +247,9 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		projects = nil
 	}
 	for _, p := range projects {
-		state, _ := banner(visible[p.ID], 0)
+		state, _ := banner(counted[p.ID], 0)
 		page.Projects = append(page.Projects, indexProject{
-			Project: p, State: state, Word: indexWords[state], Count: upCount(visible[p.ID]), LogoVersion: logos[p.ID],
+			Project: p, State: state, Word: indexWords[state], Count: upCount(counted[p.ID]), LogoVersion: logos[p.ID],
 		})
 	}
 	page.State, page.Summary = indexSummary(page.Projects)
@@ -421,10 +422,15 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 		page.TZ = zoneName
 	}
 	names := make(map[int64]string, len(monitors))
-	var shown []store.Monitor
+	var counted []store.Monitor
+	excluded := make(map[int64]bool)
 	lastCategory := ""
 	for _, m := range monitors {
-		shown = append(shown, m.Monitor)
+		if m.ExcludeFromStatus {
+			excluded[m.ID] = true
+		} else {
+			counted = append(counted, m.Monitor)
+		}
 		page.LastCheckAtMs = max(page.LastCheckAtMs, m.LastCheckAtMs)
 		names[m.ID] = m.Name
 		state, word := componentState(m.Monitor)
@@ -449,12 +455,16 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 		page.Components = append(page.Components, view)
 	}
 	var resolved []incidentView
+	countedIncidents := 0
 	for _, in := range incidents {
 		view := newIncidentView(in, names)
 		if in.ResolvedAtMs.Valid {
 			resolved = append(resolved, view)
 		} else {
 			page.Active = append(page.Active, view)
+			if !in.SourceMonitorID.Valid || !excluded[in.SourceMonitorID.Int64] {
+				countedIncidents++
+			}
 		}
 	}
 	page.Recent = recentDayGroups(resolved, s.now(), zone)
@@ -475,7 +485,7 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 		resting = resting || running
 		page.Maintenance = append(page.Maintenance, maintenanceView{MaintenanceWindow: w, Running: running})
 	}
-	page.Overall = overall(shown, len(page.Active))
+	page.Overall = overall(counted, countedIncidents)
 	if resting {
 		page.Overall = overallMaintenance
 		for i := range page.Components {
@@ -484,7 +494,10 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 	}
 	page.BannerState, page.BannerText = overallViews[page.Overall].state, overallViews[page.Overall].text
 	page.BannerIcon = overallIcons[page.Overall]
-	if len(shown) > 0 && !slices.ContainsFunc(shown, func(m store.Monitor) bool { return !m.Paused }) {
+	if page.Overall == overallWaiting && len(counted) == 0 && len(monitors) > 0 {
+		page.BannerText = "no components affect overall status."
+	}
+	if len(counted) > 0 && !slices.ContainsFunc(counted, func(m store.Monitor) bool { return !m.Paused }) {
 		// Nothing is being checked, which is neither up nor waiting.
 		page.BannerIcon = "slash"
 	}

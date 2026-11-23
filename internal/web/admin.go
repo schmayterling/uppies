@@ -103,6 +103,9 @@ func (s *Server) adminChrome(r *http.Request, title string) chrome {
 		c.Nav.Projects = append(c.Nav.Projects, navProject{Project: p, State: stateNone, Current: current, LogoVersion: logos[p.ID]})
 	}
 	for _, m := range monitors {
+		if m.ExcludeFromStatus {
+			continue
+		}
 		entry := &c.Nav.Projects[position[m.ProjectID]]
 		switch state, _ := componentState(m.Monitor); {
 		case state == stateDown:
@@ -300,13 +303,17 @@ func (s *Server) projectsPage(r *http.Request) (projectsPage, error) {
 		return page, err
 	}
 	shown := make(map[int64][]store.Monitor)
+	counts := make(map[int64]int)
 	for _, m := range placed {
-		shown[m.ProjectID] = append(shown[m.ProjectID], m.Monitor)
+		counts[m.ProjectID]++
+		if !m.ExcludeFromStatus {
+			shown[m.ProjectID] = append(shown[m.ProjectID], m.Monitor)
+		}
 	}
 	for _, p := range projects {
 		state, _ := banner(shown[p.ID], 0)
 		page.Rows = append(page.Rows, projectRow{
-			Project: p, State: state, Word: indexWords[state], Monitors: len(shown[p.ID]), LogoVersion: logos[p.ID],
+			Project: p, State: state, Word: indexWords[state], Monitors: counts[p.ID], LogoVersion: logos[p.ID],
 		})
 	}
 	return page, nil
@@ -553,6 +560,7 @@ func (s *Server) projectPage(r *http.Request) (projectPage, error) {
 			overviewRow: newOverviewRow(row, []store.Project{project}, rollups[row.ID], todayStartMs),
 			Category:    monitors[i].Category,
 			Display:     monitors[i].Display, GraphFill: monitors[i].GraphFill,
+			ExcludeFromStatus: monitors[i].ExcludeFromStatus,
 		})
 	}
 	categories, err := s.store.PageCategories(ctx, id)

@@ -281,6 +281,8 @@ tbody:has(> [data-drag]) > .empty-row { display: none; }
 .editor-look { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .editor-look > .select, .editor-look > select { flex: 1 1 0; inline-size: auto; min-inline-size: 0; }
 .editor-look .select-button { min-inline-size: 0; }
+.editor-status { flex-basis: 100%; }
+@media (pointer: coarse) { .editor-status { min-block-size: var(--control-height-touch); } }
 .editor-controls > section { margin-block-start: var(--space-6); }
 .editor-add { display: flex; gap: var(--space-2); margin-block-start: var(--space-3); }
 .editor-add > .select, .editor-add > select { flex: 1; min-inline-size: 0; }

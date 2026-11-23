@@ -14,9 +14,10 @@ import (
 // state and recent uptime, and how this page draws it.
 type editorRow struct {
 	overviewRow
-	Category  string
-	Display   string
-	GraphFill string
+	Category          string
+	Display           string
+	GraphFill         string
+	ExcludeFromStatus bool
 }
 
 // editorChoices is what the editor of a status page offers to choose from.
@@ -211,6 +212,15 @@ func (s *Server) handleSavePlacements(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	_, previous, err := s.store.PageLayout(r.Context(), id)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	excluded := make(map[int64]bool, len(previous))
+	for _, placement := range previous {
+		excluded[placement.MonitorID] = placement.ExcludeFromStatus
+	}
 	var categories []string
 	var placements []store.Placement
 	for _, group := range groups {
@@ -223,6 +233,10 @@ func (s *Server) handleSavePlacements(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			p := store.Placement{MonitorID: monitorID, Category: group.name, Display: form.Get(fmt.Sprintf("display-%d", monitorID))}
+			p.ExcludeFromStatus = excluded[monitorID]
+			if values, present := form[fmt.Sprintf("exclude-%d", monitorID)]; present {
+				p.ExcludeFromStatus = slices.Contains(values, "1")
+			}
 			if !slices.Contains(store.MonitorDisplays, p.Display) {
 				p.Display = "bars"
 			}

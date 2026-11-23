@@ -1,4 +1,4 @@
--- Fresh Uppies schema, version 21.
+-- Fresh Uppies schema, version 22.
 create table if not exists projects (
 	id bigint auto_increment primary key,
 	slug varchar(65) not null unique check (char_length(slug) between 1 and 64),
@@ -202,6 +202,7 @@ create table if not exists page_monitors (
 	display text not null default 'bars' check (display in ('bars', 'latency', 'summary', 'minimal')),
 	graph_fill text not null default '' check (graph_fill in ('', 'gradient', 'filled', 'none')),
 	category text not null default '' check (char_length(category) <= 80),
+	exclude_from_status smallint not null default 0 check (exclude_from_status in (0, 1)),
 	primary key (project_id, monitor_id),
 	key page_monitors_monitor (monitor_id),
 	foreign key (project_id) references projects(id) on delete cascade,

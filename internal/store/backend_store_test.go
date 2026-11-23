@@ -90,13 +90,13 @@ func TestDatabaseBackendWorkflow(t *testing.T) {
 			monitor, err := createPlaced(ctx, s, project, now)
 			check(err)
 			check(s.PlaceMonitor(ctx, project, monitor))
-			check(s.SetPageLayout(ctx, project, []string{"Service"}, []Placement{{MonitorID: monitor, Category: "Service", Display: "latency"}}))
+			check(s.SetPageLayout(ctx, project, []string{"Service"}, []Placement{{MonitorID: monitor, Category: "Service", Display: "latency", ExcludeFromStatus: true}}))
 			if err := s.SetPageLayout(ctx, project, nil, []Placement{{MonitorID: 7_777}}); !errors.Is(err, ErrUnknownMonitor) {
 				t.Fatalf("invalid placement: %v", err)
 			}
 			categories, placed, err := s.PageLayout(ctx, project)
 			check(err)
-			if len(categories) != 1 || len(placed) != 1 || placed[0].MonitorID != monitor {
+			if len(categories) != 1 || len(placed) != 1 || placed[0].MonitorID != monitor || !placed[0].ExcludeFromStatus {
 				t.Fatalf("layout did not survive the failed replacement: %v %v", categories, placed)
 			}
 

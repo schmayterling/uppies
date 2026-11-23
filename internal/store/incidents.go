@@ -15,16 +15,17 @@ var IncidentImpacts = []string{"minor", "major", "critical"}
 // Incident is a problem communicated on a status page. An unpublished
 // incident is a private draft that only the admin sees.
 type Incident struct {
-	ID           int64
-	ProjectID    int64
-	Title        string
-	Impact       string
-	Status       string
-	Published    bool
-	StartedAtMs  int64
-	ResolvedAtMs sql.NullInt64
-	Updates      []IncidentUpdate // newest first
-	MonitorIDs   []int64
+	ID              int64
+	ProjectID       int64
+	Title           string
+	Impact          string
+	Status          string
+	Published       bool
+	StartedAtMs     int64
+	ResolvedAtMs    sql.NullInt64
+	SourceMonitorID sql.NullInt64
+	Updates         []IncidentUpdate // newest first
+	MonitorIDs      []int64
 }
 
 // IncidentUpdate is one dated message in an incident's timeline.
@@ -201,10 +202,10 @@ func (s *Store) OpenIncidents(ctx context.Context) ([]Incident, error) {
 	return s.incidents(ctx, "i.resolved_at_ms is null", maxIncidentsPerPage)
 }
 
-const incidentSummaryColumns = `i.id, i.project_id, i.title, i.impact, i.status, i.published, i.started_at_ms, i.resolved_at_ms`
+const incidentSummaryColumns = `i.id, i.project_id, i.title, i.impact, i.status, i.published, i.started_at_ms, i.resolved_at_ms, i.source_monitor_id`
 
 func scanIncident(row rowScanner, in *Incident, extra ...any) error {
-	columns := []any{&in.ID, &in.ProjectID, &in.Title, &in.Impact, &in.Status, &in.Published, &in.StartedAtMs, &in.ResolvedAtMs}
+	columns := []any{&in.ID, &in.ProjectID, &in.Title, &in.Impact, &in.Status, &in.Published, &in.StartedAtMs, &in.ResolvedAtMs, &in.SourceMonitorID}
 	return row.Scan(append(columns, extra...)...)
 }
 

@@ -140,6 +140,8 @@ appear at most once per page. Omit `category` or use an empty string for an
 uncategorized monitor. A nonempty category must appear in `categories`.
 `display` is `bars` (default), `latency`, `summary` or `minimal`.
 `graph_fill` uses the page's options and inherits the page if empty or omitted.
+Set `exclude_from_status` to `true` to keep a monitor visible while removing
+its contribution to the overall state of this page. It defaults to `false`.
 
 ```json
 {"categories":["Backend"],"monitors":[{"monitor_id":"1","category":"Backend","display":"latency","graph_fill":""}]}

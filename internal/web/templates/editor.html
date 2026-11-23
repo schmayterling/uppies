@@ -50,6 +50,8 @@
                 <select name="fill-{{.ID}}" aria-label="graph fill of {{.Name}}">
                   {{range $.Choices.GraphFills}}<option value="{{.}}"{{if or (eq . $row.GraphFill) (and (eq . "default") (not $row.GraphFill))}} selected{{end}}>{{if eq . "default"}}fill: default{{else}}fill: {{.}}{{end}}</option>{{end}}
                 </select>
+                <input type="hidden" name="exclude-{{.ID}}" value="0">
+                <label class="check editor-status"><input type="checkbox" name="exclude-{{.ID}}" value="1" aria-label="exclude {{.Name}} from overall status"{{if .ExcludeFromStatus}} checked{{end}}>exclude from overall status</label>
               </span>
             </li>
             {{end}}

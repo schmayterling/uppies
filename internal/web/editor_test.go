@@ -10,8 +10,77 @@ import (
 	"strings"
 	"testing"
 
+	"uppies/internal/health"
 	"uppies/internal/store"
 )
+
+func TestTheEditorExcludesAMonitorFromOnePagesOverallStatus(t *testing.T) {
+	ctx := t.Context()
+	s := newSite(t)
+	const now = 1_800_000_000_000
+	acme, err := s.store.CreateProject(ctx, "acme", "Acme", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := s.store.CreateProject(ctx, "full", "Full status", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitor := store.Monitor{
+		Name: "core", Kind: "http", Target: "https://example.com",
+		IntervalS: 60, TimeoutMs: 5000, RetryIntervalS: 20, RecoveryChecks: 1,
+	}
+	core, err := s.createShown(ctx, acme, monitor, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitor.Name = "optional"
+	monitor.AutoCreateIncident = store.IncidentCreatePublish
+	optional, err := s.createShown(ctx, acme, monitor, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []int64{core, optional} {
+		if err := s.store.PlaceMonitor(ctx, second, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, check := range []store.CheckResult{
+		{MonitorID: core, AtMs: now, OK: true, Step: health.Step{Tracker: health.Tracker{Status: health.Up}}},
+		{MonitorID: optional, AtMs: now, Step: health.Step{
+			Tracker: health.Tracker{Status: health.Down, FailingSinceMs: now}, Change: health.WentDown,
+		}},
+	} {
+		if err := s.store.RecordCheck(ctx, check); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	save := fmt.Sprintf("/admin/projects/%d/placements", acme)
+	field := fmt.Sprintf("exclude-%d", optional)
+	form := url.Values{"item": {fmt.Sprintf("m:%d", core), fmt.Sprintf("m:%d", optional)}, field: {"0", "1"}}
+	s.post(t, s.admin, save, form, nil)
+	_, page := s.get(t, s.anonymous, "/s/acme")
+	if !strings.Contains(page, "everything is up.") || !strings.Contains(page, "optional is down") {
+		t.Fatal("the component and its incident should be shown without changing the banner")
+	}
+	_, page = s.get(t, s.anonymous, "/s/full")
+	if !strings.Contains(page, "some things are down.") {
+		t.Fatal("the same component should still count on the other page")
+	}
+	form.Del(field)
+	s.post(t, s.admin, save, form, nil)
+	_, page = s.get(t, s.anonymous, "/s/acme")
+	if !strings.Contains(page, "everything is up.") {
+		t.Fatal("saving an older editor form discarded the exclusion")
+	}
+	form.Set(field, "0")
+	s.post(t, s.admin, save, form, nil)
+	_, page = s.get(t, s.anonymous, "/s/acme")
+	if !strings.Contains(page, "some things are down.") {
+		t.Fatal("clearing the exclusion did not restore the component's contribution")
+	}
+}
 
 func TestTheEditorOrdersAddsRemovesAndStylesMonitors(t *testing.T) {
 	ctx := context.Background()

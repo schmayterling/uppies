@@ -20,6 +20,8 @@ type Placement struct {
 	// GraphFill is how the monitor's graphs are filled on this page: one of
 	// GraphFills, or empty to follow the page.
 	GraphFill string
+	// ExcludeFromStatus leaves the component visible without counting toward overall status.
+	ExcludeFromStatus bool
 }
 
 // PlacedMonitor is a monitor together with its place on one status page.
@@ -28,7 +30,7 @@ type PlacedMonitor struct {
 	Placement
 }
 
-const placedColumns = `p.project_id, p.monitor_id, p.position, p.category, p.display, p.graph_fill`
+const placedColumns = `p.project_id, p.monitor_id, p.position, p.category, p.display, p.graph_fill, p.exclude_from_status`
 
 func (s *Store) placed(ctx context.Context, query string, args ...any) ([]PlacedMonitor, error) {
 	rows, err := s.db.QueryContext(ctx, query, args...)
@@ -40,7 +42,7 @@ func (s *Store) placed(ctx context.Context, query string, args ...any) ([]Placed
 	for rows.Next() {
 		var pm PlacedMonitor
 		p, m := &pm.Placement, &pm.Monitor
-		err := rows.Scan(&p.ProjectID, &p.MonitorID, &p.Position, &p.Category, &p.Display, &p.GraphFill,
+		err := rows.Scan(&p.ProjectID, &p.MonitorID, &p.Position, &p.Category, &p.Display, &p.GraphFill, &p.ExcludeFromStatus,
 			&m.ID, &m.Name, &m.Kind, &m.Target, &m.Keyword, &m.IntervalS, &m.TimeoutMs,
 			&m.Retries, &m.RetryIntervalS, &m.RecoveryChecks, &m.Paused, &m.Tracker.Status, &m.StatusSinceMs,
 			&m.Tracker.FailStreak, &m.Tracker.OKStreak, &m.Tracker.FailingSinceMs, &m.LastCheckAtMs,
@@ -137,9 +139,9 @@ func (s *Store) SetPageLayout(ctx context.Context, projectID int64, categories [
 		}
 		for i, p := range placements {
 			_, err := tx.ExecContext(ctx, `
-				insert into page_monitors (project_id, monitor_id, position, category, display, graph_fill)
-				values (?, ?, ?, ?, ?, ?)`,
-				projectID, p.MonitorID, i+1, p.Category, displayOrDefault(p.Display), p.GraphFill)
+				insert into page_monitors (project_id, monitor_id, position, category, display, graph_fill, exclude_from_status)
+				values (?, ?, ?, ?, ?, ?, ?)`,
+				projectID, p.MonitorID, i+1, p.Category, displayOrDefault(p.Display), p.GraphFill, p.ExcludeFromStatus)
 			if isForeignKey(err) {
 				return ErrUnknownMonitor
 			}
@@ -168,11 +170,11 @@ func requireProject(ctx context.Context, tx *transaction, projectID int64) error
 // PageLayout reads the ordered categories and placements in one snapshot.
 func (s *Store) PageLayout(ctx context.Context, projectID int64) ([]string, []Placement, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		select 0 as kind, 0 as position, '' as name, 0 as monitor_id, '' as display, '' as graph_fill from projects where id = ?
+		select 0 as kind, 0 as position, '' as name, 0 as monitor_id, '' as display, '' as graph_fill, 0 as exclude_from_status from projects where id = ?
 		union all
-		select 1, position, name, 0, '', '' from page_categories where project_id = ?
+		select 1, position, name, 0, '', '', 0 from page_categories where project_id = ?
 		union all
-		select 2, position, category, monitor_id, display, graph_fill from page_monitors where project_id = ?
+		select 2, position, category, monitor_id, display, graph_fill, exclude_from_status from page_monitors where project_id = ?
 		order by kind, position, name, monitor_id`, projectID, projectID, projectID)
 	if err != nil {
 		return nil, nil, err
@@ -189,7 +191,7 @@ func (s *Store) PageLayout(ctx context.Context, projectID int64) ([]string, []Pl
 	for rows.Next() {
 		var kind int
 		p := Placement{ProjectID: projectID}
-		if err := rows.Scan(&kind, &p.Position, &p.Category, &p.MonitorID, &p.Display, &p.GraphFill); err != nil {
+		if err := rows.Scan(&kind, &p.Position, &p.Category, &p.MonitorID, &p.Display, &p.GraphFill, &p.ExcludeFromStatus); err != nil {
 			return nil, nil, err
 		}
 		if kind == 1 {

@@ -246,10 +246,11 @@ func (s *Server) apiDeletePage(w http.ResponseWriter, r *http.Request) {
 }
 
 type apiPlacement struct {
-	MonitorID string `json:"monitor_id"`
-	Category  string `json:"category"`
-	Display   string `json:"display"`
-	GraphFill string `json:"graph_fill"`
+	MonitorID         string `json:"monitor_id"`
+	Category          string `json:"category"`
+	Display           string `json:"display"`
+	GraphFill         string `json:"graph_fill"`
+	ExcludeFromStatus bool   `json:"exclude_from_status"`
 }
 
 type apiLayout struct {
@@ -270,7 +271,10 @@ func (s *Server) apiReadLayout(w http.ResponseWriter, r *http.Request) {
 	}
 	layout := apiLayout{Categories: categories, Monitors: make([]apiPlacement, len(placements))}
 	for i, p := range placements {
-		layout.Monitors[i] = apiPlacement{strconv.FormatInt(p.MonitorID, 10), p.Category, p.Display, p.GraphFill}
+		layout.Monitors[i] = apiPlacement{
+			MonitorID: strconv.FormatInt(p.MonitorID, 10), Category: p.Category, Display: p.Display,
+			GraphFill: p.GraphFill, ExcludeFromStatus: p.ExcludeFromStatus,
+		}
 	}
 	s.apiJSON(w, r, http.StatusOK, layout)
 }
@@ -311,6 +315,7 @@ func (layout apiLayout) placements() ([]store.Placement, error) {
 		knownMonitors[monitorID] = true
 		placements = append(placements, store.Placement{
 			MonitorID: monitorID, Category: row.Category, Display: row.Display, GraphFill: row.GraphFill,
+			ExcludeFromStatus: row.ExcludeFromStatus,
 		})
 	}
 	return placements, nil
