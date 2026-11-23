@@ -18,7 +18,17 @@
     <div class="panel table-scroll"><table class="dense">
       <thead><tr><th>time</th><th>result</th><th class="number">response time</th><th>error</th></tr></thead>
       <tbody>
-        {{range .Checks}}<tr><td><time datetime="{{rfc3339 .AtMs}}">{{local $.Zone .AtMs}}</time></td><td>{{if .OK}}<span class="state state-ok">{{template "mark" "ok"}}ok</span>{{else}}<span class="state state-down">{{template "mark" "down"}}failed</span>{{end}}</td><td class="number">{{if .OK}}{{.LatencyMs}} ms{{end}}</td><td class="meta">{{.Error}}</td></tr>{{end}}
+        {{range .Checks}}
+        <tr>
+          <td><time datetime="{{rfc3339 .AtMs}}">{{local $.Zone .AtMs}}</time></td>
+          <td>
+            {{if .OK}}<span class="state state-ok">{{template "mark" "ok"}}ok</span>
+            {{else}}<span class="state state-down">{{template "mark" "down"}}failed</span>{{end}}
+          </td>
+          <td class="number">{{if .OK}}{{.LatencyMs}} ms{{end}}</td>
+          <td class="meta">{{with .Error}}<span class="cell-text" title="{{.}}">{{.}}</span>{{end}}</td>
+        </tr>
+        {{end}}
       </tbody>
     </table></div>
     {{else}}

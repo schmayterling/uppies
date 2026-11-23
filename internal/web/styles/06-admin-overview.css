@@ -28,11 +28,8 @@ table.dense tbody th a.with-icon {
   --icon-size: var(--text-sm);
   position: relative;
   display: inline-block;
-  max-inline-size: 26ch;
+  max-inline-size: min(26ch, 45vw);
   padding-inline-start: calc(var(--icon-size) + var(--space-1-5));
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 table.dense tbody th a.with-icon > :is(.icon, .nav-logo) {
   position: absolute;

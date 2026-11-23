@@ -53,14 +53,14 @@
         <th scope="row">
           <input type="hidden" name="item" value="m:{{.ID}}">
           <a class="with-icon" href="/admin/monitors/{{.ID}}" title="{{.Name}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
-          <span class="meta cell-note target">{{if eq .Kind "push"}}waits for the job to report in{{else}}{{.Target}}{{end}}</span>
+          {{template "monitor-target-note" (pair .Monitor "")}}
           {{if .TagList}}<ul class="meta monitor-tags" aria-label="tags">{{range .TagList}}<li title="{{.Name}}">{{.Name}}</li>{{end}}</ul>{{end}}
         </th>
         <td>
           <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
-          {{if and .LastError (eq .State "down")}}<span class="meta cell-note">{{.LastError}}</span>{{end}}
+          {{if and .LastError (eq .State "down")}}{{template "table-note" .LastError}}{{end}}
         </td>
-        <td>{{range $i, $page := .Pages}}{{if $i}}, {{end}}<a class="quiet-link" href="/admin/projects/{{$page.ID}}">{{$page.Name}}</a>{{else}}<span class="muted">on none</span>{{end}}</td>
+        <td>{{if .Pages}}{{template "table-page-links" .Pages}}{{else}}<span class="muted">on none</span>{{end}}</td>
         <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{utc .LastCheckAtMs}}</time>{{else}}<span class="muted">not yet</span>{{end}}</td>
         <td class="number">{{if and .LastCheckAtMs (eq .State "ok") (ne .Kind "push")}}{{.LastLatencyMs}} ms{{end}}</td>
       </tr>

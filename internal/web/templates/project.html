@@ -28,12 +28,12 @@
       <tr>
         <th scope="row">
           <a class="with-icon" href="/admin/monitors/{{.ID}}" title="{{.Name}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
-          <span class="meta cell-note target">{{with .Category}}{{.}} · {{end}}{{if eq .Kind "push"}}waits for the job to report in{{else}}{{.Target}}{{end}}</span>
+          {{template "monitor-target-note" (pair .Monitor .Category)}}
         </th>
         <td>
           <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
-          {{if and .LastError (eq .State "down")}}<span class="meta cell-note">{{.LastError}}</span>{{end}}
-          {{if .CertExpiresAtMs}}<span class="meta cell-note">certificate expires in {{daysUntil .CertExpiresAtMs}} days</span>{{end}}
+          {{if and .LastError (eq .State "down")}}{{template "table-note" .LastError}}{{end}}
+          {{if .CertExpiresAtMs}}{{template "table-note" (printf "certificate expires in %d days" (daysUntil .CertExpiresAtMs))}}{{end}}
         </td>
         <td><div class="strip mini" role="img" aria-label="uptime {{.Uptime}}">{{range .Days}}<span class="day day-{{.State}}" data-tip="{{.Label}}"></span>{{end}}</div></td>
         <td class="number">{{.Uptime}}</td>

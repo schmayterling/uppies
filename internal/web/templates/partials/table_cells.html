@@ -1,0 +1,21 @@
+{{define "table-note"}}<span class="meta cell-note" title="{{.}}">{{.}}</span>{{end}}
+
+{{define "table-page-links"}}
+  {{- range $i, $page := . -}}
+    {{- if $i}}, {{end -}}
+    <a class="quiet-link" href="/admin/projects/{{$page.ID}}" title="{{$page.Name}}">
+      <span class="cell-text">{{$page.Name}}</span>
+    </a>
+  {{- end -}}
+{{end}}
+
+{{define "monitor-target-note"}}
+  {{- $label := .First.Target -}}
+  {{- if eq .First.Kind "push" -}}
+    {{- $label = "waits for the job to report in" -}}
+  {{- end -}}
+  {{- with .Second -}}
+    {{- $label = printf "%s · %s" . $label -}}
+  {{- end -}}
+  <span class="meta cell-note target" title="{{$label}}">{{$label}}</span>
+{{- end}}
