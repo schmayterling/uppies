@@ -254,7 +254,7 @@ label.srow { cursor: pointer; }
 .editor-name > a { color: var(--ink); font-weight: var(--weight-semibold); text-decoration: none; overflow-wrap: anywhere; }
 .editor-moves { display: flex; gap: var(--space-0-5); }
 .editor-look { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.editor-look > .select, .editor-look > select { inline-size: calc(var(--space-8) * 3); max-inline-size: 100%; }
+.editor-look > .select, .editor-look > select { flex: 1 1 calc(var(--space-8) * 2); inline-size: auto; min-inline-size: 0; }
 .editor-add { display: flex; gap: var(--space-2); margin-block-start: var(--space-3); }
 .editor-add > .select, .editor-add > select { flex: 1; min-inline-size: 0; }
 @media (max-width: 1100px) {

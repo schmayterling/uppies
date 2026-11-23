@@ -35,6 +35,11 @@
               <a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
               <span class="meta">{{with .Category}}{{.}} · {{end}}<span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span> · {{.Uptime}}</span>
             </span>
+            <span class="editor-moves">
+              <button class="icon-button" type="submit" name="move" value="{{.ID}}-up" data-move="up" aria-label="move {{.Name}} up">{{template "icon" "chevron-up"}}</button>
+              <button class="icon-button" type="submit" name="move" value="{{.ID}}-down" data-move="down" aria-label="move {{.Name}} down">{{template "icon" "chevron-down"}}</button>
+              <button class="icon-button" type="submit" name="remove" value="{{.ID}}" data-remove aria-label="take {{.Name}} off this page" title="take off this page">{{template "icon" "x"}}</button>
+            </span>
             <span class="editor-look">
               <select name="display-{{.ID}}" aria-label="how {{.Name}} is shown">
                 {{range $.Choices.Displays}}<option value="{{.}}"{{if eq . $row.Display}} selected{{end}}>{{displayLabel .}}</option>{{end}}
@@ -42,11 +47,6 @@
               <select name="fill-{{.ID}}" aria-label="graph fill of {{.Name}}">
                 {{range $.Choices.GraphFills}}<option value="{{.}}"{{if or (eq . $row.GraphFill) (and (eq . "default") (not $row.GraphFill))}} selected{{end}}>{{if eq . "default"}}fill: default{{else}}fill: {{.}}{{end}}</option>{{end}}
               </select>
-            </span>
-            <span class="editor-moves">
-              <button class="icon-button" type="submit" name="move" value="{{.ID}}-up" data-move="up" aria-label="move {{.Name}} up">{{template "icon" "chevron-up"}}</button>
-              <button class="icon-button" type="submit" name="move" value="{{.ID}}-down" data-move="down" aria-label="move {{.Name}} down">{{template "icon" "chevron-down"}}</button>
-              <button class="icon-button" type="submit" name="remove" value="{{.ID}}" data-remove aria-label="take {{.Name}} off this page" title="take off this page">{{template "icon" "x"}}</button>
             </span>
           </li>
           {{end}}

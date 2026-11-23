@@ -103,6 +103,18 @@ Each line names how it was verified.
   - Graphs have a fill option: gradient, filled or none. It is set under appearance for the instance, in a status page's look settings and on a monitor, and the narrowest one that is set wins. A fresh install uses gradient.
   - The sidebar has no divider when it is open. Collapsed, a line stands where the section's name would be.
   - Checked in Chromium and WebKit: the gradient and the flat fill on the monitor chart, set through the appearance form, and the sidebar line in both states. The favicon, the list without logos and the admonition are covered by tests and were not rendered.
+- Round 11 (2026-11-23): monitors became global, and status pages got an editor. Schema version 15.
+  - Monitors belong to the install, not to one status page. `page_monitors` lists what each page shows, with a position, a display and a graph fill per page. One monitor can be on several pages. A monitor that was hidden is on no page. Deleting a status page keeps its monitors.
+  - Alert channels belong to the install (`/admin/alerts`). `monitor_channels` says which channels a monitor alerts. A new channel is alerted by every existing monitor. The migration kept each monitor alerting the channels of its old page.
+  - Categories are a list of their own, made under `/admin/monitors`, and a monitor's category is the same everywhere. A status page groups its monitors by category, uncategorised first, each category at the place of its first monitor.
+  - Maintenance stays per status page and rests every monitor that page shows. An outage drafts an incident on every page that shows the monitor. A monitor's events carry no project: a page's timeline finds them through its monitors.
+  - `/admin/monitors` lists every monitor by category. The monitor form chooses category and alert channels. Where and how it is shown is the editor's job.
+  - A status page's admin page has tabs: editor, incidents (with planned maintenance), timeline, delete. The editor lists the page's monitors with arrows, dragging, a style and a fill per monitor, taking one off, adding an existing one, the look (theme, accent, background, corners, typeface, graph fill, status icon, quiet days, custom css) and a live preview in a frame. For that frame the policy changed from `frame-ancestors 'none'` to `'self'`.
+  - Status pages can be moved up and down, which orders the sidebar and the public list.
+  - Settings save themselves: forms marked `data-autosave` are sent when a field changes, which for text is when the focus leaves it. A refused form is sent again the ordinary way so that the page with the problems shows. Without script the save buttons are still there. Forms that create or delete something keep their button.
+  - The face is gone. A round icon says the state: check, warning, cross, dash, wrench, or a slash when everything is paused.
+  - The migration was tried on a copy of the dev database before the real one was opened with it. Counts matched.
+  - Checked in Chromium and WebKit with real clicks: reorder by arrow and by drag, style through the custom select, accent and custom css reaching the preview, take off and add back, autosave on blur in settings, the monitors and alerts pages, no overflow at 1440 and 390 wide.
 - Checks run on 2026-11-23 on the admin overview:
   - Contrast, computed from the rendered colours. Dark theme: every text pairing measured is 7.4:1 or higher. Light theme: the lowest is 5.68:1 (muted headings on the sidebar). The requirement for body text is 4.5:1.
   - Script switched off: an admin page shows each dialog's form in place and hides the buttons that would open it. This needed a fix, because the dialog animation left dialogs invisible without script.
@@ -111,6 +123,8 @@ Each line names how it was verified.
 
 ## Done but not verified
 
+- Round 11 in a browser covered the editor, autosave on one settings field, and that the monitors and alerts pages open. Not driven in a browser: making a category, the alert channel boxes on the monitor form, moving status pages, autosave on the appearance, instance and monitor forms.
+- The editor's drag reorder has no touch support. The arrows work everywhere.
 - Firefox was not checked. The Firefox build that Playwright 1.65.1 downloads does not start on this machine ("Could not find profile folder"), with a temporary profile and with a fixed one.
 - No screen reader was run. The role tree of the custom select was read in Chromium and WebKit, which is what a screen reader is given, but nobody listened to it.
 - Safari itself was not driven, only Playwright's WebKit build.
@@ -187,7 +201,7 @@ Each line names how it was verified.
 ## Next
 
 `ROADMAP.md` holds the planned order. The basics are done. The user wants a
-design pass on the status page and admin pages before any new feature. Ten rounds are done (see above). Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
+design pass on the status page and admin pages before any new feature. Eleven rounds are done (see above). Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
 
 ## Open risks
 

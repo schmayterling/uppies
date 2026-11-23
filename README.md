@@ -50,8 +50,10 @@ go build -o uppies ./cmd/uppies
 ```
 
 Open `http://localhost:8080`. The first visit asks you to create the admin
-account. After that, add a project, then add monitors to it. Alert channels and
-the look of the status page are under the project's settings.
+account. After that, add monitors under "monitors" and alert channels under
+"alerts". Both belong to the install. Then add a status page and choose in its
+editor which monitors it shows, in which order and drawn how. One monitor can be
+on several status pages.
 
 uppies cannot tell you that it has stopped running itself. To cover that, pass
 `-heartbeat-url` with the address of an outside service that expects a request
