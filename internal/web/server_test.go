@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"fmt"
+	"html"
 	"io"
 	"log/slog"
 	"maps"
@@ -309,10 +310,11 @@ func TestStatusPageFollowsTheProjectSettings(t *testing.T) {
 	valid := url.Values{
 		"name": {"Acme Cloud"}, "tagline": {"how our services are doing"}, "homepage_url": {"https://acme.example"},
 		"theme": {"dark"}, "accent_hue": {"320"}, "history_days": {"30"}, "custom_css": {".banner { border-width: 3px; }"},
+		"timezone": {"UTC"},
 	}
 	invalid := url.Values{
 		"name": {"Acme Cloud"}, "homepage_url": {"javascript:alert(1)"},
-		"theme": {"dark"}, "accent_hue": {"361"}, "history_days": {"45"},
+		"theme": {"dark"}, "accent_hue": {"361"}, "history_days": {"45"}, "timezone": {"UTC"},
 	}
 	if resp := s.post(t, s.admin, settings, invalid, nil); resp.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("invalid settings: got %d, want 422", resp.StatusCode)
@@ -346,5 +348,93 @@ func TestStatusPageFollowsTheProjectSettings(t *testing.T) {
 	wantTheme := ":root {\n  color-scheme: dark;\n  --accent: light-dark(oklch(0.45 0.075 320), oklch(0.8 0.075 320));\n}\n.banner { border-width: 3px; }\n"
 	if status != http.StatusOK || theme != wantTheme {
 		t.Errorf("theme.css: got %d %q, want 200 %q", status, theme, wantTheme)
+	}
+}
+
+func TestStatusPageFooterTimezoneDomainAndBadge(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitorID, err := s.store.CreateMonitor(ctx, store.Monitor{
+		ProjectID: projectID, Name: "website", Kind: "http", Target: "https://example.com", Public: true,
+		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
+	}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	healthy := health.Step{Tracker: health.Tracker{Status: health.Up}}
+	if err := s.store.RecordCheck(ctx, store.CheckResult{MonitorID: monitorID, AtMs: time.Now().UnixMilli(), OK: true, Step: healthy}); err != nil {
+		t.Fatal(err)
+	}
+	// 2026-11-23 04:05 UTC is 12:05 in Manila, which is eight hours ahead.
+	startedAtMs := time.Date(2026, 11, 23, 4, 5, 0, 0, time.UTC).UnixMilli()
+	_, err = s.store.CreateIncident(ctx, store.Incident{
+		ProjectID: projectID, Title: "slow search", Impact: "minor", Status: "investigating",
+		Published: true, StartedAtMs: startedAtMs,
+	}, "search is slow.", startedAtMs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	settings := fmt.Sprintf("/admin/projects/%d/settings", projectID)
+	form := url.Values{
+		"name": {"Acme"}, "theme": {"auto"}, "accent_hue": {"200"}, "history_days": {"90"},
+		"timezone": {"Asia/Manila"}, "domain": {"Status.Acme.Example"}, "footer_text": {"write to help@acme.example"},
+		"noindex": {"on"},
+	}
+	if resp := s.post(t, s.admin, settings, form, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("save: got %d, want 303", resp.StatusCode)
+	}
+	for field, bad := range map[string]string{"timezone": "Mars/Olympus", "domain": "https://status.acme.example/x"} {
+		invalid := url.Values{}
+		for key, values := range form {
+			invalid[key] = values
+		}
+		invalid.Set(field, bad)
+		if resp := s.post(t, s.admin, settings, invalid, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+			t.Errorf("%s %q: got %d, want 422", field, bad, resp.StatusCode)
+		}
+	}
+
+	_, page := s.get(t, s.anonymous, "/s/acme")
+	page = html.UnescapeString(page) // the template writes "+" as an entity
+	for _, want := range []string{"2026-11-23 12:05 +08:00", "write to help@acme.example", `<meta name="robots" content="noindex">`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("status page is missing %q", want)
+		}
+	}
+	if strings.Contains(page, "powered by uppies") {
+		t.Error("status page still says powered by uppies")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, s.server.URL+"/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Host = "status.acme.example:8443"
+	resp, err := s.anonymous.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	front, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := resp.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK || !strings.Contains(string(front), "slow search") {
+		t.Errorf("front page on the custom domain: got %d, want 200 with the project's status page", resp.StatusCode)
+	}
+	if status, _ := s.get(t, s.anonymous, "/"); status != http.StatusOK {
+		t.Errorf("front page on another host: got %d, want the list of status pages", status)
+	}
+
+	status, badge := s.get(t, s.anonymous, "/s/acme/badge.svg")
+	if status != http.StatusOK || !strings.Contains(badge, `aria-label="status: incident"`) || !strings.Contains(badge, `fill="#704600"`) {
+		t.Errorf("badge: got %d %q, want the incident state in the warning colour", status, badge)
 	}
 }

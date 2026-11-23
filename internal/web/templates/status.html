@@ -1,4 +1,5 @@
 {{define "head"}}<meta http-equiv="refresh" content="60">
+{{if .Project.NoIndex}}<meta name="robots" content="noindex">{{end}}
 <link rel="stylesheet" href="/s/{{.Project.Slug}}/theme.css">{{end}}
 {{define "main"}}
 <header class="page-head">
@@ -17,7 +18,7 @@
   <h2>{{.Title}}</h2>
   <p class="meta">{{.Impact}} impact{{if .Affected}} · affects {{range $i, $name := .Affected}}{{if $i}}, {{end}}{{$name}}{{end}}{{end}}</p>
   <ol class="updates">
-    {{range .Updates}}<li><strong>{{.Status}}</strong> <span class="update-body">{{.Body}}</span> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{utc .AtMs}}</time></li>{{end}}
+    {{range .Updates}}<li><strong>{{.Status}}</strong> <span class="update-body">{{.Body}}</span> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Zone .AtMs}}</time></li>{{end}}
   </ol>
 </article>
 {{end}}
@@ -57,7 +58,7 @@
     <h3>{{.Title}}</h3>
     <p class="meta">{{.Impact}} impact{{if .Affected}} · affected {{range $i, $name := .Affected}}{{if $i}}, {{end}}{{$name}}{{end}}{{end}}</p>
     <ol class="updates">
-      {{range .Updates}}<li><strong>{{.Status}}</strong> <span class="update-body">{{.Body}}</span> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{utc .AtMs}}</time></li>{{end}}
+      {{range .Updates}}<li><strong>{{.Status}}</strong> <span class="update-body">{{.Body}}</span> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Zone .AtMs}}</time></li>{{end}}
     </ol>
   </article>
   {{end}}
@@ -66,5 +67,8 @@
   {{end}}
 </section>
 
-<footer class="page-foot meta">this page reloads every minute. powered by uppies.</footer>
+<footer class="page-foot meta">
+  {{with .Project.FooterText}}<p>{{.}}</p>{{end}}
+  <p>this page reloads every minute.{{if .Project.ShowPoweredBy}} powered by uppies.{{end}}</p>
+</footer>
 {{end}}

@@ -44,6 +44,26 @@
       </select>
       {{with index .Problems "history_days"}}<p class="problem">{{.}}</p>{{end}}
     </div>
+    <div class="field">
+      <label for="timezone">timezone</label>
+      <input id="timezone" name="timezone" value="{{.Project.Timezone}}" required maxlength="64" autocapitalize="none" spellcheck="false" aria-describedby="timezone-hint{{if index .Problems "timezone"}} timezone-problem{{end}}"{{if index .Problems "timezone"}} aria-invalid="true"{{end}}>
+      <p class="hint" id="timezone-hint">incident times are shown in this zone. use a name such as UTC, Asia/Manila or Europe/Berlin. the daily bars always count utc days.</p>
+      {{with index .Problems "timezone"}}<p class="problem" id="timezone-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="domain">custom domain</label>
+      <input id="domain" name="domain" value="{{.Project.Domain}}" maxlength="253" autocapitalize="none" spellcheck="false" aria-describedby="domain-hint{{if index .Problems "domain"}} domain-problem{{end}}"{{if index .Problems "domain"}} aria-invalid="true"{{end}}>
+      <p class="hint" id="domain-hint">optional. point this hostname at uppies through your reverse proxy, and its front page becomes this status page.</p>
+      {{with index .Problems "domain"}}<p class="problem" id="domain-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="footer_text">footer text</label>
+      <input id="footer_text" name="footer_text" value="{{.Project.FooterText}}" maxlength="500" aria-describedby="footer_text-hint{{if index .Problems "footer_text"}} footer_text-problem{{end}}"{{if index .Problems "footer_text"}} aria-invalid="true"{{end}}>
+      <p class="hint" id="footer_text-hint">optional. one line at the bottom, such as how to reach support.</p>
+      {{with index .Problems "footer_text"}}<p class="problem" id="footer_text-problem">{{.}}</p>{{end}}
+    </div>
+    <label class="check"><input type="checkbox" name="show_powered_by"{{if .Project.ShowPoweredBy}} checked{{end}}> show "powered by uppies" in the footer.</label>
+    <label class="check"><input type="checkbox" name="noindex"{{if .Project.NoIndex}} checked{{end}}> ask search engines not to list this page.</label>
     <label class="check"><input type="checkbox" name="show_face"{{if .Project.ShowFace}} checked{{end}}> show the face next to the status sentence.</label>
     <div class="field">
       <label for="custom_css">custom css</label>
@@ -53,6 +73,11 @@
     </div>
     <div class="actions"><button class="button" type="submit">save status page</button></div>
   </form>
+</section>
+
+<section aria-labelledby="badge-heading">
+  <h2 id="badge-heading">badge</h2>
+  <p class="muted">a small image of the current state, for a readme or another site. it lives at <a href="/s/{{.Project.Slug}}/badge.svg">/s/{{.Project.Slug}}/badge.svg</a>.</p>
 </section>
 
 <section aria-labelledby="alerts-heading">

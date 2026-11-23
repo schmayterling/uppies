@@ -1,11 +1,16 @@
 package web
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"net/http"
+	"strings"
 	"time"
+	_ "time/tzdata" // timezone names must resolve in containers that ship no zone database
 
 	"uppies/internal/health"
 	"uppies/internal/store"
@@ -47,8 +52,11 @@ type incidentView struct {
 }
 
 type statusPage struct {
-	Chrome      chrome
-	Project     store.Project
+	Chrome  chrome
+	Project store.Project
+	// Zone is the timezone that incident times are shown in.
+	Zone        *time.Location
+	Overall     overallStatus
 	BannerState string
 	BannerText  string
 	Components  []componentView
@@ -61,7 +69,25 @@ type indexPage struct {
 	Projects []store.Project
 }
 
+// requestHost returns the hostname a request was sent to, lowercase and without a port.
+func requestHost(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		host = r.Host
+	}
+	return strings.ToLower(host)
+}
+
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
+	project, err := s.store.ProjectByDomain(r.Context(), requestHost(r))
+	if err == nil {
+		s.renderStatusPage(w, r, project)
+		return
+	}
+	if !errors.Is(err, store.ErrNotFound) {
+		s.fail(w, r, err)
+		return
+	}
 	exists, err := s.store.HasUsers(r.Context())
 	if err != nil {
 		s.fail(w, r, err)
@@ -105,31 +131,86 @@ func themeCSS(p store.Project) string {
 }
 
 func (s *Server) handleStatusPage(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	project, err := s.store.ProjectBySlug(ctx, r.PathValue("slug"))
+	project, err := s.store.ProjectBySlug(r.Context(), r.PathValue("slug"))
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	monitors, err := s.store.MonitorsByProject(ctx, project.ID)
+	s.renderStatusPage(w, r, project)
+}
+
+func (s *Server) renderStatusPage(w http.ResponseWriter, r *http.Request, project store.Project) {
+	page, err := s.statusPage(r.Context(), project)
 	if err != nil {
 		s.fail(w, r, err)
 		return
+	}
+	s.render(w, r, http.StatusOK, "status.html", page)
+}
+
+// badgeColours are the status colours as fixed values, because a badge is
+// shown inside other sites where this page's stylesheet does not apply.
+var badgeColours = map[string]string{stateOK: "#236032", stateWarn: "#704600", stateDown: "#aa2233", stateNone: "#5b6166"}
+
+var badgeWords = map[overallStatus]string{
+	overallUp: "up", overallPartial: "partly down", overallDown: "down",
+	overallIncident: "incident", overallWaiting: "unknown",
+}
+
+// handleBadge serves a project's current state as a small image for readmes and other sites.
+func (s *Server) handleBadge(w http.ResponseWriter, r *http.Request) {
+	project, err := s.store.ProjectBySlug(r.Context(), r.PathValue("slug"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	page, err := s.statusPage(r.Context(), project)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	word := badgeWords[page.Overall]
+	const labelWidth, height = 48, 20
+	// 6.5 units per character is close enough for the 11-unit sans-serif used below.
+	wordWidth := 14 + len(word)*13/2
+	w.Header().Set("Content-Type", "image/svg+xml")
+	w.Header().Set("Cache-Control", "max-age=60")
+	_, err = fmt.Fprintf(w, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" role="img" aria-label="status: %s">`+
+		`<title>status: %s</title><clipPath id="r"><rect width="%d" height="%d" rx="4"/></clipPath>`+
+		`<g clip-path="url(#r)"><rect width="%d" height="%d" fill="#2b2f33"/><rect x="%d" width="%d" height="%d" fill="%s"/></g>`+
+		`<g fill="#fff" font-family="Verdana,Geneva,sans-serif" font-size="11" text-anchor="middle">`+
+		`<text x="%d" y="14">status</text><text x="%d" y="14">%s</text></g></svg>`,
+		labelWidth+wordWidth, height, word, word, labelWidth+wordWidth, height,
+		labelWidth, height, labelWidth, wordWidth, height, badgeColours[page.BannerState],
+		labelWidth/2, labelWidth+wordWidth/2, word)
+	if err != nil {
+		s.log.Error("write badge", "path", r.URL.Path, "error", err)
+	}
+}
+
+// statusPage gathers everything the public sees about a project.
+func (s *Server) statusPage(ctx context.Context, project store.Project) (statusPage, error) {
+	monitors, err := s.store.MonitorsByProject(ctx, project.ID)
+	if err != nil {
+		return statusPage{}, err
 	}
 	todayStartMs := store.DayStartMs(s.now().UnixMilli())
 	sinceMs := todayStartMs - int64(project.HistoryDays-1)*dayMs
 	rollups, err := s.store.DailyRollups(ctx, project.ID, sinceMs)
 	if err != nil {
-		s.fail(w, r, err)
-		return
+		return statusPage{}, err
 	}
 	incidents, err := s.store.PublishedIncidents(ctx, project.ID, sinceMs)
 	if err != nil {
-		s.fail(w, r, err)
-		return
+		return statusPage{}, err
+	}
+	zone, err := time.LoadLocation(project.Timezone)
+	if err != nil {
+		// The zone was valid when it was saved. A system without that zone falls back to UTC.
+		zone = time.UTC
 	}
 
-	page := statusPage{Chrome: chrome{Title: project.Name + " status"}, Project: project}
+	page := statusPage{Chrome: chrome{Title: project.Name + " status"}, Project: project, Zone: zone}
 	names := make(map[int64]string, len(monitors))
 	var shown []store.Monitor
 	for _, m := range monitors {
@@ -155,8 +236,9 @@ func (s *Server) handleStatusPage(w http.ResponseWriter, r *http.Request) {
 			page.Active = append(page.Active, view)
 		}
 	}
-	page.BannerState, page.BannerText = banner(shown, len(page.Active))
-	s.render(w, r, http.StatusOK, "status.html", page)
+	page.Overall = overall(shown, len(page.Active))
+	page.BannerState, page.BannerText = overallViews[page.Overall].state, overallViews[page.Overall].text
+	return page, nil
 }
 
 func componentState(m store.Monitor) (state, word string) {
@@ -172,8 +254,32 @@ func componentState(m store.Monitor) (state, word string) {
 	}
 }
 
+// overallStatus sums a status page up in one word.
+type overallStatus string
+
+const (
+	overallUp       overallStatus = "up"
+	overallPartial  overallStatus = "partial"
+	overallDown     overallStatus = "down"
+	overallIncident overallStatus = "incident"
+	overallWaiting  overallStatus = "waiting"
+)
+
+var overallViews = map[overallStatus]struct{ state, text string }{
+	overallUp:       {stateOK, "everything is up."},
+	overallPartial:  {stateDown, "some things are down."},
+	overallDown:     {stateDown, "everything is down."},
+	overallIncident: {stateWarn, "we're looking into a problem."},
+	overallWaiting:  {stateNone, "waiting for the first checks."},
+}
+
 // banner sums the page up in one sentence.
 func banner(monitors []store.Monitor, activeIncidents int) (state, text string) {
+	view := overallViews[overall(monitors, activeIncidents)]
+	return view.state, view.text
+}
+
+func overall(monitors []store.Monitor, activeIncidents int) overallStatus {
 	var checked, down int
 	for _, m := range monitors {
 		if m.Paused || m.Tracker.Status == health.Unknown {
@@ -186,15 +292,15 @@ func banner(monitors []store.Monitor, activeIncidents int) (state, text string) 
 	}
 	switch {
 	case down > 0 && down == checked:
-		return stateDown, "everything is down."
+		return overallDown
 	case down > 0:
-		return stateDown, "some things are down."
+		return overallPartial
 	case activeIncidents > 0:
-		return stateWarn, "we're looking into a problem."
+		return overallIncident
 	case checked == 0:
-		return stateNone, "waiting for the first checks."
+		return overallWaiting
 	default:
-		return stateOK, "everything is up."
+		return overallUp
 	}
 }
 

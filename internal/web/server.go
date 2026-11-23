@@ -76,6 +76,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 	mux.HandleFunc("GET /s/{slug}", s.handleStatusPage)
 	mux.HandleFunc("GET /s/{slug}/theme.css", s.handleTheme)
+	mux.HandleFunc("GET /s/{slug}/badge.svg", s.handleBadge)
 	mux.HandleFunc("GET /admin/setup", s.handleSetupForm)
 	mux.HandleFunc("POST /admin/setup", s.handleSetup)
 	mux.HandleFunc("GET /admin/login", s.handleLoginForm)
@@ -187,6 +188,14 @@ type chrome struct {
 var templateFuncs = template.FuncMap{
 	"utc": func(ms int64) string {
 		return time.UnixMilli(ms).UTC().Format("2006-01-02 15:04") + " utc"
+	},
+	// local shows a time in the given zone with its offset, which stays
+	// unambiguous where zone abbreviations do not.
+	"local": func(zone *time.Location, ms int64) string {
+		if zone == time.UTC {
+			return time.UnixMilli(ms).UTC().Format("2006-01-02 15:04") + " utc"
+		}
+		return time.UnixMilli(ms).In(zone).Format("2006-01-02 15:04 -07:00")
 	},
 	"rfc3339": func(ms int64) string {
 		return time.UnixMilli(ms).UTC().Format(time.RFC3339)

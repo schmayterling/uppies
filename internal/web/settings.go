@@ -2,8 +2,10 @@ package web
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -60,8 +62,9 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 var (
-	themes       = []string{"auto", "light", "dark"}
-	historyViews = []int{30, 60, 90}
+	domainPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$`)
+	themes        = []string{"auto", "light", "dark"}
+	historyViews  = []int{30, 60, 90}
 )
 
 func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +86,11 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	p.Theme = form.Get("theme")
 	p.ShowFace = form.Get("show_face") == "on"
 	p.CustomCSS = form.Get("custom_css")
+	p.FooterText = strings.TrimSpace(form.Get("footer_text"))
+	p.ShowPoweredBy = form.Get("show_powered_by") == "on"
+	p.NoIndex = form.Get("noindex") == "on"
+	p.Timezone = strings.TrimSpace(form.Get("timezone"))
+	p.Domain = strings.ToLower(strings.TrimSpace(form.Get("domain")))
 	p.AccentHue = formInt(form, "accent_hue", 0, 360, problems)
 	// A value that is not a number fails the membership check below.
 	p.HistoryDays, _ = strconv.Atoi(form.Get("history_days"))
@@ -109,14 +117,28 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	if len(p.CustomCSS) > 20000 {
 		problems["custom_css"] = "keep the custom css to 20000 characters."
 	}
+	if len(p.FooterText) > 500 {
+		problems["footer_text"] = "keep the footer text to 500 characters."
+	}
+	if _, err := time.LoadLocation(p.Timezone); err != nil || p.Timezone == "" || len(p.Timezone) > 64 {
+		problems["timezone"] = "enter a timezone name such as UTC, Asia/Manila or Europe/Berlin."
+	}
+	if p.Domain != "" && (len(p.Domain) > 253 || !domainPattern.MatchString(p.Domain)) {
+		problems["domain"] = "enter a hostname without http:// or a path, for example status.example.com."
+	}
 	page.Project = p
+	if len(problems) == 0 {
+		err := s.store.UpdateProject(r.Context(), p)
+		if errors.Is(err, store.ErrDomainTaken) {
+			problems["domain"] = "another project already uses this domain."
+		} else if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+	}
 	if len(problems) > 0 {
 		page.Problems = problems
 		s.render(w, r, http.StatusUnprocessableEntity, "settings.html", page)
-		return
-	}
-	if err := s.store.UpdateProject(r.Context(), p); err != nil {
-		s.fail(w, r, err)
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d/settings", p.ID), http.StatusSeeOther)
