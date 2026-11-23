@@ -637,6 +637,9 @@ code { font-family: var(--font-mono); font-size: var(--text-sm); }
 .menu { position: relative; }
 .menu > summary { display: inline-flex; align-items: center; gap: var(--space-0-5); min-block-size: var(--target-min); color: var(--ink); text-decoration: underline; text-underline-offset: var(--space-0-5); cursor: pointer; list-style: none; }
 .menu > summary::-webkit-details-marker { display: none; }
+/* an open menu lays an unseen sheet over the page. a click anywhere outside
+   the list lands on it, and so on the summary, which closes the menu. */
+.menu[open] > summary::before { content: ""; position: fixed; inset: 0; z-index: 1; cursor: default; }
 .menu > summary .icon { transition: rotate var(--motion-fast) var(--ease-out); }
 .menu[open] > summary .icon { rotate: 180deg; }
 .menu-list { position: absolute; inset-block-end: 100%; inset-inline-start: 0; z-index: 2; min-inline-size: max-content; max-block-size: calc(var(--space-8) * 4); overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: var(--space-1); list-style: none; border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--elevated); box-shadow: var(--shadow-popover); }

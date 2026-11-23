@@ -1,6 +1,7 @@
 package web
 
 import (
+	_ "embed" // zones.txt is compiled in
 	"os"
 	"slices"
 	"strings"
@@ -9,12 +10,16 @@ import (
 	"uppies/internal/store"
 )
 
-// offeredZones are the timezones a visitor can pick on a status page, besides
-// the page's own one. One per broad region keeps the list short.
-var offeredZones = []string{
-	"UTC", "America/Los_Angeles", "America/New_York", "America/Sao_Paulo", "Europe/London", "Europe/Berlin",
-	"Africa/Lagos", "Asia/Dubai", "Asia/Kolkata", "Asia/Singapore", "Asia/Manila", "Asia/Tokyo", "Australia/Sydney",
-}
+// zones.txt holds the zone names of the IANA timezone database, one per
+// line, taken from its zone.tab. Go can load a zone by name but cannot list
+// the names, so the list ships with the program.
+//
+//go:embed zones.txt
+var zoneList string
+
+// offeredZones are the timezones a visitor can pick on a status page: UTC
+// and every zone of the database, in alphabetical order.
+var offeredZones = append([]string{"UTC"}, strings.Fields(zoneList)...)
 
 // systemZoneName returns the IANA name of the timezone the server runs in,
 // or "UTC" when it cannot be told. Go only knows that zone as "Local", so the

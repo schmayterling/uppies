@@ -3,6 +3,7 @@ package web
 import (
 	"slices"
 	"testing"
+	"time"
 
 	"uppies/internal/health"
 	"uppies/internal/store"
@@ -84,6 +85,17 @@ func TestBanner(t *testing.T) {
 				t.Fatalf("got %s %q, want %s %q", state, text, tt.wantState, tt.wantText)
 			}
 		})
+	}
+}
+
+func TestEveryOfferedZoneLoads(t *testing.T) {
+	if len(offeredZones) < 400 {
+		t.Fatalf("got %d zones, want the whole database", len(offeredZones))
+	}
+	for _, name := range offeredZones {
+		if _, err := time.LoadLocation(name); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
 	}
 }
 
