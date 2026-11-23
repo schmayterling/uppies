@@ -35,7 +35,7 @@
     <div class="actions"><button class="button" type="submit">save permissions</button></div>
   </form>
   <details class="group-title">
-    <summary>revoke token</summary>
+    <summary class="token-disclosure">revoke token</summary>
     <form method="post" action="/admin/api-tokens/{{.Token.ID}}/revoke">
       <p class="muted">revoking this token stops it from authenticating immediately.</p>
       <button class="button danger" type="submit">revoke token</button>
@@ -47,7 +47,7 @@
   <p class="muted">create credentials for scripts and integrations. each token starts with only the permissions you select.</p>
   {{with .Notice}}{{template "success" .}}{{end}}
   <details{{if .Problems}} open{{end}}>
-    <summary>create token</summary>
+    <summary class="token-disclosure">create token</summary>
     <form class="form" method="post" action="/admin/api-tokens">
       <div class="field">
         <label for="token-name">name</label>

@@ -537,6 +537,10 @@ fieldset { margin: 0; padding: var(--space-4); border: 1px solid var(--border); 
 legend { padding-inline: var(--space-1); }
 .check { display: flex; gap: var(--space-2); align-items: center; min-block-size: var(--target-min); font-weight: var(--weight-regular); }
 .token-permissions { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); }
+.token-disclosure { min-block-size: var(--target-min); padding-block: var(--space-1); cursor: pointer; }
+@media (pointer: coarse) {
+  .token-disclosure, .token-permissions .check { min-block-size: var(--control-height-touch); }
+}
 input[type="checkbox"] { flex: none; inline-size: var(--icon-size); block-size: var(--icon-size); margin: 0; accent-color: var(--accent); translate: 0 var(--space-0-5); }
 .actions { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .problem { margin: 0; color: var(--status-danger); font-size: var(--text-sm); }
