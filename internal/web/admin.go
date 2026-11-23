@@ -321,22 +321,13 @@ func (s *Server) handleProjects(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleOrderProjects stores the order of the status pages. The form sends
-// every page's id in the order they stand in, and at most one page to move
-// up or down by one place.
+// every page's id in the order they stand in.
 func (s *Server) handleOrderProjects(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	order := formIDs(r.PostForm["item"])
-	for field, step := range map[string]int{"up": -1, "down": 1} {
-		id, err := strconv.ParseInt(r.PostForm.Get(field), 10, 64)
-		at := slices.Index(order, id)
-		if err == nil && at >= 0 && at+step >= 0 && at+step < len(order) {
-			order[at], order[at+step] = order[at+step], order[at]
-		}
-	}
-	if err := s.store.SetProjectOrder(r.Context(), order); err != nil {
+	if err := s.store.SetProjectOrder(r.Context(), formIDs(r.PostForm["item"])); err != nil {
 		s.fail(w, r, err)
 		return
 	}

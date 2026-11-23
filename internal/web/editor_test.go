@@ -189,7 +189,7 @@ func TestTheEditorSavesTheLookAndTheOrderOfStatusPages(t *testing.T) {
 		t.Errorf("an unknown corner style: got %d, want 422", resp.StatusCode)
 	}
 
-	// Status pages move one place at a time. Moving the first one up changes nothing.
+	// Status pages take the order their ids are sent in.
 	order := func() []int64 {
 		t.Helper()
 		projects, err := s.store.Projects(ctx)
@@ -202,23 +202,19 @@ func TestTheEditorSavesTheLookAndTheOrderOfStatusPages(t *testing.T) {
 		}
 		return ids
 	}
-	move := func(id int64, direction string) {
+	arrange := func(ids ...int64) {
 		t.Helper()
-		sent := url.Values{direction: {strconv.FormatInt(id, 10)}}
-		for _, listed := range order() {
-			sent.Add("item", strconv.FormatInt(listed, 10))
+		sent := url.Values{}
+		for _, id := range ids {
+			sent.Add("item", strconv.FormatInt(id, 10))
 		}
-		if resp := s.post(t, s.admin, "/admin/projects/order", sent, nil); resp.StatusCode != http.StatusSeeOther {
-			t.Fatalf("move %d %s: got %d, want 303", id, direction, resp.StatusCode)
+		if resp := s.post(t, s.admin, "/admin/projects/order", sent, nil); resp.Header.Get("Location") != "/admin/projects" {
+			t.Fatalf("arrange: got %d to %q, want a redirect to the list", resp.StatusCode, resp.Header.Get("Location"))
 		}
 	}
-	move(firstID, "up")
-	if got := order(); !slices.Equal(got, []int64{firstID, secondID}) {
-		t.Fatalf("after moving the first page up: got %v, want no change", got)
-	}
-	move(firstID, "down")
+	arrange(secondID, firstID)
 	if got := order(); !slices.Equal(got, []int64{secondID, firstID}) {
-		t.Fatalf("after moving the first page down: got %v, want it second", got)
+		t.Fatalf("after arranging: got %v, want the second page first", got)
 	}
 	// The status pages page lists them in that order and reorders them, by one place or as a whole list.
 	listed := func() string {
@@ -238,18 +234,11 @@ func TestTheEditorSavesTheLookAndTheOrderOfStatusPages(t *testing.T) {
 	if got := listed(); got != "second,first" {
 		t.Fatalf("status pages page: got %s, want second,first", got)
 	}
-	ids := url.Values{"item": {strconv.FormatInt(secondID, 10), strconv.FormatInt(firstID, 10)}, "up": {strconv.FormatInt(firstID, 10)}}
-	if resp := s.post(t, s.admin, "/admin/projects/order", ids, nil); resp.Header.Get("Location") != "/admin/projects" {
-		t.Fatalf("move up on the list: got %d to %q, want a redirect to the list", resp.StatusCode, resp.Header.Get("Location"))
-	}
+	arrange(firstID, secondID)
 	if got := listed(); got != "first,second" {
-		t.Fatalf("after the arrow: got %s, want first,second", got)
+		t.Fatalf("after sending the list in a new order: got %s, want first,second", got)
 	}
-	ids = url.Values{"item": {strconv.FormatInt(secondID, 10), strconv.FormatInt(firstID, 10)}}
-	s.post(t, s.admin, "/admin/projects/order", ids, nil)
-	if got := listed(); got != "second,first" {
-		t.Fatalf("after sending the list in a new order: got %s, want second,first", got)
-	}
+	arrange(secondID, firstID)
 	// A new status page that is refused shows its problem on this page.
 	if resp := s.post(t, s.admin, "/admin/projects", url.Values{"name": {""}, "slug": {"x"}}, nil); resp.StatusCode != http.StatusUnprocessableEntity {
 		t.Errorf("a status page without a name: got %d, want 422", resp.StatusCode)
