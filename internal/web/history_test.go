@@ -77,6 +77,15 @@ func TestIncidentMap(t *testing.T) {
 	}
 }
 
+func TestAgoLabel(t *testing.T) {
+	cases := map[int]string{0: "today", 1: "yesterday", 16: "16 days ago", 59: "59 days ago", 60: "2 months ago", 400: "13 months ago", 730: "2 years ago"}
+	for daysAgo, want := range cases {
+		if got := agoLabel(daysAgo); got != want {
+			t.Errorf("%d days ago: got %q, want %q", daysAgo, got, want)
+		}
+	}
+}
+
 func TestYearDayGroupsCanHideQuietDays(t *testing.T) {
 	now := time.Date(2026, 1, 5, 12, 0, 0, 0, time.UTC)
 	incidents := []incidentView{

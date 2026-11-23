@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,7 +16,9 @@ const recentDays = 7
 
 // dayGroup is one calendar day and the incidents that started on it.
 type dayGroup struct {
-	Date      string
+	Date string
+	// Ago says how long ago the day was, such as "today" or "16 days ago".
+	Ago       string
 	Incidents []incidentView
 	// Level is the worst impact of the day's incidents, 0 for a quiet day.
 	Level int
@@ -50,6 +53,22 @@ func mergeQuietRuns(groups []dayGroup) []dayGroup {
 	return merged
 }
 
+// agoLabel says how long ago a day was, in the largest unit that fits.
+func agoLabel(daysAgo int) string {
+	switch {
+	case daysAgo <= 0:
+		return "today"
+	case daysAgo == 1:
+		return "yesterday"
+	case daysAgo < 60:
+		return fmt.Sprintf("%d days ago", daysAgo)
+	case daysAgo < 730:
+		return fmt.Sprintf("%d months ago", daysAgo/30)
+	default:
+		return fmt.Sprintf("%d years ago", daysAgo/365)
+	}
+}
+
 // worstLevel returns the highest impact level among incidents.
 func worstLevel(incidents []incidentView) int {
 	level := 0
@@ -72,6 +91,7 @@ func yearDayGroups(incidents []incidentView, year int, now time.Time, zone *time
 	if day.After(now) {
 		day = time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, zone)
 	}
+	today := time.Date(now.In(zone).Year(), now.In(zone).Month(), now.In(zone).Day(), 12, 0, 0, 0, zone)
 	var groups []dayGroup
 	for ; day.Year() == year; day = day.AddDate(0, 0, -1) {
 		label := dayLabel(day)
@@ -79,7 +99,9 @@ func yearDayGroups(incidents []incidentView, year int, now time.Time, zone *time
 		if hideQuiet && len(found) == 0 {
 			continue
 		}
-		groups = append(groups, dayGroup{Date: label, Incidents: found, Level: worstLevel(found)})
+		// Both are noon, so rounding absorbs the hour a clock change adds or removes.
+		daysAgo := int(math.Round(today.Sub(day).Hours() / 24))
+		groups = append(groups, dayGroup{Date: label, Ago: agoLabel(daysAgo), Incidents: found, Level: worstLevel(found)})
 	}
 	return mergeQuietRuns(groups)
 }
@@ -136,7 +158,7 @@ func recentDayGroups(resolved []incidentView, now time.Time, zone *time.Location
 	today := now.In(zone)
 	for daysAgo := range recentDays {
 		label := dayLabel(today.AddDate(0, 0, -daysAgo))
-		groups = append(groups, dayGroup{Date: label, Incidents: byDay[label], Level: worstLevel(byDay[label])})
+		groups = append(groups, dayGroup{Date: label, Ago: agoLabel(daysAgo), Incidents: byDay[label], Level: worstLevel(byDay[label])})
 	}
 	return mergeQuietRuns(groups)
 }

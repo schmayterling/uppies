@@ -25,10 +25,8 @@
 {{range .Active}}
 <article class="incident incident-open">
   <h2>{{.Title}}</h2>
-  <p class="meta">{{.Impact}} impact{{if .Affected}} · affects {{range $i, $name := .Affected}}{{if $i}}, {{end}}{{$name}}{{end}}{{end}}</p>
-  <ol class="updates">
-    {{range .Updates}}<li><strong>{{.Status}}</strong> <span class="update-body">{{.Body}}</span> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Zone .AtMs}}</time></li>{{end}}
-  </ol>
+  <p class="chips"><span class="chip chip-plain">{{.Impact}} impact</span>{{range .Affected}}<span class="chip chip-plain">{{.}}</span>{{end}}</p>
+  {{template "updates" (pair .Updates $.Zone)}}
 </article>
 {{end}}
 
