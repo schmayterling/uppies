@@ -27,13 +27,18 @@ type Event struct {
 	Target  string
 	Down    bool   // true when the monitor went down, false when it recovered
 	Error   string // why the check failed, empty on recovery
-	At      time.Time
+	// CertDaysLeft is set for a certificate warning, which is neither down nor up.
+	CertDaysLeft int
+	At           time.Time
 	// DownFor is how long the outage lasted. Set on recovery only.
 	DownFor time.Duration
 }
 
 // Text is the one-line summary used by chat channels.
 func (e Event) Text() string {
+	if e.CertDaysLeft > 0 {
+		return fmt.Sprintf("the certificate of %s expires in %d days. (%s)", e.Monitor, e.CertDaysLeft, e.Project)
+	}
 	if !e.Down {
 		return fmt.Sprintf("%s is up again after %s. (%s)", e.Monitor, durationWords(e.DownFor), e.Project)
 	}
@@ -57,7 +62,7 @@ func durationWords(d time.Duration) string {
 
 // webhookPayload is the body sent to a plain webhook.
 type webhookPayload struct {
-	Event          string `json:"event"` // "down" or "up"
+	Event          string `json:"event"` // "down", "up" or "certificate"
 	Project        string `json:"project"`
 	Monitor        string `json:"monitor"`
 	Target         string `json:"target"`
@@ -78,6 +83,9 @@ func body(kind string, e Event) ([]byte, error) {
 		name := "up"
 		if e.Down {
 			name = "down"
+		}
+		if e.CertDaysLeft > 0 {
+			name = "certificate"
 		}
 		return json.Marshal(webhookPayload{
 			Event: name, Project: e.Project, Monitor: e.Monitor, Target: e.Target, Error: e.Error,

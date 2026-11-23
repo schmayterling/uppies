@@ -270,3 +270,32 @@ func (s *Store) monitors(ctx context.Context, query string, args ...any) ([]Moni
 	}
 	return monitors, rows.Err()
 }
+
+// RecordPush notes that the job behind a push monitor reported in. It returns
+// ErrNotFound when no monitor has that token.
+func (s *Store) RecordPush(ctx context.Context, token string, nowMs int64) error {
+	if token == "" {
+		return ErrNotFound
+	}
+	res, err := s.db.ExecContext(ctx, "update monitors set last_push_at_ms = ? where push_token = ?", nowMs, token)
+	if err != nil {
+		return err
+	}
+	return requireOneRow(res)
+}
+
+// LastPushAtMs returns when a push monitor last reported in, 0 for never.
+func (s *Store) LastPushAtMs(ctx context.Context, monitorID int64) (int64, error) {
+	var atMs int64
+	err := s.db.QueryRowContext(ctx, "select last_push_at_ms from monitors where id = ?", monitorID).Scan(&atMs)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	return atMs, err
+}
+
+// SetCertWarnedDays remembers the certificate warning threshold already alerted on.
+func (s *Store) SetCertWarnedDays(ctx context.Context, monitorID int64, days int) error {
+	_, err := s.db.ExecContext(ctx, "update monitors set cert_warned_days = ? where id = ?", days, monitorID)
+	return err
+}

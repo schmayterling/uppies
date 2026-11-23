@@ -179,3 +179,49 @@ func TestHeartbeatKeepsRequestingTheURL(t *testing.T) {
 	cancel()
 	<-done
 }
+
+func TestPushResult(t *testing.T) {
+	now := time.UnixMilli(1_000_000)
+	tests := []struct {
+		name      string
+		silence   time.Duration
+		wantOK    bool
+		wantError string
+	}{
+		{"reported within the interval", 50 * time.Second, true, ""},
+		{"exactly at the interval plus the grace", 70 * time.Second, true, ""},
+		{"one second past the grace", 71 * time.Second, false, "no report for 1m11s"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := pushResult(now.Add(-tt.silence).UnixMilli(), now, time.Minute)
+			if got.OK != tt.wantOK || got.Error != tt.wantError {
+				t.Fatalf("got ok=%v error=%q, want ok=%v error=%q", got.OK, got.Error, tt.wantOK, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestCertWarningDue(t *testing.T) {
+	tests := []struct {
+		name       string
+		daysLeft   int
+		warnedDays int
+		want       int
+	}{
+		{"plenty of time", 15, 0, 0},
+		{"first warning at 14 days", 14, 0, 14},
+		{"no repeat inside the same threshold", 10, 14, 0},
+		{"next warning at 7 days", 7, 14, 7},
+		{"a first look at 2 days warns at the 3-day threshold", 2, 0, 3},
+		{"last warning at 1 day", 1, 3, 1},
+		{"no repeat after the last warning", 0, 1, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := certWarningDue(tt.daysLeft, tt.warnedDays); got != tt.want {
+				t.Fatalf("got %d, want %d", got, tt.want)
+			}
+		})
+	}
+}

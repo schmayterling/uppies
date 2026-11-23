@@ -27,6 +27,8 @@ type CheckResult struct {
 	// CoveredMs is the time this check accounts for: the gap since the previous check.
 	CoveredMs int64
 	Step      health.Step
+	// CertExpiresAtMs is the certificate expiry seen by this check, 0 when it saw none.
+	CertExpiresAtMs int64
 }
 
 // RecordCheck stores a check, adds it to the day's rollup, updates the
@@ -76,10 +78,11 @@ func (s *Store) RecordCheck(ctx context.Context, r CheckResult) error {
 		if _, err := tx.ExecContext(ctx, `
 			update monitors set status = ?, fail_streak = ?, ok_streak = ?, failing_since_ms = ?,
 				last_check_at_ms = ?, last_latency_ms = ?, last_error = ?,
-				status_since_ms = case when ? then ? else status_since_ms end
+				status_since_ms = case when ? then ? else status_since_ms end,
+				cert_expires_at_ms = case when ? > 0 then ? else cert_expires_at_ms end
 			where id = ?`,
 			t.Status, t.FailStreak, t.OKStreak, t.FailingSinceMs, r.AtMs, r.LatencyMs, r.Error,
-			changed, r.AtMs, r.MonitorID); err != nil {
+			changed, r.AtMs, r.CertExpiresAtMs, r.CertExpiresAtMs, r.MonitorID); err != nil {
 			return err
 		}
 		if !changed {

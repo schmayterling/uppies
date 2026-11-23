@@ -145,13 +145,27 @@ func firstDelay(m store.Monitor, now time.Time) time.Duration {
 // checkOnce runs one check for m, records it and returns the monitor with its
 // new state and the wait before the next check.
 func (e *Engine) checkOnce(ctx context.Context, m store.Monitor) (store.Monitor, time.Duration, error) {
-	select {
-	case e.slots <- struct{}{}:
-	case <-ctx.Done():
-		return m, 0, ctx.Err()
+	interval := time.Duration(m.IntervalS) * time.Second
+	var result check.Result
+	if m.Kind == check.KindPush {
+		lastPushAtMs, err := e.store.LastPushAtMs(ctx, m.ID)
+		if err != nil {
+			return m, 0, err
+		}
+		if lastPushAtMs == 0 {
+			// The job has never reported in, so there is nothing to judge yet.
+			return m, interval, nil
+		}
+		result = pushResult(lastPushAtMs, time.Now(), interval)
+	} else {
+		select {
+		case e.slots <- struct{}{}:
+		case <-ctx.Done():
+			return m, 0, ctx.Err()
+		}
+		result = check.Run(ctx, m.Kind, m.Target, m.Keyword, time.Duration(m.TimeoutMs)*time.Millisecond)
+		<-e.slots
 	}
-	result := check.Run(ctx, m.Kind, m.Target, m.Keyword, time.Duration(m.TimeoutMs)*time.Millisecond)
-	<-e.slots
 	if err := ctx.Err(); err != nil {
 		// The check was cut short by a reload or shutdown. Its failure is not the target's.
 		return m, 0, err
@@ -166,12 +180,22 @@ func (e *Engine) checkOnce(ctx context.Context, m store.Monitor) (store.Monitor,
 	policy := health.Policy{Retries: m.Retries, RecoveryChecks: m.RecoveryChecks}
 	step := health.Advance(m.Tracker, result.OK, atMs, elapsedMs, policy)
 
+	var certExpiresAtMs int64
+	if !result.CertExpiresAt.IsZero() {
+		certExpiresAtMs = result.CertExpiresAt.UnixMilli()
+	}
 	err := e.store.RecordCheck(ctx, store.CheckResult{
 		MonitorID: m.ID, AtMs: atMs, OK: result.OK, LatencyMs: result.Latency.Milliseconds(),
-		Error: result.Error, CoveredMs: elapsedMs, Step: step,
+		Error: result.Error, CoveredMs: elapsedMs, Step: step, CertExpiresAtMs: certExpiresAtMs,
 	})
 	if err != nil {
 		return m, 0, err
+	}
+	if certExpiresAtMs > 0 {
+		m, err = e.warnAboutCertificate(ctx, m, result.CertExpiresAt, time.UnixMilli(atMs))
+		if err != nil {
+			return m, 0, err
+		}
 	}
 	if step.Change != health.NoChange {
 		e.log.Info("monitor changed", "monitor_id", m.ID, "name", m.Name, "status", step.Tracker.Status, "error", result.Error)
@@ -188,11 +212,60 @@ func (e *Engine) checkOnce(ctx context.Context, m store.Monitor) (store.Monitor,
 
 	m.Tracker = step.Tracker
 	m.LastCheckAtMs = atMs
-	wait := time.Duration(m.IntervalS) * time.Second
+	wait := interval
 	if m.Tracker.Retrying() {
 		wait = time.Duration(m.RetryIntervalS) * time.Second
 	}
 	return m, wait, nil
+}
+
+// pushGrace is how late a job may report in before the check fails. It
+// absorbs clock differences and the time a request takes to arrive.
+const pushGrace = 10 * time.Second
+
+// pushResult judges a push monitor: the job must have reported in within one interval.
+func pushResult(lastPushAtMs int64, now time.Time, interval time.Duration) check.Result {
+	silence := now.Sub(time.UnixMilli(lastPushAtMs))
+	if silence <= interval+pushGrace {
+		return check.Result{OK: true}
+	}
+	return check.Result{Error: fmt.Sprintf("no report for %s", silence.Round(time.Second))}
+}
+
+// certWarningDays are the days before expiry at which a warning goes out, soonest last.
+var certWarningDays = []int{14, 7, 3, 1}
+
+// certWarningDue returns the threshold to warn at now, or 0 for none. Each
+// threshold warns once: warnedDays is the last one already alerted on.
+func certWarningDue(daysLeft, warnedDays int) int {
+	due := 0
+	for _, threshold := range certWarningDays {
+		if daysLeft <= threshold {
+			due = threshold
+		}
+	}
+	if due == 0 || (warnedDays != 0 && due >= warnedDays) {
+		return 0
+	}
+	return due
+}
+
+// warnAboutCertificate alerts once per threshold as a certificate nears its
+// expiry, and forgets past warnings once the certificate has been renewed.
+func (e *Engine) warnAboutCertificate(ctx context.Context, m store.Monitor, expiresAt, now time.Time) (store.Monitor, error) {
+	daysLeft := int(expiresAt.Sub(now).Hours() / 24)
+	renewed := daysLeft > certWarningDays[0] && m.CertWarnedDays != 0
+	due := certWarningDue(daysLeft, m.CertWarnedDays)
+	switch {
+	case renewed:
+		m.CertWarnedDays = 0
+	case due != 0:
+		m.CertWarnedDays = due
+		e.sendAlerts(ctx, m, alert.Event{Monitor: m.Name, Target: m.Target, At: now, CertDaysLeft: max(daysLeft, 1)})
+	default:
+		return m, nil
+	}
+	return m, e.store.SetCertWarnedDays(ctx, m.ID, m.CertWarnedDays)
 }
 
 // sendAlerts delivers a change to the project's channels in the background.
