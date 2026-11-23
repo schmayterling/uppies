@@ -214,7 +214,7 @@ function buildSelect(select, number) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  [...document.querySelectorAll("select:not([data-table-filter])")].forEach(buildSelect);
+  [...document.querySelectorAll("select:not([data-table-filter], [data-native-select])")].forEach(buildSelect);
 });
 
 document.addEventListener("click", (event) => {

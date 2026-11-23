@@ -17,6 +17,7 @@ import (
 type settingsPage struct {
 	Chrome    chrome
 	Project   store.Project
+	Zones     []string
 	Themes    []string
 	Backfills []string
 	Swatches  []int
@@ -53,6 +54,7 @@ func (s *Server) settingsPage(r *http.Request) (settingsPage, error) {
 		return page, err
 	}
 	page.Chrome = s.adminChrome(r, page.Project.Name+" settings")
+	page.Zones = zoneChoices(page.Project, page.Project.Timezone)
 	page.CustomHue = !slices.Contains(accentSwatches, page.Project.AccentHue)
 	page.Images, err = s.store.ProjectImageVersions(r.Context(), id)
 	if err != nil {
@@ -167,8 +169,10 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		problems["footer_text"] = "keep the footer text to 500 characters."
 	}
 	if _, err := time.LoadLocation(p.Timezone); err != nil || p.Timezone == "" || len(p.Timezone) > 64 {
-		problems["timezone"] = "enter a timezone name such as UTC, Asia/Manila or Europe/Berlin."
+		problems["timezone"] = "choose a timezone."
+		p.Timezone = page.Project.Timezone
 	}
+	page.Zones = zoneChoices(page.Project, p.Timezone)
 	if p.Domain != "" && (len(p.Domain) > 253 || !domainPattern.MatchString(p.Domain)) {
 		problems["domain"] = "enter a hostname without http:// or a path, for example status.example.com."
 	}

@@ -425,6 +425,15 @@ func TestStatusPageFooterTimezoneDomainAndBadge(t *testing.T) {
 	if resp := s.post(t, s.admin, settings, form, nil); resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("save: got %d, want 303", resp.StatusCode)
 	}
+	_, settingsHTML := s.get(t, s.admin, settings)
+	for _, want := range []string{
+		`<select id="timezone" name="timezone"`, `<option value="Asia/Manila" selected>Asia/Manila</option>`,
+		`<option value="America/New_York">America/New_York</option>`, `<option value="Pacific/Auckland">Pacific/Auckland</option>`,
+	} {
+		if !strings.Contains(settingsHTML, want) {
+			t.Errorf("timezone dropdown is missing %q", want)
+		}
+	}
 	for field, bad := range map[string]string{"timezone": "Mars/Olympus", "domain": "https://status.acme.example/x"} {
 		invalid := url.Values{}
 		for key, values := range form {
