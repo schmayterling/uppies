@@ -37,7 +37,10 @@ func TestUptimeStrip(t *testing.T) {
 		{DayStartMs: today - dayMs, CoveredMs: dayMs, DownMs: 3_599_999},
 		{DayStartMs: today, CoveredMs: dayMs, DownMs: 0},
 	}
-	cells, _ := uptimeStrip(rollups, today)
+	if cells, _ := uptimeStrip(rollups, today, 30); len(cells) != 30 {
+		t.Fatalf("got %d cells for 30 days of history, want 30", len(cells))
+	}
+	cells, _ := uptimeStrip(rollups, today, 90)
 	if len(cells) != 90 {
 		t.Fatalf("got %d cells, want 90", len(cells))
 	}

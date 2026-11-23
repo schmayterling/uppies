@@ -209,7 +209,7 @@ type monitorFormPage struct {
 func defaultMonitor(projectID int64) store.Monitor {
 	return store.Monitor{
 		ProjectID: projectID, Kind: check.KindHTTP, IntervalS: 60, TimeoutMs: 10_000,
-		Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
+		Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2, Public: true,
 	}
 }
 
@@ -232,6 +232,7 @@ func parseMonitorForm(form url.Values, m store.Monitor) (store.Monitor, map[stri
 	m.Target = strings.TrimSpace(form.Get("target"))
 	m.Keyword = form.Get("keyword")
 	m.Paused = form.Get("paused") == "on"
+	m.Public = form.Get("public") == "on"
 
 	if m.Name == "" || len(m.Name) > 120 {
 		problems["name"] = "give the monitor a name of 1 to 120 characters."

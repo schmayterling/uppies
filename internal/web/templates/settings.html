@@ -3,6 +3,58 @@
 <h1>settings</h1>
 <p class="notice" role="status">{{.Notice}}</p>
 
+<section aria-labelledby="page-heading">
+  <h2 id="page-heading">status page</h2>
+  <form class="form narrow" method="post" action="/admin/projects/{{.Project.ID}}/settings">
+    <div class="field">
+      <label for="name">name</label>
+      <input id="name" name="name" value="{{.Project.Name}}" required maxlength="120"{{if index .Problems "name"}} aria-invalid="true" aria-describedby="name-problem"{{end}}>
+      {{with index .Problems "name"}}<p class="problem" id="name-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="tagline">tagline</label>
+      <input id="tagline" name="tagline" value="{{.Project.Tagline}}" maxlength="200" aria-describedby="tagline-hint{{if index .Problems "tagline"}} tagline-problem{{end}}"{{if index .Problems "tagline"}} aria-invalid="true"{{end}}>
+      <p class="hint" id="tagline-hint">optional. one line under the name.</p>
+      {{with index .Problems "tagline"}}<p class="problem" id="tagline-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="homepage_url">homepage</label>
+      <input id="homepage_url" name="homepage_url" type="url" value="{{.Project.HomepageURL}}" maxlength="2048" autocapitalize="none" spellcheck="false" aria-describedby="homepage_url-hint{{if index .Problems "homepage_url"}} homepage_url-problem{{end}}"{{if index .Problems "homepage_url"}} aria-invalid="true"{{end}}>
+      <p class="hint" id="homepage_url-hint">optional. the status page links back to this address.</p>
+      {{with index .Problems "homepage_url"}}<p class="problem" id="homepage_url-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="theme">theme</label>
+      <select id="theme" name="theme" aria-describedby="theme-hint">
+        {{range .Themes}}<option value="{{.}}"{{if eq . $.Project.Theme}} selected{{end}}>{{.}}</option>{{end}}
+      </select>
+      <p class="hint" id="theme-hint">auto follows the visitor's device.</p>
+      {{with index .Problems "theme"}}<p class="problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="accent_hue">accent hue</label>
+      <input id="accent_hue" name="accent_hue" type="number" inputmode="numeric" min="0" max="360" value="{{.Project.AccentHue}}" required aria-describedby="accent_hue-hint{{if index .Problems "accent_hue"}} accent_hue-problem{{end}}"{{if index .Problems "accent_hue"}} aria-invalid="true"{{end}}>
+      <p class="hint" id="accent_hue-hint">a number from 0 to 360. 25 is red, 85 is yellow, 150 is green, 200 is teal, 260 is blue, 320 is pink.</p>
+      {{with index .Problems "accent_hue"}}<p class="problem" id="accent_hue-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="history_days">days of history</label>
+      <select id="history_days" name="history_days">
+        {{range .HistoryViews}}<option value="{{.}}"{{if eq . $.Project.HistoryDays}} selected{{end}}>{{.}} days</option>{{end}}
+      </select>
+      {{with index .Problems "history_days"}}<p class="problem">{{.}}</p>{{end}}
+    </div>
+    <label class="check"><input type="checkbox" name="show_face"{{if .Project.ShowFace}} checked{{end}}> show the face next to the status sentence.</label>
+    <div class="field">
+      <label for="custom_css">custom css</label>
+      <textarea id="custom_css" name="custom_css" rows="6" maxlength="20000" spellcheck="false" aria-describedby="custom_css-hint{{if index .Problems "custom_css"}} custom_css-problem{{end}}"{{if index .Problems "custom_css"}} aria-invalid="true"{{end}}>{{.Project.CustomCSS}}</textarea>
+      <p class="hint" id="custom_css-hint">optional. loaded last on this project's status page, so it can change any colour, size or spacing.</p>
+      {{with index .Problems "custom_css"}}<p class="problem" id="custom_css-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="actions"><button class="button" type="submit">save status page</button></div>
+  </form>
+</section>
+
 <section aria-labelledby="alerts-heading">
   <h2 id="alerts-heading">alerts</h2>
   <p class="muted">each channel gets a message when a monitor of this project goes down and when it recovers.</p>

@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"time"
@@ -11,8 +12,6 @@ import (
 )
 
 const (
-	// historyDays is the length of the uptime strip, the convention on status pages.
-	historyDays = 90
 	// A day with this much downtime or more is drawn as an outage, less as a disruption.
 	outageDayMs = int64(time.Hour / time.Millisecond)
 	dayMs       = int64(24 * time.Hour / time.Millisecond)
@@ -55,7 +54,6 @@ type statusPage struct {
 	Components  []componentView
 	Active      []incidentView
 	Past        []incidentView
-	HistoryDays int
 }
 
 type indexPage struct {
@@ -81,6 +79,31 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusOK, "index.html", indexPage{Chrome: chrome{Title: "status"}, Projects: projects})
 }
 
+// handleTheme serves a project's look as a stylesheet. A separate file keeps
+// the strict content security policy, which allows no inline styles.
+func (s *Server) handleTheme(w http.ResponseWriter, r *http.Request) {
+	project, err := s.store.ProjectBySlug(r.Context(), r.PathValue("slug"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	if _, err := io.WriteString(w, themeCSS(project)); err != nil {
+		s.log.Error("write theme", "path", r.URL.Path, "error", err)
+	}
+}
+
+// themeCSS turns a project's settings into CSS. The lightness and chroma of
+// the accent are fixed so that any hue keeps its contrast in both themes.
+func themeCSS(p store.Project) string {
+	scheme := "light dark"
+	if p.Theme == "light" || p.Theme == "dark" {
+		scheme = p.Theme
+	}
+	return fmt.Sprintf(":root {\n  color-scheme: %s;\n  --accent: light-dark(oklch(0.45 0.075 %d), oklch(0.8 0.075 %d));\n}\n%s\n",
+		scheme, p.AccentHue, p.AccentHue, p.CustomCSS)
+}
+
 func (s *Server) handleStatusPage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	project, err := s.store.ProjectBySlug(ctx, r.PathValue("slug"))
@@ -94,7 +117,7 @@ func (s *Server) handleStatusPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	todayStartMs := store.DayStartMs(s.now().UnixMilli())
-	sinceMs := todayStartMs - (historyDays-1)*dayMs
+	sinceMs := todayStartMs - int64(project.HistoryDays-1)*dayMs
 	rollups, err := s.store.DailyRollups(ctx, project.ID, sinceMs)
 	if err != nil {
 		s.fail(w, r, err)
@@ -106,18 +129,25 @@ func (s *Server) handleStatusPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page := statusPage{Chrome: chrome{Title: project.Name + " status"}, Project: project, HistoryDays: historyDays}
+	page := statusPage{Chrome: chrome{Title: project.Name + " status"}, Project: project}
 	names := make(map[int64]string, len(monitors))
+	var shown []store.Monitor
 	for _, m := range monitors {
+		if !m.Public {
+			continue
+		}
+		shown = append(shown, m)
 		names[m.ID] = m.Name
 		state, word := componentState(m)
-		days, uptime := uptimeStrip(rollups[m.ID], todayStartMs)
+		days, uptime := uptimeStrip(rollups[m.ID], todayStartMs, project.HistoryDays)
 		page.Components = append(page.Components, componentView{Name: m.Name, State: state, Word: word, Days: days, Uptime: uptime})
 	}
 	for _, in := range incidents {
 		view := incidentView{Incident: in}
 		for _, id := range in.MonitorIDs {
-			view.Affected = append(view.Affected, names[id])
+			if name, public := names[id]; public {
+				view.Affected = append(view.Affected, name)
+			}
 		}
 		if in.ResolvedAtMs.Valid {
 			page.Past = append(page.Past, view)
@@ -125,7 +155,7 @@ func (s *Server) handleStatusPage(w http.ResponseWriter, r *http.Request) {
 			page.Active = append(page.Active, view)
 		}
 	}
-	page.BannerState, page.BannerText = banner(monitors, len(page.Active))
+	page.BannerState, page.BannerText = banner(shown, len(page.Active))
 	s.render(w, r, http.StatusOK, "status.html", page)
 }
 
@@ -169,8 +199,8 @@ func banner(monitors []store.Monitor, activeIncidents int) (state, text string) 
 }
 
 // uptimeStrip turns a monitor's daily rollups (oldest first) into one cell per
-// day ending today, and the uptime over those days.
-func uptimeStrip(rollups []store.DayRollup, todayStartMs int64) ([]dayCell, string) {
+// day for the last historyDays days, and the uptime over those days.
+func uptimeStrip(rollups []store.DayRollup, todayStartMs int64, historyDays int) ([]dayCell, string) {
 	byDay := make(map[int64]store.DayRollup, len(rollups))
 	var coveredMs, downMs int64
 	for _, d := range rollups {

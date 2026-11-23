@@ -171,7 +171,7 @@ func TestStatusPageShowsOnlyWhatIsPublic(t *testing.T) {
 		t.Fatal(err)
 	}
 	monitorID, err := s.store.CreateMonitor(ctx, store.Monitor{
-		ProjectID: projectID, Name: "payments api", Kind: "http", Target: "http://10.0.0.7:9000/internal-health",
+		ProjectID: projectID, Name: "payments api", Kind: "http", Target: "http://10.0.0.7:9000/internal-health", Public: true,
 		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
 	}, 1)
 	if err != nil {
@@ -271,5 +271,80 @@ func TestAlertChannelsAreManagedFromSettings(t *testing.T) {
 	}
 	if resp.StatusCode != http.StatusSeeOther || len(channels) != 0 {
 		t.Fatalf("remove: got %d with %d channel(s) left, want 303 with 0", resp.StatusCode, len(channels))
+	}
+}
+
+func TestStatusPageFollowsTheProjectSettings(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitor := store.Monitor{
+		ProjectID: projectID, Kind: "http", Target: "https://example.com",
+		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
+	}
+	monitor.Name, monitor.Public = "website", true
+	websiteID, err := s.store.CreateMonitor(ctx, monitor, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitor.Name, monitor.Public = "internal queue", false
+	hiddenID, err := s.store.CreateMonitor(ctx, monitor, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nowMs := time.Now().UnixMilli()
+	outage := health.Step{Tracker: health.Tracker{Status: health.Down, FailingSinceMs: nowMs}, Change: health.WentDown}
+	if err := s.store.RecordCheck(ctx, store.CheckResult{MonitorID: hiddenID, AtMs: nowMs, Step: outage}); err != nil {
+		t.Fatal(err)
+	}
+	healthy := health.Step{Tracker: health.Tracker{Status: health.Up}}
+	if err := s.store.RecordCheck(ctx, store.CheckResult{MonitorID: websiteID, AtMs: nowMs, OK: true, Step: healthy}); err != nil {
+		t.Fatal(err)
+	}
+
+	settings := fmt.Sprintf("/admin/projects/%d/settings", projectID)
+	valid := url.Values{
+		"name": {"Acme Cloud"}, "tagline": {"how our services are doing"}, "homepage_url": {"https://acme.example"},
+		"theme": {"dark"}, "accent_hue": {"320"}, "history_days": {"30"}, "custom_css": {".banner { border-width: 3px; }"},
+	}
+	invalid := url.Values{
+		"name": {"Acme Cloud"}, "homepage_url": {"javascript:alert(1)"},
+		"theme": {"dark"}, "accent_hue": {"361"}, "history_days": {"45"},
+	}
+	if resp := s.post(t, s.admin, settings, invalid, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid settings: got %d, want 422", resp.StatusCode)
+	}
+	if resp := s.post(t, s.anonymous, settings, valid, nil); resp.Header.Get("Location") != "/admin/login" {
+		t.Fatalf("anonymous save: got %d to %q, want a redirect to /admin/login", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	if p, err := s.store.ProjectByID(ctx, projectID); err != nil || p.Name != "Acme" || p.Theme != "auto" {
+		t.Fatalf("refused saves changed the project: %+v err=%v", p, err)
+	}
+	if resp := s.post(t, s.admin, settings, valid, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("valid settings: got %d, want 303", resp.StatusCode)
+	}
+
+	_, page := s.get(t, s.anonymous, "/s/acme")
+	for _, want := range []string{"Acme Cloud", "how our services are doing", `href="https://acme.example"`, "website", "everything is up.", "30 days ago"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("status page is missing %q", want)
+		}
+	}
+	for _, unwanted := range []string{"internal queue", `class="face`, "90 days"} {
+		if strings.Contains(page, unwanted) {
+			t.Errorf("status page still shows %q", unwanted)
+		}
+	}
+	if got := strings.Count(page, `class="day day-`); got != 30 {
+		t.Errorf("got %d day cells, want 30", got)
+	}
+
+	status, theme := s.get(t, s.anonymous, "/s/acme/theme.css")
+	wantTheme := ":root {\n  color-scheme: dark;\n  --accent: light-dark(oklch(0.45 0.075 320), oklch(0.8 0.075 320));\n}\n.banner { border-width: 3px; }\n"
+	if status != http.StatusOK || theme != wantTheme {
+		t.Errorf("theme.css: got %d %q, want 200 %q", status, theme, wantTheme)
 	}
 }

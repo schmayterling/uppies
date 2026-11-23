@@ -54,6 +54,7 @@
       {{with index .Problems "recovery_checks"}}<p class="problem" id="recovery_checks-problem">{{.}}</p>{{end}}
     </div>
   </fieldset>
+  <label class="check"><input type="checkbox" name="public"{{if .Monitor.Public}} checked{{end}}> show on the status page. a hidden monitor is still checked and still alerts.</label>
   <label class="check"><input type="checkbox" name="paused"{{if .Monitor.Paused}} checked{{end}}> paused. a paused monitor is not checked.</label>
   <div class="actions">
     <button class="button" type="submit">{{if .Editing}}save monitor{{else}}add monitor{{end}}</button>

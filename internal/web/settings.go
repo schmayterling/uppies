@@ -21,6 +21,8 @@ type settingsPage struct {
 	Project      store.Project
 	Channels     []store.AlertChannel
 	ChannelKinds []string
+	Themes       []string
+	HistoryViews []int
 	// NewChannel holds the add-channel form's values after a failed submit.
 	NewChannel store.AlertChannel
 	Problems   map[string]string
@@ -29,7 +31,12 @@ type settingsPage struct {
 }
 
 func (s *Server) settingsPage(r *http.Request) (settingsPage, error) {
-	page := settingsPage{ChannelKinds: store.AlertChannelKinds, NewChannel: store.AlertChannel{Kind: "webhook"}}
+	page := settingsPage{
+		ChannelKinds: store.AlertChannelKinds,
+		Themes:       themes,
+		HistoryViews: historyViews,
+		NewChannel:   store.AlertChannel{Kind: "webhook"},
+	}
 	id, err := pathID(r)
 	if err != nil {
 		return page, err
@@ -50,6 +57,69 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, http.StatusOK, "settings.html", page)
+}
+
+var (
+	themes       = []string{"auto", "light", "dark"}
+	historyViews = []int{30, 60, 90}
+)
+
+func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
+	page, err := s.settingsPage(r)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	form := r.PostForm
+	problems := make(map[string]string)
+	p := page.Project
+	p.Name = strings.TrimSpace(form.Get("name"))
+	p.Tagline = strings.TrimSpace(form.Get("tagline"))
+	p.HomepageURL = strings.TrimSpace(form.Get("homepage_url"))
+	p.Theme = form.Get("theme")
+	p.ShowFace = form.Get("show_face") == "on"
+	p.CustomCSS = form.Get("custom_css")
+	p.AccentHue = formInt(form, "accent_hue", 0, 360, problems)
+	// A value that is not a number fails the membership check below.
+	p.HistoryDays, _ = strconv.Atoi(form.Get("history_days"))
+
+	if p.Name == "" || len(p.Name) > 120 {
+		problems["name"] = "give the project a name of 1 to 120 characters."
+	}
+	if len(p.Tagline) > 200 {
+		problems["tagline"] = "keep the tagline to 200 characters."
+	}
+	if p.HomepageURL != "" {
+		if len(p.HomepageURL) > 2048 {
+			problems["homepage_url"] = "the url is too long."
+		} else if err := alert.ValidateURL(p.HomepageURL); err != nil {
+			problems["homepage_url"] = err.Error() + "."
+		}
+	}
+	if !slices.Contains(themes, p.Theme) {
+		problems["theme"] = "choose a theme."
+	}
+	if !slices.Contains(historyViews, p.HistoryDays) {
+		problems["history_days"] = "choose 30, 60 or 90 days."
+	}
+	if len(p.CustomCSS) > 20000 {
+		problems["custom_css"] = "keep the custom css to 20000 characters."
+	}
+	page.Project = p
+	if len(problems) > 0 {
+		page.Problems = problems
+		s.render(w, r, http.StatusUnprocessableEntity, "settings.html", page)
+		return
+	}
+	if err := s.store.UpdateProject(r.Context(), p); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d/settings", p.ID), http.StatusSeeOther)
 }
 
 func (s *Server) handleCreateChannel(w http.ResponseWriter, r *http.Request) {

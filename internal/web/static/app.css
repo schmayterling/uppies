@@ -95,6 +95,7 @@ input:not([type="checkbox"]), select, textarea {
   font-size: var(--text-ui);
 }
 textarea { resize: vertical; }
+#custom_css { font-family: var(--font-mono); }
 input[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--status-danger); }
 fieldset { margin: 0; padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-card); display: grid; gap: var(--space-4); }
 legend { padding-inline: var(--space-1); }
@@ -144,6 +145,8 @@ td time { white-space: nowrap; }
 
 /* status page */
 .page-head { margin-block-end: var(--space-5); }
+.page-head h1 { color: var(--accent); }
+.page-head a { color: var(--accent); }
 .banner {
   display: flex;
   align-items: center;
@@ -184,7 +187,7 @@ td time { white-space: nowrap; }
 
 /* phones show 30 days so each day stays wide enough to see */
 @media (max-width: 520px) {
-  .day:nth-child(-n+60) { display: none; }
+  .day:nth-last-child(n+31) { display: none; }
   .wide-only { display: none; }
   .narrow-only { display: inline; }
   .banner-text { font-size: var(--text-heading); }

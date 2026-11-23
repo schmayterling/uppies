@@ -1,11 +1,14 @@
-{{define "head"}}<meta http-equiv="refresh" content="60">{{end}}
+{{define "head"}}<meta http-equiv="refresh" content="60">
+<link rel="stylesheet" href="/s/{{.Project.Slug}}/theme.css">{{end}}
 {{define "main"}}
 <header class="page-head">
   <h1>{{.Project.Name}}</h1>
+  {{with .Project.Tagline}}<p class="muted">{{.}}</p>{{end}}
+  {{with .Project.HomepageURL}}<p><a href="{{.}}" rel="noopener">back to {{$.Project.Name}}</a></p>{{end}}
 </header>
 
 <section class="banner banner-{{.BannerState}}" aria-label="current status">
-  {{template "face" .BannerState}}
+  {{if .Project.ShowFace}}{{template "face" .BannerState}}{{end}}
   <p class="banner-text">{{.BannerText}}</p>
 </section>
 
@@ -29,18 +32,18 @@
         <span class="component-name">{{.Name}}</span>
         <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
       </div>
-      <div class="strip" role="img" aria-label="uptime over the last {{$.HistoryDays}} days: {{.Uptime}}">
+      <div class="strip" role="img" aria-label="uptime over the last {{$.Project.HistoryDays}} days: {{.Uptime}}">
         {{range .Days}}<span class="day day-{{.State}}" title="{{.Label}}"></span>{{end}}
       </div>
       <div class="strip-legend meta">
-        <span class="wide-only">{{$.HistoryDays}} days ago</span><span class="narrow-only">30 days ago</span>
+        <span class="wide-only">{{$.Project.HistoryDays}} days ago</span><span class="narrow-only">30 days ago</span>
         <span>{{.Uptime}}</span>
         <span>today</span>
       </div>
     </li>
     {{end}}
   </ul>
-  <p class="meta">uptime is the share of checked time without a confirmed outage, over the last {{.HistoryDays}} days. a shorter bar is a day with downtime.</p>
+  <p class="meta">uptime is the share of checked time without a confirmed outage, over the last {{.Project.HistoryDays}} days. a shorter bar is a day with downtime.</p>
   {{else}}
   <p class="muted">nothing is monitored here yet.</p>
   {{end}}
@@ -59,7 +62,7 @@
   </article>
   {{end}}
   {{else}}
-  <p class="muted">no incidents in the last {{.HistoryDays}} days.</p>
+  <p class="muted">no incidents in the last {{.Project.HistoryDays}} days.</p>
   {{end}}
 </section>
 
