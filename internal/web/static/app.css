@@ -577,6 +577,7 @@ code { font-family: var(--font-mono); font-size: var(--text-sm); }
 .spark-day:hover { background: color-mix(in oklab, var(--accent) 18%, transparent); }
 /* the detail view of a monitor */
 .stats-wide { grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }
+@media (max-width: 520px) { .stats-wide { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .stats-wide .stat { margin-inline-start: -1px; border-block-end: 1px solid var(--border); margin-block-end: -1px; }
 .chart-box { position: relative; margin-block-start: var(--space-3); border-block-end: 1px solid var(--border); }
 .chart { display: block; inline-size: 100%; block-size: calc(var(--space-8) * 2); overflow: visible; }

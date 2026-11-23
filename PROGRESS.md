@@ -90,6 +90,12 @@ Each line names how it was verified.
   - On admin pages a script replaces the date and time fields with a button and a month panel (arrow keys move by day and week, the time is two fields), and the file fields with a button and the file's name. The fields themselves stay in the form and carry the value.
   - Checked with a script that drives real clicks and key presses, in Chromium and in WebKit (Playwright 1.65.1, WebKit build 2388), at 1280 wide in the dark theme and 390 wide in the light theme: sign-in, the select by keyboard and its role tree (a combobox named by its label, a listbox, the chosen option marked selected), the date picker, the file field, the three list layouts, the status page, the history page with its date rule in one column, the timezone menu closing on a tap outside, the latency tooltip. No horizontal overflow anywhere. The first run found two bugs, both fixed: a script error on opening the date picker, and the hidden file field keeping its width.
   - The script and its screenshots are outside the repo, in `captures/check/`.
+- Design round 9 (2026-11-23).
+  - Each monitor has a detail view: figures for the last 24 hours (checks, failed, p50, p90, p95, p99, slowest) with the uptime over the lookback, a response time chart with one point and one tooltip per half hour, and the uptime bars. Admins get it as the overview tab of the monitor page, with the latest 20 checks and their errors. Visitors get it at `/s/<slug>/monitors/<id>`, linked from the component's name, without targets or errors. A hidden monitor answers 404 there.
+  - `/s/<slug>/monitors/<id>/p90.svg`, `p95.svg` and `p99.svg` are 88 by 31 badges. They are drawn from rectangles only, glyphs included (a 5 by 7 pixel font in `internal/web/badge88.go`), so the same numbers give the same bytes everywhere.
+  - Percentiles use the nearest-rank method over the successful raw checks of the last 24 hours. Raw checks are kept for 48 hours, so a longer window would need percentiles in the daily rollups.
+  - The demo seeds a check every five minutes for the last day.
+  - Checked in Chromium and WebKit at 1280 and 390 wide: the link from the status page, 48 chart slots, the three badges at 88 by 31, two requests returning the same badge, the admin tabs. No overflow.
 - Checks run on 2026-11-23 on the admin overview:
   - Contrast, computed from the rendered colours. Dark theme: every text pairing measured is 7.4:1 or higher. Light theme: the lowest is 5.68:1 (muted headings on the sidebar). The requirement for body text is 4.5:1.
   - Script switched off: an admin page shows each dialog's form in place and hides the buttons that would open it. This needed a fix, because the dialog animation left dialogs invisible without script.
@@ -174,7 +180,7 @@ Each line names how it was verified.
 ## Next
 
 `ROADMAP.md` holds the planned order. The basics are done. The user wants a
-design pass on the status page and admin pages before any new feature. Eight rounds are done (see above). Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
+design pass on the status page and admin pages before any new feature. Nine rounds are done (see above). Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
 
 ## Open risks
 
