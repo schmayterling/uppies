@@ -79,15 +79,23 @@ func hashToken(token string) string {
 
 // signedIn reports whether the request carries a live session.
 func (s *Server) signedIn(r *http.Request) (bool, error) {
+	_, _, ok, err := s.sessionUser(r)
+	return ok, err
+}
+
+// sessionUser returns the account behind the request's session and the hash
+// of its session token. ok is false when there is no live session.
+func (s *Server) sessionUser(r *http.Request) (userID int64, tokenHash string, ok bool, err error) {
 	cookie, err := r.Cookie(sessionCookie)
 	if err != nil {
-		return false, nil
+		return 0, "", false, nil
 	}
-	_, err = s.store.SessionUser(r.Context(), hashToken(cookie.Value), s.now().UnixMilli())
+	tokenHash = hashToken(cookie.Value)
+	userID, err = s.store.SessionUser(r.Context(), tokenHash, s.now().UnixMilli())
 	if errors.Is(err, store.ErrNotFound) {
-		return false, nil
+		return 0, "", false, nil
 	}
-	return err == nil, err
+	return userID, tokenHash, err == nil, err
 }
 
 // requireAdmin lets signed-in requests through and sends the rest to sign in.

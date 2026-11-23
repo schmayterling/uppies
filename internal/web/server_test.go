@@ -813,3 +813,66 @@ func TestStatusPageGroupsMonitorsByCategory(t *testing.T) {
 		t.Errorf("the web heading appears %d times, want once", got)
 	}
 }
+
+func TestInstancePagesAndUsers(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	if _, err := s.store.CreateProject(ctx, "acme", "Acme", 1); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/admin/appearance", "/admin/instance", "/admin/users"} {
+		if status, _ := s.get(t, s.anonymous, path); status != http.StatusSeeOther {
+			t.Errorf("%s without a session: got %d, want 303", path, status)
+		}
+		if status, _ := s.get(t, s.admin, path); status != http.StatusOK {
+			t.Errorf("%s signed in: got %d, want 200", path, status)
+		}
+	}
+
+	// Appearance reaches the admin stylesheet. Instance settings reach the front page.
+	s.post(t, s.admin, "/admin/appearance", url.Values{"theme": {"dark"}, "accent_hue": {"25"}}, nil)
+	if _, css := s.get(t, s.anonymous, "/theme.css"); !strings.Contains(css, "color-scheme: dark") || !strings.Contains(css, "0.075 25)") {
+		t.Errorf("theme.css after saving appearance: %q", css)
+	}
+	if _, page := s.get(t, s.anonymous, "/"); !strings.Contains(page, "Acme") {
+		t.Error("the front page lists status pages by default")
+	}
+	s.post(t, s.admin, "/admin/instance", url.Values{"name": {"acme ops"}}, nil)
+	_, page := s.get(t, s.anonymous, "/")
+	if strings.Contains(page, "Acme") || !strings.Contains(page, "acme ops") {
+		t.Error("with the public list off, the front page shows the instance name and no status page")
+	}
+
+	// Users: add one, refuse a short password, refuse removing yourself, change the password.
+	if resp := s.post(t, s.admin, "/admin/users", url.Values{"username": {"sam"}, "password": {"short"}}, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("a short password: got %d, want 422", resp.StatusCode)
+	}
+	if resp := s.post(t, s.admin, "/admin/users", url.Values{"username": {"sam"}, "password": {"a-long-password"}}, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("add user: got %d, want 303", resp.StatusCode)
+	}
+	users, err := s.store.Users(ctx)
+	if err != nil || len(users) != 2 {
+		t.Fatalf("users: got %d err=%v, want 2", len(users), err)
+	}
+	if resp := s.post(t, s.admin, fmt.Sprintf("/admin/users/%d/delete", users[0].ID), nil, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("removing your own account: got %d, want 422", resp.StatusCode)
+	}
+	wrong := url.Values{"current": {"not-my-password"}, "new": {"another-long-password"}}
+	if resp := s.post(t, s.admin, "/admin/users/password", wrong, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("a wrong current password: got %d, want 422", resp.StatusCode)
+	}
+	right := url.Values{"current": {"correct-horse-battery"}, "new": {"another-long-password"}}
+	if resp := s.post(t, s.admin, "/admin/users/password", right, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("change password: got %d, want 303", resp.StatusCode)
+	}
+	if status, _ := s.get(t, s.admin, "/admin"); status != http.StatusOK {
+		t.Errorf("the session that changed the password must stay signed in: got %d", status)
+	}
+	login := url.Values{"username": {"may"}, "password": {"another-long-password"}}
+	if resp := s.post(t, s.anonymous, "/admin/login", login, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("signing in with the new password: got %d, want 303", resp.StatusCode)
+	}
+	if resp := s.post(t, s.admin, fmt.Sprintf("/admin/users/%d/delete", users[1].ID), nil, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("removing another account: got %d, want 303", resp.StatusCode)
+	}
+}

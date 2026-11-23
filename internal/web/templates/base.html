@@ -6,6 +6,7 @@
 <title>{{.Chrome.Title}}{{if not .Chrome.Unbranded}} · uppies{{end}}</title>
 <link rel="stylesheet" href="/static/tokens.css">
 <link rel="stylesheet" href="/static/app.css">
+{{if or .Chrome.Admin .Chrome.Auth}}<link rel="stylesheet" href="/theme.css">{{end}}
 {{if .Chrome.Admin}}<script src="/static/admin.js"></script>
 <noscript><link rel="stylesheet" href="/static/noscript.css"></noscript>{{end}}
 {{block "head" .}}{{end}}
@@ -16,34 +17,37 @@
 <div class="shell">
   <aside class="sidebar">
     <div class="sidebar-head">
-      <a class="wordmark" href="/admin">uppies</a>
-      <button class="icon-button" type="button" data-toggle-sidebar aria-label="hide the sidebar">{{template "icon" "panel-left"}}</button>
+      <a class="wordmark" href="/admin" title="{{or .Chrome.Brand "uppies"}}"><span class="nav-label">{{or .Chrome.Brand "uppies"}}</span></a>
+      <button class="icon-button" type="button" data-toggle-sidebar aria-label="collapse or expand the sidebar">{{template "icon" "panel-left"}}</button>
     </div>
     <nav aria-label="main">
       <ul class="nav-list">
-        <li><a class="nav-item" href="/admin"{{if .Chrome.Nav.OnOverview}} aria-current="page"{{end}}>{{template "icon" "layout-dashboard"}}overview</a></li>
+        <li><a class="nav-item" href="/admin" title="overview"{{if eq .Chrome.Nav.Section "overview"}} aria-current="page"{{end}}>{{template "icon" "layout-dashboard"}}<span class="nav-label">overview</span></a></li>
+        <li><a class="nav-item" href="/admin/appearance" title="appearance"{{if eq .Chrome.Nav.Section "appearance"}} aria-current="page"{{end}}>{{template "icon" "palette"}}<span class="nav-label">appearance</span></a></li>
+        <li><a class="nav-item" href="/admin/instance" title="instance"{{if eq .Chrome.Nav.Section "instance"}} aria-current="page"{{end}}>{{template "icon" "server"}}<span class="nav-label">instance</span></a></li>
+        <li><a class="nav-item" href="/admin/users" title="users"{{if eq .Chrome.Nav.Section "users"}} aria-current="page"{{end}}>{{template "icon" "users"}}<span class="nav-label">users</span></a></li>
       </ul>
-      <h2 class="nav-heading" id="nav-projects">projects</h2>
+      <hr class="nav-divider">
+      <h2 class="nav-heading nav-label" id="nav-projects">status pages</h2>
       <ul class="nav-list" aria-labelledby="nav-projects">
         {{range .Chrome.Nav.Projects}}
-        <li><a class="nav-item" href="/admin/projects/{{.ID}}"{{if .Current}} aria-current="true"{{end}}>
-          <span class="state-{{.State}}">{{template "mark" .State}}</span>
-          <span class="nav-name">{{.Name}}</span>
-          {{if .Down}}<span class="nav-count state-down">{{.Down}} down</span>{{end}}
+        <li><a class="nav-item" href="/admin/projects/{{.ID}}" title="{{.Name}}"{{if .Current}} aria-current="true"{{end}}>
+          {{if .LogoVersion}}<img class="nav-logo" src="/s/{{.Slug}}/images/logo?v={{.LogoVersion}}" alt="">{{else}}{{template "icon" "globe"}}{{end}}
+          <span class="nav-name nav-label">{{.Name}}</span>
+          {{if .Down}}<span class="nav-count nav-label state-down">{{.Down}} down</span>{{else}}<span class="nav-label state-{{.State}}">{{template "mark" .State}}</span>{{end}}
         </a></li>
         {{else}}
-        <li class="nav-empty">none yet</li>
+        <li class="nav-empty nav-label">none yet</li>
         {{end}}
-        <li><a class="nav-item nav-add" href="/admin#new-project">{{template "icon" "plus"}}new project</a></li>
+        <li><a class="nav-item nav-add" href="/admin#new-project" title="new status page">{{template "icon" "plus"}}<span class="nav-label">new status page</span></a></li>
       </ul>
     </nav>
     <div class="sidebar-foot">
-      <a class="nav-item" href="/">{{template "icon" "external-link"}}status pages</a>
-      <form method="post" action="/admin/logout"><button class="nav-item" type="submit">{{template "icon" "log-out"}}sign out</button></form>
+      <a class="nav-item" href="/" title="public list">{{template "icon" "external-link"}}<span class="nav-label">public list</span></a>
+      <form method="post" action="/admin/logout"><button class="nav-item" type="submit" title="sign out">{{template "icon" "log-out"}}<span class="nav-label">sign out</span></button></form>
     </div>
   </aside>
   <main class="content" id="content">
-    <button class="icon-button sidebar-show" type="button" data-toggle-sidebar aria-label="show the sidebar">{{template "icon" "panel-left"}}</button>
 {{block "main" .}}{{end}}
   </main>
 </div>
@@ -51,7 +55,7 @@
 {{else if .Chrome.Auth}}
 <body class="auth">
 <main class="auth-card">
-  <p class="auth-brand">{{template "face" "ok"}}<span class="wordmark">uppies</span></p>
+  <p class="auth-brand">{{template "face" "ok"}}<span class="wordmark">{{or .Chrome.Brand "uppies"}}</span></p>
 {{template "main" .}}
 </main>
 <p class="auth-foot meta">{{if .Chrome.SignInLink}}<a href="/admin">sign in</a>{{else}}<a href="/">view the status pages</a>{{end}}</p>

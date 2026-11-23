@@ -1,8 +1,8 @@
 // Behaviour for the admin pages only. Status pages load no script.
 
 // The sidebar state is applied before the page paints, so it does not flash.
-if (localStorage.getItem("uppies-sidebar") === "hidden") {
-  document.documentElement.dataset.sidebar = "hidden";
+if (localStorage.getItem("uppies-sidebar") === "rail") {
+  document.documentElement.dataset.sidebar = "rail";
 }
 
 document.addEventListener("click", (event) => {
@@ -16,9 +16,9 @@ document.addEventListener("click", (event) => {
     return;
   }
   if (event.target.closest("[data-toggle-sidebar]")) {
-    const hidden = document.documentElement.dataset.sidebar !== "hidden";
-    document.documentElement.dataset.sidebar = hidden ? "hidden" : "shown";
-    localStorage.setItem("uppies-sidebar", hidden ? "hidden" : "shown");
+    const rail = document.documentElement.dataset.sidebar !== "rail";
+    document.documentElement.dataset.sidebar = rail ? "rail" : "full";
+    localStorage.setItem("uppies-sidebar", rail ? "rail" : "full");
     return;
   }
   // A click on the backdrop lands on the dialog element itself.

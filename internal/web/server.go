@@ -53,7 +53,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 	}
 	names := []string{
 		"index.html", "status.html", "error.html", "setup.html", "login.html", "dashboard.html",
-		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html",
+		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "appearance.html", "instance.html", "users.html",
 	}
 	for _, name := range names {
 		page, err := template.New("base.html").Funcs(templateFuncs).
@@ -80,6 +80,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	})
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
 	mux.HandleFunc("GET /{$}", s.handleIndex)
+	mux.HandleFunc("GET /theme.css", s.handleInstanceTheme)
 	mux.HandleFunc("GET /s/{slug}", s.handleStatusPage)
 	mux.HandleFunc("GET /s/{slug}/history", s.handleHistory)
 	mux.HandleFunc("GET /s/{slug}/theme.css", s.handleTheme)
@@ -98,6 +99,14 @@ func (s *Server) Handler() (http.Handler, error) {
 	}
 	admin("POST /admin/logout", s.handleLogout)
 	admin("GET /admin", s.handleDashboard)
+	admin("GET /admin/appearance", s.handleAppearance)
+	admin("POST /admin/appearance", s.handleSaveAppearance)
+	admin("GET /admin/instance", s.handleInstance)
+	admin("POST /admin/instance", s.handleSaveInstance)
+	admin("GET /admin/users", s.handleUsers)
+	admin("POST /admin/users", s.handleCreateUser)
+	admin("POST /admin/users/password", s.handleChangePassword)
+	admin("POST /admin/users/{id}/delete", s.handleDeleteUser)
 	admin("POST /admin/projects", s.handleCreateProject)
 	admin("GET /admin/projects/{id}", s.handleProject)
 	admin("POST /admin/projects/{id}/delete", s.handleDeleteProject)
@@ -212,12 +221,16 @@ type chrome struct {
 	Unbranded bool
 	// Nav is the sidebar of the admin pages.
 	Nav nav
+	// Brand is the instance name shown as the wordmark. Empty means "uppies".
+	Brand string
 }
 
 // nav is the admin sidebar: where you are, and every project with its state.
 type nav struct {
-	OnOverview bool
-	Projects   []navProject
+	// Section is the sidebar entry of the current page: "overview",
+	// "appearance", "instance" or "users". Empty on a status page's own pages.
+	Section  string
+	Projects []navProject
 }
 
 type navProject struct {
@@ -225,6 +238,8 @@ type navProject struct {
 	State   string // the worst state among the project's monitors
 	Down    int
 	Current bool
+	// LogoVersion is set when the project has a logo to show as its icon.
+	LogoVersion int64
 }
 
 var templateFuncs = template.FuncMap{

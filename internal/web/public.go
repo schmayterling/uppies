@@ -92,6 +92,8 @@ type maintenanceView struct {
 type indexPage struct {
 	Chrome   chrome
 	Projects []indexProject
+	// Listed is false when the instance keeps its status pages off the front page.
+	Listed bool
 }
 
 // indexProject is one status page in the public list, with its state in one word.
@@ -149,7 +151,15 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 			visible[m.ProjectID] = append(visible[m.ProjectID], m)
 		}
 	}
-	page := indexPage{Chrome: chrome{Title: "status", Auth: true, SignInLink: true}}
+	instance, err := s.store.Instance(r.Context())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	page := indexPage{Chrome: chrome{Title: "status", Auth: true, SignInLink: true, Brand: instance.Name}, Listed: instance.PublicList}
+	if !instance.PublicList {
+		projects = nil
+	}
 	for _, p := range projects {
 		state, _ := banner(visible[p.ID], 0)
 		page.Projects = append(page.Projects, indexProject{Project: p, State: state, Word: indexWords[state]})

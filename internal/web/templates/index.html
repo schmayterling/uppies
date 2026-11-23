@@ -4,7 +4,9 @@
 <ul class="rows index-list">
   {{range .Projects}}<li><a class="row-link" href="/s/{{.Slug}}"><span>{{.Name}}</span><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span></a></li>{{end}}
 </ul>
+{{else if .Listed}}
+<p class="muted">there are no status pages yet. sign in to add one.</p>
 {{else}}
-<p class="muted">there are no status pages yet. sign in to add a project.</p>
+<p class="muted">this instance does not list its status pages. open a status page by its own address.</p>
 {{end}}
 {{end}}

@@ -70,11 +70,16 @@ strong { font-weight: var(--weight-semibold); }
 .sidebar-head { display: flex; align-items: center; justify-content: space-between; }
 .sidebar .wordmark { display: flex; align-items: center; min-block-size: var(--row-height); padding-inline: var(--space-2); }
 
-/* the sidebar hides as a whole. a button at the top of the content brings it back. */
-.icon-button.sidebar-show { display: none; margin-block-end: var(--space-3); }
-[data-sidebar="hidden"] .shell { grid-template-columns: minmax(0, 1fr); }
-[data-sidebar="hidden"] .sidebar { display: none; }
-[data-sidebar="hidden"] .icon-button.sidebar-show { display: inline-flex; }
+/* collapsed, the sidebar is a rail of icons. labels hide and titles name each entry. */
+:root { --rail-width: 56px; }
+[data-sidebar="rail"] .shell { grid-template-columns: var(--rail-width) minmax(0, 1fr); }
+[data-sidebar="rail"] .nav-label { display: none; }
+[data-sidebar="rail"] .sidebar { padding-inline: var(--space-2); align-items: stretch; }
+[data-sidebar="rail"] .sidebar-head { justify-content: center; }
+[data-sidebar="rail"] .sidebar .wordmark { display: none; }
+[data-sidebar="rail"] .nav-item { justify-content: center; padding: 0; }
+.nav-divider { margin: var(--space-3) var(--space-2); border: 0; border-block-start: 1px solid var(--border); }
+.nav-logo { flex: none; inline-size: var(--icon-size); block-size: var(--icon-size); border-radius: var(--radius-inner); object-fit: contain; }
 
 /* icons take the size and colour of the text they sit in */
 .icon { flex: none; inline-size: var(--icon-size); block-size: var(--icon-size); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -238,8 +243,10 @@ table.dense tbody th a:hover { text-decoration: underline; }
 .strip.mini { inline-size: calc(var(--space-8) * 2 + var(--space-5)); block-size: var(--space-4); }
 
 @media (max-width: 860px) {
-  .sidebar-head .icon-button, [data-sidebar="hidden"] .icon-button.sidebar-show { display: none; }
-  [data-sidebar="hidden"] .sidebar { display: flex; }
+  .sidebar-head .icon-button { display: none; }
+  [data-sidebar="rail"] .nav-label { display: revert; }
+  [data-sidebar="rail"] .sidebar .wordmark { display: flex; }
+  [data-sidebar="rail"] .nav-item { justify-content: flex-start; padding: 0 var(--space-2); }
   .shell { grid-template-columns: minmax(0, 1fr); }
   .sidebar { position: static; block-size: auto; border-inline-end: 0; border-block-end: 1px solid var(--border); }
   .content { padding: var(--space-4); }

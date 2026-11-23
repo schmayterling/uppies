@@ -72,7 +72,19 @@ type dashboardPage struct {
 // A sidebar that cannot be loaded is logged and left empty, so the page
 // itself still renders.
 func (s *Server) adminChrome(r *http.Request, title string) chrome {
-	c := chrome{Title: title, Admin: true, Nav: nav{OnOverview: r.URL.Path == "/admin"}}
+	sections := map[string]string{
+		"/admin": "overview", "/admin/appearance": "appearance", "/admin/instance": "instance", "/admin/users": "users",
+	}
+	c := chrome{Title: title, Admin: true, Nav: nav{Section: sections[r.URL.Path]}}
+	if instance, err := s.store.Instance(r.Context()); err != nil {
+		s.log.Error("load instance settings", "path", r.URL.Path, "error", err)
+	} else {
+		c.Brand = instance.Name
+	}
+	logos, err := s.store.LogoVersions(r.Context())
+	if err != nil {
+		s.log.Error("load sidebar logos", "path", r.URL.Path, "error", err)
+	}
 	projects, err := s.store.Projects(r.Context())
 	if err != nil {
 		s.log.Error("load sidebar projects", "path", r.URL.Path, "error", err)
@@ -88,7 +100,7 @@ func (s *Server) adminChrome(r *http.Request, title string) chrome {
 		position[p.ID] = i
 		prefix := fmt.Sprintf("/admin/projects/%d", p.ID)
 		current := r.URL.Path == prefix || strings.HasPrefix(r.URL.Path, prefix+"/")
-		c.Nav.Projects = append(c.Nav.Projects, navProject{Project: p, State: stateNone, Current: current})
+		c.Nav.Projects = append(c.Nav.Projects, navProject{Project: p, State: stateNone, Current: current, LogoVersion: logos[p.ID]})
 	}
 	for _, m := range monitors {
 		entry := &c.Nav.Projects[position[m.ProjectID]]

@@ -1,0 +1,27 @@
+{{define "main"}}
+<div class="settings">
+<h1>appearance</h1>
+<p class="muted">how the admin pages and the sign-in page look. each status page has its own look in its settings.</p>
+{{if .Saved}}{{template "success" "saved."}}{{end}}
+<form method="post" action="/admin/appearance">
+  <h2 class="group-title">admin</h2>
+  <div class="group">
+    <div class="srow">
+      <div class="srow-copy" id="theme-label"><span>theme</span><small>auto follows your device.</small></div>
+      <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="theme-label">
+        {{range .Themes}}<label><input type="radio" name="theme" value="{{.}}"{{if eq . $.Instance.Theme}} checked{{end}}><span>{{.}}</span></label>{{end}}
+      </div></div>
+      {{with index .Problems "theme"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <div class="srow-copy" id="accent-label"><span>accent colour</span><small>used for switches, links and focus rings.</small></div>
+      <div class="srow-control"><div class="swatches" role="radiogroup" aria-labelledby="accent-label">
+        {{range .Swatches}}<label class="swatch swatch-{{.}}"><input type="radio" name="accent_hue" value="{{.}}"{{if eq . $.Instance.AccentHue}} checked{{end}}><span class="visually-hidden">hue {{.}}</span></label>{{end}}
+      </div></div>
+      {{with index .Problems "accent_hue"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+  </div>
+  <div class="savebar"><button class="button" type="submit">save appearance</button></div>
+</form>
+</div>
+{{end}}
