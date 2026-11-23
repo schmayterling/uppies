@@ -15,7 +15,7 @@
         <td class="grip-cell"><span class="order-grip" aria-hidden="true">{{template "icon" "grip"}}</span></td>
         <th scope="row">
           <input type="hidden" name="item" value="m:{{.ID}}">
-          <a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
+          <a class="with-icon" href="/admin/monitors/{{.ID}}" title="{{.Name}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
           <span class="meta cell-note target">{{if eq .Kind "push"}}waits for the job to report in{{else}}{{.Target}}{{end}}</span>
         </th>
         <td>

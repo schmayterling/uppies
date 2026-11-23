@@ -350,8 +350,23 @@ table.dense .cell-note { margin-block-start: var(--space-0-5); }
 /* the icon is part of the name, so what stands under the name starts at the name line's left edge */
 /* a name is centred in its row, and what stands under it sits close to it:
    the link is taller than its text so that it stays an easy target */
-table.dense tbody th a.with-icon { align-items: center; }
-table.dense tbody th a.with-icon .icon { margin-block-start: 0; }
+table.dense tbody th a.with-icon {
+  --icon-size: var(--text-sm);
+  position: relative;
+  display: inline-block;
+  max-inline-size: 26ch;
+  padding-inline-start: calc(var(--icon-size) + var(--space-1-5));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+table.dense tbody th a.with-icon > :is(.icon, .nav-logo) {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 50%;
+  margin-block-start: 0;
+  translate: 0 -50%;
+}
 table.dense tbody th a.with-icon + .cell-note { margin-block-start: calc(-1 * var(--space-0-5)); }
 table.dense .grip-cell { inline-size: var(--space-5); padding-inline-end: 0; }
 table.dense .grip-cell .order-grip { margin: 0; }

@@ -15,7 +15,7 @@
         <td class="grip-cell"><span class="order-grip" aria-hidden="true">{{template "icon" "grip"}}</span></td>
         <th scope="row">
           <input type="hidden" name="item" value="{{.ID}}">
-          <a class="with-icon" href="/admin/projects/{{.ID}}">{{if .LogoVersion}}<img class="nav-logo" src="/s/{{.Slug}}/images/logo?v={{.LogoVersion}}" alt="" width="16" height="16">{{else}}{{template "icon" "globe"}}{{end}}{{.Name}}</a>
+          <a class="with-icon" href="/admin/projects/{{.ID}}" title="{{.Name}}">{{if .LogoVersion}}<img class="nav-logo" src="/s/{{.Slug}}/images/logo?v={{.LogoVersion}}" alt="" width="12" height="12">{{else}}{{template "icon" "globe"}}{{end}}{{.Name}}</a>
           {{with .Tagline}}<span class="meta cell-note">{{.}}</span>{{end}}
         </th>
         <td><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span></td>

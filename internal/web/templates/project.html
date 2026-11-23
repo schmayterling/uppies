@@ -27,7 +27,7 @@
       {{range .Monitors}}
       <tr>
         <th scope="row">
-          <a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
+          <a class="with-icon" href="/admin/monitors/{{.ID}}" title="{{.Name}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
           <span class="meta cell-note target">{{with .Category}}{{.}} · {{end}}{{if eq .Kind "push"}}waits for the job to report in{{else}}{{.Target}}{{end}}</span>
         </th>
         <td>
