@@ -185,7 +185,7 @@
     <span class="srow-control"><img class="badge88" src="/s/{{.Project.Slug}}/88x31.svg?show=uptime&amp;days=30" width="88" height="31" alt="the uptime of this status page over 30 days as an 88 by 31 image"></span>
   </div>
 </div>
-<p class="hint">the same numbers always give the same image. options go in the address: theme=light for a white ground, label= and up to four letters for other words on the block, days= for the uptime's window.</p>
+<p class="hint">use theme=light for a white background, label= for a custom label, or days= for the uptime window.</p>
 <h2 class="group-title">88 by 31, per component</h2>
 <div class="group">
   {{range .Components}}
@@ -195,7 +195,7 @@
       <img class="badge88" src="/s/{{$.Project.Slug}}/monitors/{{.MonitorID}}/88x31.svg?show=status" width="88" height="31" alt="the state of {{.Name}}">
       <img class="badge88" src="/s/{{$.Project.Slug}}/monitors/{{.MonitorID}}/88x31.svg?show=uptime" width="88" height="31" alt="the uptime of {{.Name}}">
       <img class="badge88" src="/s/{{$.Project.Slug}}/monitors/{{.MonitorID}}/88x31.svg?show=p95" width="88" height="31" alt="the p95 response time of {{.Name}}">
-      <a class="button quiet" href="/s/{{$.Project.Slug}}/monitors/{{.MonitorID}}#badges-heading">all with code</a>
+      <a class="button quiet" href="/admin/monitors/{{.MonitorID}}?b_page={{$.Project.Slug}}#pane-badges">badge builder</a>
     </span>
   </div>
   {{else}}

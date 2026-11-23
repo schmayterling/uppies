@@ -183,10 +183,6 @@ type monitorPage struct {
 	State    string
 	Word     string
 	Detail   monitorDetail
-	// Badges are the percentiles there is an 88 by 31 image for.
-	Badges []string
-	// Origin is the scheme and host of this page, for the embed code.
-	Origin string
 }
 
 // badgeKinds are what a component's 88 by 31 badge can show.
@@ -242,14 +238,9 @@ func (s *Server) handleMonitorPage(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	scheme := "http"
-	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
 	page := monitorPage{
 		Chrome:  chrome{Title: m.Name + " · " + project.Name, Unbranded: !project.ShowPoweredBy, Favicon: s.faviconAddress(r.Context())},
 		Project: project, Monitor: m, Category: placed.Category, Images: images, Zone: zone, ZoneName: zoneName, Detail: detail,
-		Badges: badgeKinds, Origin: scheme + "://" + r.Host,
 	}
 	page.State, page.Word = componentState(m)
 	if zoneName != project.Timezone {

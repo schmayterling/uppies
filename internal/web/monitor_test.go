@@ -211,10 +211,13 @@ func TestMonitorDetailPagesAndBadges(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("public monitor page: got %d, want 200", status)
 	}
-	for _, want := range []string{"api", "p99, 24 h", "4000 ms", "p50, 24 h", "response time, last 24 hours", public + "/88x31.svg?show=p95", "<polyline"} {
+	for _, want := range []string{"api", "p99, 24 h", "4000 ms", "p50, 24 h", "response time, last 24 hours", "<polyline"} {
 		if !strings.Contains(page, want) {
 			t.Errorf("public monitor page is missing %q", want)
 		}
+	}
+	if strings.Contains(page, "badges-heading") || strings.Contains(page, "88x31.svg") {
+		t.Error("the public monitor page should leave badge previews and embed code to the admin builder")
 	}
 	// What a check failed with can name private hosts, so the public page never shows it.
 	for _, unwanted := range []string{"10.0.0.7", "api.acme.example"} {
@@ -281,6 +284,10 @@ func TestMonitorDetailPagesAndBadges(t *testing.T) {
 	_, badges := s.get(t, s.admin, fmt.Sprintf("/admin/projects/%d/settings", projectID))
 	if !strings.Contains(badges, public+"/88x31.svg?show=uptime") || strings.Contains(badges, fmt.Sprintf("/monitors/%d/88x31.svg", hiddenID)) {
 		t.Error("the settings must list the badges of the components on the page, and none for a monitor that is not on it")
+	}
+	builderLink := fmt.Sprintf("/admin/monitors/%d?b_page=acme#pane-badges", apiID)
+	if !strings.Contains(badges, builderLink) {
+		t.Error("status page settings should link to the badge builder with the page selected")
 	}
 	// The admin page of a monitor opens on an overview, with the errors the public page leaves out.
 	_, admin := s.get(t, s.admin, fmt.Sprintf("/admin/monitors/%d", apiID))
