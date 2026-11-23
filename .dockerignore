@@ -1,0 +1,6 @@
+.git
+*.db
+*.db-*
+*.md
+Dockerfile
+.dockerignore
