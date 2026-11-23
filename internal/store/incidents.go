@@ -181,6 +181,12 @@ func (s *Store) IncidentsByProject(ctx context.Context, projectID int64) ([]Inci
 	return s.incidents(ctx, "i.project_id = ?", projectID, maxIncidentsPerPage)
 }
 
+// OpenIncidents returns the unresolved incidents of all projects, drafts
+// included, newest first.
+func (s *Store) OpenIncidents(ctx context.Context) ([]Incident, error) {
+	return s.incidents(ctx, "i.resolved_at_ms is null", maxIncidentsPerPage)
+}
+
 // incidents loads the newest incidents matching the condition, then their
 // updates and monitors with one query each. args holds the condition's
 // values followed by the row limit.

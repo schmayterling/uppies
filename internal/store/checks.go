@@ -229,3 +229,45 @@ func (s *Store) Events(ctx context.Context, projectID, beforeID int64, limit int
 	}
 	return events, rows.Err()
 }
+
+// AllDailyRollups returns every monitor's days from sinceMs on, oldest first,
+// for the overview of all projects.
+func (s *Store) AllDailyRollups(ctx context.Context, sinceMs int64) (map[int64][]DayRollup, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		select monitor_id, day_start_ms, checks, failures, covered_ms, down_ms
+		from daily_rollups where day_start_ms >= ? order by monitor_id, day_start_ms`, sinceMs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	byMonitor := make(map[int64][]DayRollup)
+	for rows.Next() {
+		var monitorID int64
+		var d DayRollup
+		if err := rows.Scan(&monitorID, &d.DayStartMs, &d.Checks, &d.Failures, &d.CoveredMs, &d.DownMs); err != nil {
+			return nil, err
+		}
+		byMonitor[monitorID] = append(byMonitor[monitorID], d)
+	}
+	return byMonitor, rows.Err()
+}
+
+// RecentEvents returns the newest timeline entries across all projects.
+func (s *Store) RecentEvents(ctx context.Context, limit int) ([]Event, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		select id, project_id, kind, at_ms, monitor_id, incident_id, title, detail
+		from events order by id desc limit ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var events []Event
+	for rows.Next() {
+		var e Event
+		if err := rows.Scan(&e.ID, &e.ProjectID, &e.Kind, &e.AtMs, &e.MonitorID, &e.IncidentID, &e.Title, &e.Detail); err != nil {
+			return nil, err
+		}
+		events = append(events, e)
+	}
+	return events, rows.Err()
+}
