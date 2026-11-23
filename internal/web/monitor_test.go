@@ -225,6 +225,11 @@ func TestMonitorDetailPagesAndBadges(t *testing.T) {
 		t.Errorf("p90 of four values is the largest: %q", p90)
 	}
 
+	// The status page's settings list the badges of every component it shows, and of no other monitor.
+	_, badges := s.get(t, s.admin, fmt.Sprintf("/admin/projects/%d/settings", projectID))
+	if !strings.Contains(badges, public+"/88x31.svg?show=uptime") || strings.Contains(badges, fmt.Sprintf("/monitors/%d/88x31.svg", hiddenID)) {
+		t.Error("the settings must list the badges of the components on the page, and none for a monitor that is not on it")
+	}
 	// The admin page of a monitor opens on an overview, with the errors the public page leaves out.
 	_, admin := s.get(t, s.admin, fmt.Sprintf("/admin/monitors/%d", apiID))
 	for _, want := range []string{`data-pane="overview"`, `data-pane="settings"`, "latest checks", "dial tcp 10.0.0.7:443: refused", "p95, 24 h", fmt.Sprintf(`shown on <a href="/s/acme/monitors/%d">Acme</a>`, apiID), `class="admonition admonition-success"`} {

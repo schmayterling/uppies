@@ -27,6 +27,8 @@ type settingsPage struct {
 	// GraphFills are the graph fill choices, the first one meaning "as the instance says".
 	GraphFills []string
 	Fonts      []string
+	// Components are the monitors the status page shows, for their badges.
+	Components []store.PlacedMonitor
 	// Images maps each image kind the project has to its version.
 	Images   map[string]int64
 	Problems map[string]string
@@ -53,6 +55,10 @@ func (s *Server) settingsPage(r *http.Request) (settingsPage, error) {
 	page.Chrome = s.adminChrome(r, page.Project.Name+" settings")
 	page.CustomHue = !slices.Contains(accentSwatches, page.Project.AccentHue)
 	page.Images, err = s.store.ProjectImageVersions(r.Context(), id)
+	if err != nil {
+		return page, err
+	}
+	page.Components, err = s.store.MonitorsByProject(r.Context(), id)
 	return page, err
 }
 
