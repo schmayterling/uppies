@@ -55,7 +55,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 	}
 	names := []string{
 		"index.html", "status.html", "error.html", "setup.html", "login.html", "dashboard.html",
-		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "monitor.html", "alerts.html", "monitors.html", "editor.html", "projects.html", "appearance.html", "instance.html", "users.html",
+		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "monitor.html", "alerts.html", "monitors.html", "editor.html", "projects.html", "appearance.html", "instance.html", "users.html", "api_tokens.html",
 	}
 	for _, name := range names {
 		page, err := template.New("base.html").Funcs(templateFuncs).
@@ -116,6 +116,11 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("POST /admin/users", s.handleCreateUser)
 	admin("POST /admin/users/password", s.handleChangePassword)
 	admin("POST /admin/users/{id}/delete", s.handleDeleteUser)
+	admin("GET /admin/api-tokens", s.handleAPITokens)
+	admin("POST /admin/api-tokens", s.handleCreateAPIToken)
+	admin("GET /admin/api-tokens/{id}", s.handleAPIToken)
+	admin("POST /admin/api-tokens/{id}/permissions", s.handleAPITokenPermissions)
+	admin("POST /admin/api-tokens/{id}/revoke", s.handleRevokeAPIToken)
 	admin("GET /admin/projects", s.handleProjects)
 	admin("POST /admin/projects", s.handleCreateProject)
 	admin("POST /admin/projects/order", s.handleOrderProjects)

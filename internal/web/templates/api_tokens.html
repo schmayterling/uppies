@@ -1,0 +1,84 @@
+{{define "token-permissions"}}
+  {{with index .Problems "permission"}}{{template "error" .}}{{end}}
+  {{range .Groups}}
+  <fieldset>
+    <legend>{{.Name}}</legend>
+    <div class="token-permissions">
+      {{range .Permissions}}
+      <label class="check">
+        <input type="checkbox" name="permission" value="{{.Key}}"{{if index $.Selected .Key}} checked{{end}}>
+        {{.Label}}
+      </label>
+      {{end}}
+    </div>
+  </fieldset>
+  {{end}}
+{{end}}
+
+{{define "main"}}
+<div class="settings">
+  {{if .Secret}}
+  <h1>copy your api token</h1>
+  <p class="muted">save the token for {{.Name}} now. this is the only time it is shown.</p>
+  <p class="target"><code>{{.Secret}}</code></p>
+  <p class="hint">expires <time datetime="{{rfc3339 .ExpiresMs}}">{{utc .ExpiresMs}}</time>.</p>
+  <a class="button" href="/admin/api-tokens">done</a>
+  {{else if .Token}}
+  <p class="hint"><a href="/admin/api-tokens">all api tokens</a></p>
+  <h1 class="target">{{.Token.Name}}</h1>
+  <p class="muted">{{.Token.Status}} · created by <span class="target">{{.Token.Owner}}</span> · expires <time datetime="{{rfc3339 .Token.ExpiresAtMs}}">{{utc .Token.ExpiresAtMs}}</time></p>
+  {{with .Notice}}{{template "success" .}}{{end}}
+  {{if eq .Token.Status "active"}}
+  <h2 class="group-title">permissions</h2>
+  <form class="form" method="post" action="/admin/api-tokens/{{.Token.ID}}/permissions">
+    {{template "token-permissions" .}}
+    <div class="actions"><button class="button" type="submit">save permissions</button></div>
+  </form>
+  <details class="group-title">
+    <summary>revoke token</summary>
+    <form method="post" action="/admin/api-tokens/{{.Token.ID}}/revoke">
+      <p class="muted">revoking this token stops it from authenticating immediately.</p>
+      <button class="button danger" type="submit">revoke token</button>
+    </form>
+  </details>
+  {{end}}
+  {{else}}
+  <div class="title-row"><h1>api tokens</h1></div>
+  <p class="muted">create credentials for scripts and integrations. each token starts with only the permissions you select.</p>
+  {{with .Notice}}{{template "success" .}}{{end}}
+  <details{{if .Problems}} open{{end}}>
+    <summary>create token</summary>
+    <form class="form" method="post" action="/admin/api-tokens">
+      <div class="field">
+        <label for="token-name">name</label>
+        <input id="token-name" name="name" value="{{.Name}}" autocomplete="off" maxlength="80" required{{if index .Problems "name"}} aria-invalid="true" aria-describedby="token-name-problem"{{end}}>
+        {{with index .Problems "name"}}<p class="problem" id="token-name-problem">{{.}}</p>{{end}}
+      </div>
+      <div class="field">
+        <label for="token-lifetime">expires in</label>
+        <select id="token-lifetime" name="lifetime"{{if index .Problems "lifetime"}} aria-invalid="true" aria-describedby="token-lifetime-problem"{{end}}>
+          <option value="30"{{if eq .Lifetime "30"}} selected{{end}}>30 days</option>
+          <option value="90"{{if eq .Lifetime "90"}} selected{{end}}>90 days</option>
+          <option value="365"{{if eq .Lifetime "365"}} selected{{end}}>365 days</option>
+        </select>
+        {{with index .Problems "lifetime"}}<p class="problem" id="token-lifetime-problem">{{.}}</p>{{end}}
+      </div>
+      {{template "token-permissions" .}}
+      <div class="actions"><button class="button" type="submit">create token</button></div>
+    </form>
+  </details>
+
+  <h2 class="group-title">tokens</h2>
+  <div class="group">
+    {{range .Tokens}}
+    <div class="srow">
+      <span class="srow-copy"><a class="target" href="/admin/api-tokens/{{.ID}}">{{.Name}}</a><small>{{.Status}} · {{.Owner}} · expires <time datetime="{{rfc3339 .ExpiresAtMs}}">{{utc .ExpiresAtMs}}</time></small></span>
+      <span class="srow-control meta">{{.PermissionCount}} {{if eq .PermissionCount 1}}permission{{else}}permissions{{end}}</span>
+    </div>
+    {{else}}
+    <p class="empty">no api tokens yet.</p>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}

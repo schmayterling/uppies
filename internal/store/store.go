@@ -451,6 +451,25 @@ alter table projects add column navbar_brand text not null default 'icon-name'
 	`
 alter table monitors add column tags text not null default '' check (length(tags) <= 1000);
 `,
+	// Step 20 adds expiring API tokens and the explicit permissions they carry.
+	`
+create table api_tokens (
+	id integer primary key autoincrement,
+	user_id integer not null references users(id) on delete cascade,
+	name text not null check (length(name) between 1 and 80),
+	token_hash text not null unique check (length(token_hash) = 64),
+	created_at_ms integer not null,
+	expires_at_ms integer not null check (expires_at_ms > created_at_ms),
+	revoked_at_ms integer
+) strict;
+create index api_tokens_user on api_tokens(user_id);
+
+create table api_token_permissions (
+	token_id integer not null references api_tokens(id) on delete cascade,
+	permission text not null,
+	primary key (token_id, permission)
+) strict, without rowid;
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.
