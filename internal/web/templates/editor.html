@@ -35,7 +35,7 @@
               <input type="hidden" name="item" value="m:{{.ID}}">
               <span class="editor-grip" aria-hidden="true">{{template "icon" "grip"}}</span>
               <span class="editor-name">
-                <a class="with-icon" href="/admin/monitors/{{.ID}}" draggable="false">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
+                <a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
                 <span class="meta"><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span> · {{.Uptime}}</span>
               </span>
               <span class="editor-moves">

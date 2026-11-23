@@ -8,20 +8,21 @@
 <form method="post" action="/admin/monitors/order" data-order>
   <div class="panel table-scroll">
   <table class="dense">
-    <thead><tr><th scope="col">monitor</th><th scope="col">state</th><th scope="col">status pages</th><th scope="col">last check</th><th scope="col" class="number">latency</th></tr></thead>
+    <thead><tr><th scope="col" class="grip-cell"><span class="visually-hidden">drag to reorder</span></th><th scope="col">monitor</th><th scope="col">state</th><th scope="col">status pages</th><th scope="col">last check</th><th scope="col" class="number">latency</th></tr></thead>
     <tbody>
       {{range .Rows}}
       <tr draggable="true" data-drag="row">
+        <td class="grip-cell"><span class="order-grip" aria-hidden="true">{{template "icon" "grip"}}</span></td>
         <th scope="row">
           <input type="hidden" name="item" value="m:{{.ID}}">
-          <a class="with-icon" href="/admin/monitors/{{.ID}}" draggable="false">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
+          <a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
           <span class="meta cell-note target">{{if eq .Kind "push"}}waits for the job to report in{{else}}{{.Target}}{{end}}</span>
         </th>
         <td>
           <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
           {{if and .LastError (eq .State "down")}}<span class="meta cell-note">{{.LastError}}</span>{{end}}
         </td>
-        <td>{{range $i, $page := .Pages}}{{if $i}}, {{end}}<a class="quiet-link" href="/admin/projects/{{$page.ID}}" draggable="false">{{$page.Name}}</a>{{else}}<span class="muted">on none</span>{{end}}</td>
+        <td>{{range $i, $page := .Pages}}{{if $i}}, {{end}}<a class="quiet-link" href="/admin/projects/{{$page.ID}}">{{$page.Name}}</a>{{else}}<span class="muted">on none</span>{{end}}</td>
         <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{utc .LastCheckAtMs}}</time>{{else}}<span class="muted">not yet</span>{{end}}</td>
         <td class="number">{{if and .LastCheckAtMs (eq .State "ok") (ne .Kind "push")}}{{.LastLatencyMs}} ms{{end}}</td>
       </tr>

@@ -8,24 +8,25 @@
 <form method="post" action="/admin/projects/order" data-order>
   <div class="panel table-scroll">
   <table class="dense">
-    <thead><tr><th scope="col">status page</th><th scope="col">state</th><th scope="col" class="number">monitors</th><th scope="col">address</th><th scope="col"><span class="visually-hidden">actions</span></th></tr></thead>
+    <thead><tr><th scope="col" class="grip-cell"><span class="visually-hidden">drag to reorder</span></th><th scope="col">status page</th><th scope="col">state</th><th scope="col" class="number">monitors</th><th scope="col">address</th><th scope="col"><span class="visually-hidden">actions</span></th></tr></thead>
     <tbody>
       {{range .Rows}}
       <tr draggable="true" data-drag="row">
+        <td class="grip-cell"><span class="order-grip" aria-hidden="true">{{template "icon" "grip"}}</span></td>
         <th scope="row">
           <input type="hidden" name="item" value="{{.ID}}">
-          <a class="with-icon" href="/admin/projects/{{.ID}}" draggable="false">{{if .LogoVersion}}<img class="nav-logo" src="/s/{{.Slug}}/images/logo?v={{.LogoVersion}}" alt="" width="16" height="16">{{else}}{{template "icon" "globe"}}{{end}}{{.Name}}</a>
+          <a class="with-icon" href="/admin/projects/{{.ID}}">{{if .LogoVersion}}<img class="nav-logo" src="/s/{{.Slug}}/images/logo?v={{.LogoVersion}}" alt="" width="16" height="16">{{else}}{{template "icon" "globe"}}{{end}}{{.Name}}</a>
           {{with .Tagline}}<span class="meta cell-note">{{.}}</span>{{end}}
         </th>
         <td><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span></td>
         <td class="number">{{.Monitors}}</td>
-        <td><a class="quiet-link target" href="/s/{{.Slug}}" draggable="false">/s/{{.Slug}}</a>{{with .Domain}}<span class="meta cell-note target">{{.}}</span>{{end}}</td>
+        <td><a class="quiet-link target" href="/s/{{.Slug}}">/s/{{.Slug}}</a>{{with .Domain}}<span class="meta cell-note target">{{.}}</span>{{end}}</td>
         <td>
           <span class="row-actions">
             <button class="icon-button" type="submit" name="up" value="{{.ID}}" aria-label="move {{.Name}} up">{{template "icon" "chevron-up"}}</button>
             <button class="icon-button" type="submit" name="down" value="{{.ID}}" aria-label="move {{.Name}} down">{{template "icon" "chevron-down"}}</button>
-            <a class="button quiet" href="/admin/projects/{{.ID}}/editor" draggable="false">editor</a>
-            <a class="button quiet" href="/admin/projects/{{.ID}}/settings" draggable="false">settings</a>
+            <a class="button quiet" href="/admin/projects/{{.ID}}/editor">editor</a>
+            <a class="button quiet" href="/admin/projects/{{.ID}}/settings">settings</a>
           </span>
         </td>
       </tr>

@@ -345,6 +345,13 @@ input[type="checkbox"].switch:checked::before { translate: calc(var(--switch-wid
 .panel.list-row { align-items: center; }
 table.dense .cell-note { margin-block-start: var(--space-0-5); }
 table.dense tbody th .cell-note { padding-inline-start: calc(var(--icon-size) + var(--space-2)); }
+/* a name is centred in its row, and what stands under it sits close to it:
+   the link is taller than its text so that it stays an easy target */
+table.dense tbody th a.with-icon { align-items: center; }
+table.dense tbody th a.with-icon .icon { margin-block-start: 0; }
+table.dense tbody th a.with-icon + .cell-note { margin-block-start: calc(-1 * var(--space-0-5)); }
+table.dense .grip-cell { inline-size: var(--space-5); padding-inline-end: 0; }
+table.dense .grip-cell .order-grip { margin: 0; }
 table.dense td time { white-space: nowrap; }
 table.dense th, table.dense td { padding: var(--space-1-5) var(--space-3); vertical-align: middle; }
 table.dense tbody tr:last-child > * { border-block-end: 0; }
