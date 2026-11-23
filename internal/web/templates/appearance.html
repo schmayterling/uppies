@@ -21,7 +21,17 @@
       {{with index .Problems "accent_hue"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
   </div>
-  <div class="savebar"><button class="button" type="submit">save appearance</button></div>
+  <h2 class="group-title">public list</h2>
+  <div class="group">
+    <div class="srow">
+      <div class="srow-copy" id="list-layout-label"><span>layout</span><small>how the front page lists the status pages. rows and cards fill a page, compact is a small card in the middle of the screen.</small></div>
+      <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="list-layout-label">
+        {{range .ListLayouts}}<label><input type="radio" name="list_layout" value="{{.}}"{{if eq . $.Instance.ListLayout}} checked{{end}}><span>{{.}}</span></label>{{end}}
+      </div></div>
+      {{with index .Problems "list_layout"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+  </div>
+  <div class="savebar"><button class="button" type="submit">save appearance</button><a class="button quiet" href="/">preview the list</a></div>
 </form>
 <form method="post" action="/admin/appearance/sign-in" enctype="multipart/form-data">
   <h2 class="group-title">sign-in page</h2>

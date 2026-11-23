@@ -358,10 +358,10 @@ func TestInstanceSettingsDefaultAndSave(t *testing.T) {
 	ctx := context.Background()
 	s := openTemp(t)
 	got, err := s.Instance(ctx)
-	if err != nil || got != (InstanceSettings{Name: "uppies", Theme: "auto", AccentHue: 200, PublicList: true, LoginLayout: "split", LoginBackground: "gradient"}) {
+	if err != nil || got != (InstanceSettings{Name: "uppies", Theme: "auto", AccentHue: 200, PublicList: true, LoginLayout: "split", LoginBackground: "gradient", ListLayout: "rows"}) {
 		t.Fatalf("fresh install: got %+v err=%v, want the defaults", got, err)
 	}
-	want := InstanceSettings{Name: "acme status", Theme: "dark", AccentHue: 25, PublicList: false, LoginLayout: "centered", LoginBackground: "image"}
+	want := InstanceSettings{Name: "acme status", Theme: "dark", AccentHue: 25, PublicList: false, LoginLayout: "centered", LoginBackground: "image", ListLayout: "cards"}
 	if err := s.SaveInstance(ctx, want); err != nil {
 		t.Fatal(err)
 	}

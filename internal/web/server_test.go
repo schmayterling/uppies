@@ -921,6 +921,19 @@ func TestInstancePagesAndUsers(t *testing.T) {
 	if _, page := s.get(t, s.anonymous, "/"); !strings.Contains(page, "Acme") {
 		t.Error("the front page lists status pages by default")
 	}
+	// The list has three layouts. Each one names the page and links to it.
+	for layout, marker := range map[string]string{"rows": `class="index-rows"`, "cards": `class="index-cards"`, "compact": `class="rows index-list"`} {
+		s.post(t, s.admin, "/admin/appearance", url.Values{"theme": {"dark"}, "accent_hue": {"25"}, "list_layout": {layout}}, nil)
+		_, page := s.get(t, s.anonymous, "/")
+		for _, want := range []string{marker, "Acme", `href="/s/acme"`} {
+			if !strings.Contains(page, want) {
+				t.Errorf("front page in the %s layout is missing %q", layout, want)
+			}
+		}
+	}
+	if resp := s.post(t, s.admin, "/admin/appearance", url.Values{"theme": {"dark"}, "accent_hue": {"25"}, "list_layout": {"sideways"}}, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("an unknown list layout: got %d, want 422", resp.StatusCode)
+	}
 	s.post(t, s.admin, "/admin/instance", url.Values{"name": {"acme ops"}}, nil)
 	_, page := s.get(t, s.anonymous, "/")
 	if strings.Contains(page, "Acme") || !strings.Contains(page, "acme ops") {

@@ -99,6 +99,26 @@ func TestEveryOfferedZoneLoads(t *testing.T) {
 	}
 }
 
+func TestIndexSummaryCountsThePagesWithAProblem(t *testing.T) {
+	cases := []struct {
+		states        []string
+		state, phrase string
+	}{
+		{[]string{stateOK, stateNone}, stateOK, "every status page is fine."},
+		{[]string{stateOK, stateWarn}, stateWarn, "1 of 2 status pages has a problem."},
+		{[]string{stateDown, stateWarn, stateOK}, stateDown, "2 of 3 status pages have a problem."},
+	}
+	for _, c := range cases {
+		var projects []indexProject
+		for _, state := range c.states {
+			projects = append(projects, indexProject{State: state})
+		}
+		if state, phrase := indexSummary(projects); state != c.state || phrase != c.phrase {
+			t.Errorf("%v: got %q %q, want %q %q", c.states, state, phrase, c.state, c.phrase)
+		}
+	}
+}
+
 func TestLatencyLine(t *testing.T) {
 	const today = int64(20_000) * dayMs
 	rollups := []store.DayRollup{

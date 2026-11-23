@@ -22,6 +22,8 @@ type instancePage struct {
 	// Layouts and Backgrounds are the sign-in page choices.
 	Layouts     []string
 	Backgrounds []string
+	// ListLayouts are the layouts of the public list of status pages.
+	ListLayouts []string
 	// BackgroundVersion is set when a sign-in background image is uploaded.
 	BackgroundVersion int64
 }
@@ -29,7 +31,7 @@ type instancePage struct {
 func (s *Server) instancePage(r *http.Request, title string) (instancePage, error) {
 	page := instancePage{Chrome: s.adminChrome(r, title), Themes: themes, Swatches: accentSwatches}
 	var err error
-	page.Layouts, page.Backgrounds = store.LoginLayouts, store.LoginBackgrounds
+	page.Layouts, page.Backgrounds, page.ListLayouts = store.LoginLayouts, store.LoginBackgrounds, store.ListLayouts
 	page.Saved = r.URL.Query().Get("saved") == "1"
 	page.Instance, err = s.store.Instance(r.Context())
 	if err != nil {
@@ -146,6 +148,7 @@ func (s *Server) handleSaveAppearance(w http.ResponseWriter, r *http.Request) {
 	problems := make(map[string]string)
 	page.Instance.Theme = choice(r.PostForm, "theme", themes, page.Instance.Theme, problems)
 	page.Instance.AccentHue = formInt(r.PostForm, "accent_hue", 0, 360, problems)
+	page.Instance.ListLayout = choice(r.PostForm, "list_layout", store.ListLayouts, page.Instance.ListLayout, problems)
 	if len(problems) > 0 {
 		page.Problems = problems
 		s.render(w, r, http.StatusUnprocessableEntity, "appearance.html", page)

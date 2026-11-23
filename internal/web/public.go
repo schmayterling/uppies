@@ -107,6 +107,11 @@ type indexPage struct {
 	Projects []indexProject
 	// Listed is false when the instance keeps its status pages off the front page.
 	Listed bool
+	// Layout is the instance's choice of how the list is drawn.
+	Layout string
+	// State is the worst state among the listed pages and Summary says it in a sentence.
+	State   string
+	Summary string
 }
 
 // indexProject is one status page in the public list, with its state in one word.
@@ -114,6 +119,51 @@ type indexProject struct {
 	store.Project
 	State string
 	Word  string
+	// Count says how many of the page's public monitors are up.
+	Count string
+	// LogoVersion is set when the project has a logo to show.
+	LogoVersion int64
+}
+
+// indexSummary sums the list up: the worst state, and a sentence that counts
+// the pages that are not fine.
+func indexSummary(projects []indexProject) (state, sentence string) {
+	troubled := 0
+	state = stateOK
+	for _, p := range projects {
+		switch p.State {
+		case stateDown:
+			troubled++
+			state = stateDown
+		case stateWarn:
+			troubled++
+			if state != stateDown {
+				state = stateWarn
+			}
+		}
+	}
+	switch {
+	case troubled == 0:
+		return state, "every status page is fine."
+	case troubled == 1:
+		return state, fmt.Sprintf("1 of %d status pages has a problem.", len(projects))
+	default:
+		return state, fmt.Sprintf("%d of %d status pages have a problem.", troubled, len(projects))
+	}
+}
+
+// upCount says how many of the monitors are up, in the words of the list.
+func upCount(monitors []store.Monitor) string {
+	if len(monitors) == 0 {
+		return "no monitors"
+	}
+	up := 0
+	for _, m := range monitors {
+		if !m.Paused && m.Tracker.Status == health.Up {
+			up++
+		}
+	}
+	return fmt.Sprintf("%d of %d up", up, len(monitors))
 }
 
 // indexWords names a status page's state in the public list.
@@ -169,14 +219,25 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	page := indexPage{Chrome: chrome{Title: "status", Auth: true, SignInLink: true, Brand: instance.Name}, Listed: instance.PublicList}
+	logos, err := s.store.LogoVersions(r.Context())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	page := indexPage{
+		Chrome: chrome{Title: "status", Auth: instance.ListLayout == "compact", SignInLink: true, Brand: instance.Name},
+		Listed: instance.PublicList, Layout: instance.ListLayout,
+	}
 	if !instance.PublicList {
 		projects = nil
 	}
 	for _, p := range projects {
 		state, _ := banner(visible[p.ID], 0)
-		page.Projects = append(page.Projects, indexProject{Project: p, State: state, Word: indexWords[state]})
+		page.Projects = append(page.Projects, indexProject{
+			Project: p, State: state, Word: indexWords[state], Count: upCount(visible[p.ID]), LogoVersion: logos[p.ID],
+		})
 	}
+	page.State, page.Summary = indexSummary(page.Projects)
 	s.render(w, r, http.StatusOK, "index.html", page)
 }
 
