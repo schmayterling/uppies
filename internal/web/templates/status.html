@@ -62,7 +62,12 @@
         {{range .Figures}}<div><dt class="meta">{{.Label}}</dt><dd>{{.Value}}</dd></div>{{end}}
       </dl>
       {{else if eq .Display "latency"}}
-      {{if .Spark}}<svg class="spark" viewBox="0 0 300 32" preserveAspectRatio="none" role="img" aria-label="response time over the last {{$.Project.HistoryDays}} days: {{.Latency}}"><polyline points="{{.Spark}}"/></svg>{{end}}
+      {{if .Spark}}
+      <div class="spark-box">
+        <svg class="spark" viewBox="0 0 300 32" preserveAspectRatio="none" role="img" aria-label="response time over the last {{$.Project.HistoryDays}} days: {{.Latency}}"><polyline points="{{.Spark}}"/></svg>
+        <div class="spark-days" aria-hidden="true">{{range .SparkDays}}<span class="day spark-day" data-tip="{{.}}"></span>{{end}}</div>
+      </div>
+      {{end}}
       <div class="strip-legend meta">
         <span>{{$.Project.HistoryDays}} days ago</span>
         <span>{{.Latency}}</span>
@@ -95,13 +100,15 @@
   {{if .Calm}}<p class="muted">no incidents in the last 7 days.</p>{{else}}{{template "days" (pair .Recent .Zone)}}{{end}}
 </section>
 
-<form class="zone-picker meta" method="get" action="/s/{{.Project.Slug}}">
-  <label for="tz">times are shown in</label>
-  <select id="tz" name="tz">
-    {{range .Zones}}<option value="{{.}}"{{if eq . $.ZoneName}} selected{{end}}>{{.}}</option>{{end}}
-  </select>
-  <button class="button quiet" type="submit">show</button>
-</form>
+<div class="zone-picker meta">
+  <span id="zone-label">times are shown in</span>
+  <details class="menu">
+    <summary aria-describedby="zone-label">{{.ZoneName}}{{template "icon" "chevron-down"}}</summary>
+    <ul class="menu-list">
+      {{range .Zones}}<li><a href="/s/{{$.Project.Slug}}?tz={{.}}"{{if eq . $.ZoneName}} aria-current="true"{{end}}>{{.}}</a></li>{{end}}
+    </ul>
+  </details>
+</div>
 
 <footer class="page-foot meta">
   {{with .Project.FooterText}}<p>{{.}}</p>{{end}}

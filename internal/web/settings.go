@@ -127,6 +127,7 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	p.HomepageURL = strings.TrimSpace(form.Get("homepage_url"))
 	p.Theme = form.Get("theme")
 	p.ShowFace = form.Get("show_face") == "on"
+	p.HideQuietDays = form.Get("hide_quiet_days") == "on"
 	p.CustomCSS = form.Get("custom_css")
 	p.FooterText = strings.TrimSpace(form.Get("footer_text"))
 	p.NavLinks = strings.TrimSpace(strings.ReplaceAll(form.Get("nav_links"), "\r", ""))

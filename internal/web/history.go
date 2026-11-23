@@ -109,8 +109,6 @@ type historyPage struct {
 	Months []string
 	Total  int
 	Days   []dayGroup
-	// HideQuiet leaves days without incidents out of the timeline.
-	HideQuiet bool
 	// TZ is the visitor's own timezone choice, empty when the project's zone is shown.
 	TZ string
 	// Page is the page of the timeline shown, from 1. Older and Newer are the
@@ -270,21 +268,20 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page := historyPage{
-		Chrome:    chrome{Title: project.Name + " incident history", Unbranded: !project.ShowPoweredBy},
-		Project:   project,
-		Zone:      zone,
-		Images:    images,
-		Year:      year,
-		PrevYear:  year - 1,
-		Weeks:     incidentMap(incidents, year, now, zone),
-		Months:    monthLabels(year, zone),
-		Total:     len(incidents),
-		HideQuiet: r.URL.Query().Get("quiet") == "hide",
+		Chrome:   chrome{Title: project.Name + " incident history", Unbranded: !project.ShowPoweredBy},
+		Project:  project,
+		Zone:     zone,
+		Images:   images,
+		Year:     year,
+		PrevYear: year - 1,
+		Weeks:    incidentMap(incidents, year, now, zone),
+		Months:   monthLabels(year, zone),
+		Total:    len(incidents),
 	}
 	if zoneName != project.Timezone {
 		page.TZ = zoneName
 	}
-	groups := yearDayGroups(views, year, now, zone, page.HideQuiet)
+	groups := yearDayGroups(views, year, now, zone, project.HideQuietDays)
 	// A missing or impossible page number means the first page.
 	requested, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	page.Days, page.Page, page.Older, page.Newer = paginate(groups, requested, timelinePerPage)

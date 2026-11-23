@@ -278,6 +278,9 @@ create table instance_images (
 	updated_at_ms integer not null
 ) strict;
 `,
+	`
+alter table projects add column hide_quiet_days integer not null default 0 check (hide_quiet_days in (0, 1));
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

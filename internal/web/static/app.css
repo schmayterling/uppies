@@ -457,7 +457,7 @@ input[type="file"] { padding: var(--space-1); }
 .face-none { color: var(--muted); }
 
 .components { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-5); }
-.category h3 { margin-block-start: var(--space-3); color: var(--muted); font-size: var(--text-sm); font-weight: var(--weight-regular); }
+.category h3 { margin-block-start: var(--space-3); padding-block-end: var(--space-2); border-block-end: 1px solid var(--border); color: var(--muted); font-size: var(--text-sm); font-weight: var(--weight-regular); }
 .category:first-child h3 { margin-block-start: 0; }
 .component-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); margin-block-end: var(--space-2); }
 .component-name { font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
@@ -495,6 +495,11 @@ input[type="file"] { padding: var(--space-1); }
 .day-warn::after, .day-down::after { inset-block-end: calc(100% + var(--space-1-5)); }
 .strip { position: relative; }
 .table-scroll:has(.day:hover) { overflow: visible; }
+/* one unseen column per day lies over the line, so each day has a tooltip like the bars do */
+.spark-box { position: relative; }
+.spark-days { position: absolute; inset: 0; display: flex; }
+.spark-day { block-size: 100%; }
+.spark-day:hover { background: color-mix(in oklab, var(--accent) 18%, transparent); }
 .spark { display: block; inline-size: 100%; block-size: var(--space-6); overflow: visible; }
 .spark polyline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin: 0; }
@@ -579,15 +584,23 @@ input[type="file"] { padding: var(--space-1); }
 .heat-legend { display: flex; align-items: center; gap: var(--space-1-5); margin-block-start: var(--space-2); }
 .heat-legend .heat-cell { inline-size: var(--space-3); margin-inline-start: var(--space-2); }
 
-.zone-picker { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-block-start: var(--space-7); }
-.zone-picker label { font-size: inherit; font-weight: var(--weight-regular); }
-.zone-picker select { inline-size: auto; }
+.zone-picker { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); margin-block-start: var(--space-7); }
+/* a menu without script: the summary reads as a link, the list opens above it */
+.menu { position: relative; }
+.menu > summary { display: inline-flex; align-items: center; gap: var(--space-0-5); min-block-size: var(--target-min); color: var(--ink); text-decoration: underline; text-underline-offset: var(--space-0-5); cursor: pointer; list-style: none; }
+.menu > summary::-webkit-details-marker { display: none; }
+.menu > summary .icon { transition: rotate var(--motion-fast) var(--ease-out); }
+.menu[open] > summary .icon { rotate: 180deg; }
+.menu-list { position: absolute; inset-block-end: 100%; inset-inline-start: 0; z-index: 2; min-inline-size: max-content; max-block-size: calc(var(--space-8) * 4); overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: var(--space-1); list-style: none; border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--elevated); box-shadow: var(--shadow-popover); }
+.menu-list a { display: flex; align-items: center; min-block-size: var(--control-height); padding-inline: var(--space-2); border-radius: var(--radius-control); color: var(--ink); text-decoration: none; }
+.menu-list a:hover { background: var(--hover); }
+.menu-list a[aria-current] { font-weight: var(--weight-semibold); background: var(--active); }
 .zone-picker + .page-foot { margin-block-start: var(--space-3); }
 .page-foot { margin-block-start: var(--space-7); }
 
 /* phones show 30 days so each day stays wide enough to see */
 @media (max-width: 520px) {
-  .day:nth-last-child(n+31) { display: none; }
+  .strip > .day:nth-last-child(n+31) { display: none; }
   .wide-only { display: none; }
   .narrow-only { display: inline; }
   .banner-text { font-size: var(--text-heading); }

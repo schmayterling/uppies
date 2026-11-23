@@ -842,9 +842,24 @@ func TestIncidentHistoryPageListsAYearAndHidesDrafts(t *testing.T) {
 	if _, page := s.get(t, s.anonymous, "/s/acme/history"); !strings.Contains(page, "without incidents") {
 		t.Error("the history lists quiet days unless asked not to")
 	}
-	_, page = s.get(t, s.anonymous, "/s/acme/history?quiet=hide")
-	if strings.Contains(page, "without incidents") || !strings.Contains(page, "checkout errors") {
-		t.Error("with quiet=hide the history shows only days with incidents")
+	// Hiding quiet days is the page owner's choice, not a visitor's.
+	if _, page := s.get(t, s.anonymous, "/s/acme/history?quiet=hide"); !strings.Contains(page, "without incidents") {
+		t.Error("a visitor must not be able to hide quiet days from the address")
+	}
+	project, err := s.store.ProjectBySlug(ctx, "acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	project.HideQuietDays = true
+	if err := s.store.UpdateProject(ctx, project); err != nil {
+		t.Fatal(err)
+	}
+	_, page = s.get(t, s.anonymous, "/s/acme/history")
+	if strings.Contains(page, "without incidents") || strings.Contains(page, "quiet days") || !strings.Contains(page, "checkout errors") {
+		t.Error("with the setting on, the history shows only days with incidents and no toggle")
+	}
+	if _, page := s.get(t, s.anonymous, "/s/acme"); strings.Contains(page, "without incidents") {
+		t.Error("with the setting on, the status page lists no quiet days")
 	}
 }
 

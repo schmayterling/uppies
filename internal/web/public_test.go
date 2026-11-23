@@ -1,6 +1,7 @@
 package web
 
 import (
+	"slices"
 	"testing"
 
 	"uppies/internal/health"
@@ -93,13 +94,18 @@ func TestLatencyLine(t *testing.T) {
 		{DayStartMs: today - dayMs, Checks: 0},
 		{DayStartMs: today, Checks: 10, LatencyAvgMs: 50},
 	}
-	points, caption := latencyLine(rollups, today, 3)
+	points, labels, caption := latencyLine(rollups, today, 3)
 	// Three days span the box of 300 by 32. The slowest day touches the top
 	// margin (y 2) and a day at half that speed sits halfway down (y 16).
 	if points != "0.0,2.0 300.0,16.0" || caption != "75 ms on average, 100 ms at most" {
 		t.Fatalf("got points %q caption %q", points, caption)
 	}
-	if points, caption := latencyLine(nil, today, 3); points != "" || caption != "no response times yet" {
+	// One label per day, oldest first. The day without checks says so.
+	wantLabels := []string{"2024-10-02: 100 ms on average", "2024-10-03: no data", "2024-10-04: 50 ms on average"}
+	if !slices.Equal(labels, wantLabels) {
+		t.Fatalf("got labels %q, want %q", labels, wantLabels)
+	}
+	if points, _, caption := latencyLine(nil, today, 3); points != "" || caption != "no response times yet" {
 		t.Fatalf("no data: got points %q caption %q", points, caption)
 	}
 }

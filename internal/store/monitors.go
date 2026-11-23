@@ -42,17 +42,19 @@ type Project struct {
 	Font    string // "system", "rounded", "serif" or "mono"
 	// Domain is a hostname that serves this status page at its root, empty for none.
 	Domain string
+	// HideQuietDays leaves the days without incidents out of the page's timelines.
+	HideQuietDays bool
 }
 
 const projectColumns = `id, slug, name, tagline, homepage_url, accent_hue, theme, show_face, lookback_days,
 	custom_css, footer_text, show_powered_by, noindex, timezone, domain, surface, corners, font, backfill,
-	nav_links`
+	nav_links, hide_quiet_days`
 
 func scanProject(row rowScanner) (Project, error) {
 	var p Project
 	err := row.Scan(&p.ID, &p.Slug, &p.Name, &p.Tagline, &p.HomepageURL, &p.AccentHue, &p.Theme,
 		&p.ShowFace, &p.HistoryDays, &p.CustomCSS, &p.FooterText, &p.ShowPoweredBy, &p.NoIndex, &p.Timezone, &p.Domain,
-		&p.Surface, &p.Corners, &p.Font, &p.Backfill, &p.NavLinks)
+		&p.Surface, &p.Corners, &p.Font, &p.Backfill, &p.NavLinks, &p.HideQuietDays)
 	return p, err
 }
 
@@ -181,10 +183,10 @@ func (s *Store) UpdateProject(ctx context.Context, p Project) error {
 		update projects set name = ?, tagline = ?, homepage_url = ?, accent_hue = ?, theme = ?,
 			show_face = ?, lookback_days = ?, custom_css = ?, footer_text = ?, show_powered_by = ?,
 			noindex = ?, timezone = ?, domain = ?, surface = ?, corners = ?, font = ?, backfill = ?,
-			nav_links = ?
+			nav_links = ?, hide_quiet_days = ?
 		where id = ?`,
 		p.Name, p.Tagline, p.HomepageURL, p.AccentHue, p.Theme, p.ShowFace, p.HistoryDays, p.CustomCSS,
-		p.FooterText, p.ShowPoweredBy, p.NoIndex, p.Timezone, p.Domain, p.Surface, p.Corners, p.Font, p.Backfill, p.NavLinks, p.ID)
+		p.FooterText, p.ShowPoweredBy, p.NoIndex, p.Timezone, p.Domain, p.Surface, p.Corners, p.Font, p.Backfill, p.NavLinks, p.HideQuietDays, p.ID)
 	var sqliteErr *sqlite.Error
 	if errors.As(err, &sqliteErr) && sqliteErr.Code() == sqliteConstraintUnique {
 		return ErrDomainTaken

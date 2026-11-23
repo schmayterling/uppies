@@ -8,6 +8,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 	_ "time/tzdata" // timezone names must resolve in containers that ship no zone database
@@ -53,6 +54,8 @@ type componentView struct {
 	// Spark is the point list of the "latency" display's line, and Latency its caption.
 	Spark   string
 	Latency string
+	// SparkDays has one label per day under the line, oldest first, for the tooltips.
+	SparkDays []string
 }
 
 // figure is one labelled number.
@@ -339,7 +342,7 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 				})
 			}
 		case "latency":
-			view.Spark, view.Latency = latencyLine(rollups[m.ID], todayStartMs, project.HistoryDays)
+			view.Spark, view.SparkDays, view.Latency = latencyLine(rollups[m.ID], todayStartMs, project.HistoryDays)
 		}
 		page.Components = append(page.Components, view)
 	}
@@ -353,7 +356,10 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 		}
 	}
 	page.Recent = recentDayGroups(resolved, s.now(), zone)
-	page.Calm = len(resolved) == 0 || (len(page.Recent) == 1 && page.Recent[0].QuietDays > 0)
+	if project.HideQuietDays {
+		page.Recent = slices.DeleteFunc(page.Recent, func(g dayGroup) bool { return g.QuietDays > 0 })
+	}
+	page.Calm = !slices.ContainsFunc(page.Recent, func(g dayGroup) bool { return g.QuietDays == 0 })
 	// Saved links were checked when they were saved, so a problem here is not expected and shows none.
 	page.NavLinks, _ = parseNavLinks(project.NavLinks)
 	nowMs := s.now().UnixMilli()
@@ -481,8 +487,9 @@ const (
 
 // latencyLine turns daily average response times into the points of a line
 // across the last historyDays days, and a caption with the overall average.
-// Days without checks leave a gap in time but not in the line.
-func latencyLine(rollups []store.DayRollup, todayStartMs int64, historyDays int) (points, caption string) {
+// Days without checks leave a gap in time but not in the line. The labels
+// name every day's average, oldest first.
+func latencyLine(rollups []store.DayRollup, todayStartMs int64, historyDays int) (points string, labels []string, caption string) {
 	firstDayMs := todayStartMs - int64(historyDays-1)*dayMs
 	var peak, sum, days int64
 	for _, d := range rollups {
@@ -493,7 +500,12 @@ func latencyLine(rollups []store.DayRollup, todayStartMs int64, historyDays int)
 		}
 	}
 	if days == 0 {
-		return "", "no response times yet"
+		return "", nil, "no response times yet"
+	}
+	labels = make([]string, historyDays)
+	for i := range labels {
+		date := time.UnixMilli(firstDayMs + int64(i)*dayMs).UTC().Format("2006-01-02")
+		labels[i] = date + ": no data"
 	}
 	peak = max(peak, 1)
 	var b strings.Builder
@@ -505,8 +517,10 @@ func latencyLine(rollups []store.DayRollup, todayStartMs int64, historyDays int)
 		// The line keeps 2 units clear of the top and bottom edges.
 		y := float64(sparkHeight-2) - float64(d.LatencyAvgMs)/float64(peak)*float64(sparkHeight-4)
 		fmt.Fprintf(&b, "%.1f,%.1f ", x, y)
+		date := time.UnixMilli(d.DayStartMs).UTC().Format("2006-01-02")
+		labels[(d.DayStartMs-firstDayMs)/dayMs] = fmt.Sprintf("%s: %d ms on average", date, d.LatencyAvgMs)
 	}
-	return strings.TrimSpace(b.String()), fmt.Sprintf("%d ms on average, %d ms at most", sum/days, peak)
+	return strings.TrimSpace(b.String()), labels, fmt.Sprintf("%d ms on average, %d ms at most", sum/days, peak)
 }
 
 // backfillStates maps a project's backfill choice to the state its unmeasured days are drawn in.

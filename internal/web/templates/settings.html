@@ -102,6 +102,10 @@
       <span class="srow-copy"><span>face</span><small>the small face next to the status sentence.</small></span>
       <span class="srow-control"><input class="switch" type="checkbox" name="show_face"{{if .Project.ShowFace}} checked{{end}}></span>
     </label>
+    <label class="srow">
+      <span class="srow-copy"><span>hide quiet days</span><small>leave the days without incidents out of the timelines, on the status page and in the incident history.</small></span>
+      <span class="srow-control"><input class="switch" type="checkbox" name="hide_quiet_days"{{if .Project.HideQuietDays}} checked{{end}}></span>
+    </label>
   </div>
 
   <div class="savebar"><button class="button" type="submit">save settings</button><a class="button quiet" href="/s/{{.Project.Slug}}">{{template "icon" "external-link"}}view status page</a></div>
