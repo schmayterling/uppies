@@ -402,7 +402,7 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 
 	page := statusPage{
 		Chrome: chrome{
-			Title: project.Name + " status", Unbranded: !project.ShowPoweredBy, Favicon: s.faviconAddress(ctx),
+			Title: project.Name + " status", Unbranded: !project.ShowPoweredBy, Favicon: s.projectFaviconAddress(ctx, project.Slug, images),
 			Description: cmp.Or(project.Tagline, "the current status of "+project.Name+"."),
 		},
 		Project: project,

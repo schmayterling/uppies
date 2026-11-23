@@ -69,6 +69,13 @@ func (s *Server) faviconAddress(ctx context.Context) string {
 	return fmt.Sprintf("/favicon.ico?v=%d", version)
 }
 
+func (s *Server) projectFaviconAddress(ctx context.Context, slug string, images map[string]int64) string {
+	if version := images[store.ImageFavicon]; version != 0 {
+		return fmt.Sprintf("/s/%s/images/favicon?v=%d", slug, version)
+	}
+	return s.faviconAddress(ctx)
+}
+
 func (s *Server) handleSaveFavicon(w http.ResponseWriter, r *http.Request) {
 	page, err := s.instancePage(r, "appearance")
 	if err != nil {

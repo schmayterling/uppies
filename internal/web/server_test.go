@@ -628,6 +628,13 @@ func TestLogoAndFaviconUploads(t *testing.T) {
 			t.Errorf("status page is missing %q", want)
 		}
 	}
+	for _, path := range []string{"/s/acme", "/s/acme/history"} {
+		status, html := s.get(t, s.anonymous, path)
+		if status != http.StatusOK || strings.Count(html, `<link rel="icon"`) != 1 ||
+			!strings.Contains(html, `<link rel="icon" href="/s/acme/images/favicon?v=`) {
+			t.Errorf("%s should use the uploaded favicon as its only icon link", path)
+		}
+	}
 	resp, err := s.anonymous.Get(s.server.URL + "/s/acme/images/logo")
 	if err != nil {
 		t.Fatal(err)

@@ -1,6 +1,5 @@
 {{define "head"}}<link rel="stylesheet" href="/s/{{.Project.Slug}}/theme.css">
-{{if .Project.NoIndex}}<meta name="robots" content="noindex">{{end}}
-{{with index .Images "favicon"}}<link rel="icon" href="/s/{{$.Project.Slug}}/images/favicon?v={{.}}">{{end}}{{end}}
+{{if .Project.NoIndex}}<meta name="robots" content="noindex">{{end}}{{end}}
 {{define "main"}}
 {{template "site-bar" (pair . "incidents")}}
 <header class="page-head">

@@ -239,7 +239,7 @@ func (s *Server) handleMonitorPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page := monitorPage{
-		Chrome:  chrome{Title: m.Name + " · " + project.Name, Unbranded: !project.ShowPoweredBy, Favicon: s.faviconAddress(r.Context())},
+		Chrome:  chrome{Title: m.Name + " · " + project.Name, Unbranded: !project.ShowPoweredBy, Favicon: s.projectFaviconAddress(r.Context(), project.Slug, images)},
 		Project: project, Monitor: m, Category: placed.Category, Images: images, Zone: zone, ZoneName: zoneName, Detail: detail,
 	}
 	page.State, page.Word = componentState(m)
