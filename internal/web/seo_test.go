@@ -138,7 +138,11 @@ func TestPublicSearchMetadataAndSitemaps(t *testing.T) {
 	}
 	checkSitemap("status.example.test", []string{origin + "/", origin + "/s/app", origin + "/s/app/history"})
 	checkSitemap("custom.example.test", []string{custom + "/", custom + "/s/custom/history"})
-	checkSitemap("private.example.test", nil)
+	get("private.example.test", "/sitemap.xml", http.StatusNotFound)
+	_, privateRobots := get("private.example.test", "/robots.txt", http.StatusOK)
+	if strings.Contains(privateRobots, "Sitemap:") {
+		t.Error("robots.txt should omit a sitemap when every page on the host is noindex")
+	}
 	_, robots := get("custom.example.test", "/robots.txt", http.StatusOK)
 	if !strings.Contains(robots, "Sitemap: "+custom+"/sitemap.xml\n") || strings.Contains(robots, "Disallow: /") {
 		t.Errorf("custom robots: %q", robots)
@@ -148,7 +152,7 @@ func TestPublicSearchMetadataAndSitemaps(t *testing.T) {
 	if resp := s.post(t, s.admin, "/admin/instance", form, nil); resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("hide public list: got %d", resp.StatusCode)
 	}
-	checkSitemap("status.example.test", nil)
+	get("status.example.test", "/sitemap.xml", http.StatusNotFound)
 	_, page := get("status.example.test", "/", http.StatusOK)
 	if !strings.Contains(page, noIndex) {
 		t.Error("disabled public list must be noindex")

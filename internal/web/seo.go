@@ -66,33 +66,38 @@ func (c *chrome) setPublicMetadata(canonical url.URL, siteName string, noIndex b
 	c.SocialImage = canonical.String()
 }
 
-// crawlOrigin keeps each sitemap on the host whose pages it describes.
-func (s *Server) crawlOrigin(r *http.Request) (url.URL, store.Project, store.InstanceSettings, error) {
+// crawlOrigin resolves the sitemap host and whether it has indexable entries.
+func (s *Server) crawlOrigin(r *http.Request) (url.URL, store.Project, bool, error) {
 	ctx := r.Context()
 	instance, err := s.store.Instance(ctx)
 	if err != nil {
-		return url.URL{}, store.Project{}, instance, err
+		return url.URL{}, store.Project{}, false, err
 	}
 	project, err := s.store.ProjectByDomain(ctx, requestHost(r))
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
-		return url.URL{}, project, instance, err
+		return url.URL{}, project, false, err
 	}
 	origin := publicOrigin(r, instance.PublicURL)
 	if project.Domain != "" {
 		origin.Host = project.Domain
+		return origin, project, !project.NoIndex, nil
 	}
-	return origin, project, instance, nil
+	if !instance.PublicList {
+		return origin, project, false, nil
+	}
+	exists, err := s.store.HasUsers(ctx)
+	return origin, project, exists, err
 }
 
 func (s *Server) handleRobots(w http.ResponseWriter, r *http.Request) {
-	origin, _, _, err := s.crawlOrigin(r)
+	origin, _, indexable, err := s.crawlOrigin(r)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprint(w, "User-agent: *\nDisallow:\n")
-	if origin.Host != "" {
+	if indexable && origin.Host != "" {
 		origin.Path = "/sitemap.xml"
 		fmt.Fprintln(w, "Sitemap:", origin.String())
 	}
@@ -115,13 +120,17 @@ func (d *sitemap) addProject(origin url.URL, project store.Project) {
 }
 
 func (s *Server) handleSitemap(w http.ResponseWriter, r *http.Request) {
-	origin, project, instance, err := s.crawlOrigin(r)
+	origin, project, indexable, err := s.crawlOrigin(r)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
 	if origin.Host == "" {
 		http.Error(w, "invalid public host", http.StatusBadRequest)
+		return
+	}
+	if !indexable {
+		http.NotFound(w, r)
 		return
 	}
 	if !strings.EqualFold(r.Host, origin.Host) {
@@ -132,28 +141,19 @@ func (s *Server) handleSitemap(w http.ResponseWriter, r *http.Request) {
 
 	var doc sitemap
 	if project.Domain != "" {
-		if !project.NoIndex {
-			doc.addProject(origin, project)
-		}
-	} else if instance.PublicList {
-		exists, err := s.store.HasUsers(r.Context())
+		doc.addProject(origin, project)
+	} else {
+		root := origin
+		root.Path = "/"
+		doc.URLs = append(doc.URLs, sitemapURL{root.String()})
+		projects, err := s.store.Projects(r.Context())
 		if err != nil {
 			s.fail(w, r, err)
 			return
 		}
-		if exists {
-			root := origin
-			root.Path = "/"
-			doc.URLs = append(doc.URLs, sitemapURL{root.String()})
-			projects, err := s.store.Projects(r.Context())
-			if err != nil {
-				s.fail(w, r, err)
-				return
-			}
-			for _, p := range projects {
-				if !p.NoIndex && p.Domain == "" {
-					doc.addProject(origin, p)
-				}
+		for _, p := range projects {
+			if !p.NoIndex && p.Domain == "" {
+				doc.addProject(origin, p)
 			}
 		}
 	}
