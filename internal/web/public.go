@@ -314,6 +314,7 @@ func (s *Server) statusPage(ctx context.Context, project store.Project) (statusP
 		names[m.ID] = m.Name
 		state, word := componentState(m)
 		days, uptime := uptimeStrip(rollups[m.ID], todayStartMs, project.HistoryDays)
+		backfillDays(days, project.Backfill)
 		view := componentView{Name: m.Name, State: state, Word: word, Days: days, Uptime: uptime, Display: m.Display}
 		if m.Category != lastCategory {
 			view.Category, lastCategory = m.Category, m.Category
@@ -492,6 +493,25 @@ func latencyLine(rollups []store.DayRollup, todayStartMs int64, historyDays int)
 		fmt.Fprintf(&b, "%.1f,%.1f ", x, y)
 	}
 	return strings.TrimSpace(b.String()), fmt.Sprintf("%d ms on average, %d ms at most", sum/days, peak)
+}
+
+// backfillStates maps a project's backfill choice to the state its unmeasured days are drawn in.
+var backfillStates = map[string]string{"up": stateOK, "degraded": stateWarn, "down": stateDown}
+
+// backfillDays redraws the days a monitor has no data for in the state the
+// project chose. The label keeps saying that nothing was measured, and the
+// uptime figure is untouched: it only ever counts measured time.
+func backfillDays(days []dayCell, backfill string) {
+	state, chosen := backfillStates[backfill]
+	if !chosen {
+		return
+	}
+	for i := range days {
+		if days[i].State == stateNone {
+			days[i].State = state
+			days[i].Label += ", shown as " + backfill
+		}
+	}
 }
 
 // uptimePercent formats uptime to two decimals, rounded down so that any

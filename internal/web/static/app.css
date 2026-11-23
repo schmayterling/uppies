@@ -452,6 +452,9 @@ input[type="file"] { padding: var(--space-1); }
 .spark polyline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin: 0; }
 .figures dd { margin: 0; font-size: var(--text-heading); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
+/* past about 120 days the bars sit shoulder to shoulder, or they would vanish */
+.strip-dense { gap: 0; }
+.strip-dense .day { border-radius: 0; }
 .strip-legend { display: flex; justify-content: space-between; gap: var(--space-3); margin-block-start: var(--space-1); font-variant-numeric: tabular-nums; }
 .narrow-only { display: none; }
 

@@ -25,7 +25,7 @@ type settingsPage struct {
 	Channels     []store.AlertChannel
 	ChannelKinds []string
 	Themes       []string
-	HistoryViews []int
+	Backfills    []string
 	Swatches     []int
 	// CustomHue is true when the accent is not one of the swatches.
 	CustomHue bool
@@ -46,7 +46,7 @@ func (s *Server) settingsPage(r *http.Request) (settingsPage, error) {
 	page := settingsPage{
 		ChannelKinds: store.AlertChannelKinds,
 		Themes:       themes,
-		HistoryViews: historyViews,
+		Backfills:    backfills,
 		Swatches:     accentSwatches,
 		Surfaces:     surfaces,
 		Corners:      cornerStyles,
@@ -85,6 +85,7 @@ var accentSwatches = []int{25, 55, 85, 150, 200, 245, 290, 330}
 
 var (
 	surfaces     = []string{"neutral", "paper"}
+	backfills    = []string{"none", "up", "degraded", "down"}
 	cornerStyles = []string{"sharp", "soft", "round"}
 	fonts        = []string{"system", "rounded", "serif", "mono"}
 )
@@ -106,7 +107,6 @@ func choice(form url.Values, field string, allowed []string, current string, pro
 var (
 	domainPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$`)
 	themes        = []string{"auto", "light", "dark"}
-	historyViews  = []int{30, 60, 90}
 )
 
 func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
@@ -142,8 +142,8 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	p.Surface = choice(form, "surface", surfaces, p.Surface, problems)
 	p.Corners = choice(form, "corners", cornerStyles, p.Corners, problems)
 	p.Font = choice(form, "font", fonts, p.Font, problems)
-	// A value that is not a number fails the membership check below.
-	p.HistoryDays, _ = strconv.Atoi(form.Get("history_days"))
+	p.HistoryDays = formInt(form, "history_days", 7, 365, problems)
+	p.Backfill = choice(form, "backfill", backfills, p.Backfill, problems)
 
 	if p.Name == "" || len(p.Name) > 120 {
 		problems["name"] = "give the project a name of 1 to 120 characters."
@@ -160,9 +160,6 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if !slices.Contains(themes, p.Theme) {
 		problems["theme"] = "choose a theme."
-	}
-	if !slices.Contains(historyViews, p.HistoryDays) {
-		problems["history_days"] = "choose 30, 60 or 90 days."
 	}
 	if len(p.CustomCSS) > 20000 {
 		problems["custom_css"] = "keep the custom css to 20000 characters."

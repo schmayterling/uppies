@@ -257,6 +257,14 @@ create table instance_settings (
 	value text not null
 ) strict, without rowid;
 `,
+	// Step 9 frees the length of history from the three values the old
+	// history_days column allows. That column stays behind unused, because
+	// changing its CHECK would mean rebuilding the projects table.
+	`
+alter table projects add column lookback_days integer not null default 90 check (lookback_days between 7 and 365);
+update projects set lookback_days = history_days;
+alter table projects add column backfill text not null default 'none' check (backfill in ('none', 'up', 'degraded', 'down'));
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

@@ -876,3 +876,50 @@ func TestInstancePagesAndUsers(t *testing.T) {
 		t.Errorf("removing another account: got %d, want 303", resp.StatusCode)
 	}
 }
+
+func TestLookbackLengthAndBackfillAreFree(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitorID, err := s.store.CreateMonitor(ctx, store.Monitor{
+		ProjectID: projectID, Name: "website", Kind: "http", Target: "https://example.com", Public: true,
+		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
+	}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	healthy := health.Step{Tracker: health.Tracker{Status: health.Up}}
+	// The check covers a minute, so that there is measured time to compute an uptime from.
+	measured := store.CheckResult{MonitorID: monitorID, AtMs: time.Now().UnixMilli(), OK: true, CoveredMs: 60_000, Step: healthy}
+	if err := s.store.RecordCheck(ctx, measured); err != nil {
+		t.Fatal(err)
+	}
+	settings := fmt.Sprintf("/admin/projects/%d/settings", projectID)
+	form := url.Values{
+		"name": {"Acme"}, "theme": {"auto"}, "accent_hue": {"200"}, "timezone": {"UTC"},
+		"history_days": {"200"}, "backfill": {"degraded"},
+	}
+	if resp := s.post(t, s.admin, settings, form, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("200 days with a backfill: got %d, want 303", resp.StatusCode)
+	}
+	_, page := s.get(t, s.anonymous, "/s/acme")
+	// One day has data (today). The other 199 are drawn as degraded and say so.
+	if got := strings.Count(page, `class="day day-`); got != 200 {
+		t.Errorf("got %d day cells, want 200", got)
+	}
+	if got := strings.Count(page, `class="day day-warn" data-tip="`); got != 199 {
+		t.Errorf("got %d backfilled days, want 199", got)
+	}
+	if !strings.Contains(page, "no data, shown as degraded") || !strings.Contains(page, "100% uptime") {
+		t.Error("a backfilled day must say it has no data, and the uptime must count measured time only")
+	}
+	for _, days := range []string{"6", "366"} {
+		form.Set("history_days", days)
+		if resp := s.post(t, s.admin, settings, form, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+			t.Errorf("%s days: got %d, want 422", days, resp.StatusCode)
+		}
+	}
+}

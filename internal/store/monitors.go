@@ -23,9 +23,12 @@ type Project struct {
 	AccentHue   int    // 0 to 360, the hue of the accent colour
 	Theme       string // "auto", "light" or "dark"
 	ShowFace    bool
-	HistoryDays int // 30, 60 or 90
-	CustomCSS   string
-	FooterText  string
+	HistoryDays int // 7 to 365, how far back the status page looks
+	// Backfill says how days before a monitor had any data are drawn:
+	// "none", "up", "degraded" or "down".
+	Backfill   string
+	CustomCSS  string
+	FooterText string
 	// ShowPoweredBy keeps the "powered by uppies" line in the footer.
 	ShowPoweredBy bool
 	// NoIndex asks search engines not to list the page.
@@ -39,14 +42,14 @@ type Project struct {
 	Domain string
 }
 
-const projectColumns = `id, slug, name, tagline, homepage_url, accent_hue, theme, show_face, history_days,
-	custom_css, footer_text, show_powered_by, noindex, timezone, domain, surface, corners, font`
+const projectColumns = `id, slug, name, tagline, homepage_url, accent_hue, theme, show_face, lookback_days,
+	custom_css, footer_text, show_powered_by, noindex, timezone, domain, surface, corners, font, backfill`
 
 func scanProject(row rowScanner) (Project, error) {
 	var p Project
 	err := row.Scan(&p.ID, &p.Slug, &p.Name, &p.Tagline, &p.HomepageURL, &p.AccentHue, &p.Theme,
 		&p.ShowFace, &p.HistoryDays, &p.CustomCSS, &p.FooterText, &p.ShowPoweredBy, &p.NoIndex, &p.Timezone, &p.Domain,
-		&p.Surface, &p.Corners, &p.Font)
+		&p.Surface, &p.Corners, &p.Font, &p.Backfill)
 	return p, err
 }
 
@@ -170,13 +173,14 @@ func (s *Store) UpdateProject(ctx context.Context, p Project) error {
 	p.Surface = cmp.Or(p.Surface, "neutral")
 	p.Corners = cmp.Or(p.Corners, "soft")
 	p.Font = cmp.Or(p.Font, "system")
+	p.Backfill = cmp.Or(p.Backfill, "none")
 	res, err := s.db.ExecContext(ctx, `
 		update projects set name = ?, tagline = ?, homepage_url = ?, accent_hue = ?, theme = ?,
-			show_face = ?, history_days = ?, custom_css = ?, footer_text = ?, show_powered_by = ?,
-			noindex = ?, timezone = ?, domain = ?, surface = ?, corners = ?, font = ?
+			show_face = ?, lookback_days = ?, custom_css = ?, footer_text = ?, show_powered_by = ?,
+			noindex = ?, timezone = ?, domain = ?, surface = ?, corners = ?, font = ?, backfill = ?
 		where id = ?`,
 		p.Name, p.Tagline, p.HomepageURL, p.AccentHue, p.Theme, p.ShowFace, p.HistoryDays, p.CustomCSS,
-		p.FooterText, p.ShowPoweredBy, p.NoIndex, p.Timezone, p.Domain, p.Surface, p.Corners, p.Font, p.ID)
+		p.FooterText, p.ShowPoweredBy, p.NoIndex, p.Timezone, p.Domain, p.Surface, p.Corners, p.Font, p.Backfill, p.ID)
 	var sqliteErr *sqlite.Error
 	if errors.As(err, &sqliteErr) && sqliteErr.Code() == sqliteConstraintUnique {
 		return ErrDomainTaken

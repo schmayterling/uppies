@@ -78,11 +78,16 @@
       </div></div>
     </div>
     <div class="srow">
-      <label class="srow-copy" for="history_days"><span>days of history</span><small>how far back the uptime bars reach.</small></label>
-      <div class="srow-control"><select id="history_days" name="history_days">
-        {{range .HistoryViews}}<option value="{{.}}"{{if eq . $.Project.HistoryDays}} selected{{end}}>{{.}} days</option>{{end}}
-      </select></div>
+      <label class="srow-copy" for="history_days"><span>days of history</span><small>how far back the uptime bars and figures reach, from 7 to 365 days.</small></label>
+      <div class="srow-control"><input class="number-field" id="history_days" name="history_days" type="number" inputmode="numeric" min="7" max="365" value="{{.Project.HistoryDays}}" required{{if index .Problems "history_days"}} aria-invalid="true"{{end}}></div>
       {{with index .Problems "history_days"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <div class="srow-copy" id="backfill-label"><span>days without data</span><small>how to draw the days before a monitor was first checked. the uptime figure never counts them.</small></div>
+      <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="backfill-label">
+        {{range .Backfills}}<label><input type="radio" name="backfill" value="{{.}}"{{if eq . $.Project.Backfill}} checked{{end}}><span>{{if eq . "none"}}no data{{else}}{{.}}{{end}}</span></label>{{end}}
+      </div></div>
+      {{with index .Problems "backfill"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
     <label class="srow">
       <span class="srow-copy"><span>face</span><small>the small face next to the status sentence.</small></span>

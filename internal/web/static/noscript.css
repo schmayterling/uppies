@@ -1,3 +1,3 @@
 /* Without script a dialog cannot open, so its content is shown in place. */
-dialog { display: block; position: static; margin-block-start: var(--space-4); }
+dialog { display: block; position: static; margin-block-start: var(--space-4); opacity: 1; scale: 1; }
 [data-open-dialog], [data-close-dialog], [data-toggle-sidebar] { display: none; }

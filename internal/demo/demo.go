@@ -102,7 +102,7 @@ func Seed(ctx context.Context, st *store.Store, now time.Time) error {
 	if _, _, err := seedProject(ctx, st, now, store.Project{
 		Slug: "internal-tools", Name: "internal tools for the team with a long project name",
 		AccentHue: 200, Theme: "dark", ShowFace: false, HistoryDays: 30, ShowPoweredBy: false, NoIndex: true, Timezone: "UTC",
-		Corners: "sharp", Font: "mono",
+		Corners: "sharp", Font: "mono", Backfill: "up",
 	}, toolsMonitors); err != nil {
 		return err
 	}

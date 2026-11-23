@@ -61,7 +61,7 @@
         <span>today</span>
       </div>
       {{else if ne .Display "minimal"}}
-      <div class="strip" role="img" aria-label="uptime over the last {{$.Project.HistoryDays}} days: {{.Uptime}}">
+      <div class="strip{{if gt $.Project.HistoryDays 120}} strip-dense{{end}}" role="img" aria-label="uptime over the last {{$.Project.HistoryDays}} days: {{.Uptime}}">
         {{range .Days}}<span class="day day-{{.State}}" data-tip="{{.Label}}"></span>{{end}}
       </div>
       <div class="strip-legend meta">
