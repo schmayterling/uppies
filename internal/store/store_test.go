@@ -297,3 +297,36 @@ func TestADomainBelongsToOneProject(t *testing.T) {
 		t.Fatalf("lookup of the empty domain: got err=%v, want ErrNotFound although two projects have none", err)
 	}
 }
+
+func TestProjectImagesAreReplacedAndRemoved(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	projectID, err := s.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetProjectImage(ctx, projectID, ImageLogo, "image/png", []byte("first"), 100); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetProjectImage(ctx, projectID, ImageLogo, "image/webp", []byte("second"), 200); err != nil {
+		t.Fatal(err)
+	}
+	contentType, data, err := s.ProjectImage(ctx, projectID, ImageLogo)
+	if err != nil || contentType != "image/webp" || string(data) != "second" {
+		t.Fatalf("after a replace: got %q %q err=%v, want the second upload", contentType, data, err)
+	}
+	versions, err := s.ProjectImageVersions(ctx, projectID)
+	if err != nil || len(versions) != 1 || versions[ImageLogo] != 200 {
+		t.Fatalf("versions: got %v err=%v, want only the logo at 200", versions, err)
+	}
+	tooLarge := make([]byte, MaxImageBytes+1)
+	if err := s.SetProjectImage(ctx, projectID, ImageFavicon, "image/png", tooLarge, 300); err == nil {
+		t.Fatal("an image over the size limit was stored, want a constraint error")
+	}
+	if err := s.DeleteProjectImage(ctx, projectID, ImageLogo); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.ProjectImage(ctx, projectID, ImageLogo); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("after a remove: got err=%v, want ErrNotFound", err)
+	}
+}

@@ -164,6 +164,17 @@ alter table projects add column timezone text not null default 'UTC' check (leng
 alter table projects add column domain text not null default '' check (length(domain) <= 253);
 create unique index projects_domain on projects(domain) where domain <> '';
 `,
+	`
+create table project_images (
+	id integer primary key,
+	project_id integer not null references projects(id) on delete cascade,
+	kind text not null check (kind in ('logo', 'favicon')),
+	content_type text not null,
+	data blob not null check (length(data) between 1 and 524288),
+	updated_at_ms integer not null,
+	unique (project_id, kind)
+) strict;
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.
