@@ -31,7 +31,7 @@ and several planned features are missing (see "Not built yet").
 - Keeps an incident history page per project, with a year map of incidents and
   a timeline of every update.
 - Lets you shape each status page: logo, favicon, tagline, link to your homepage, accent
-  colour, light or dark theme, 30, 60 or 90 days of history, timezone, footer
+  colour, light or dark theme, 7 to 365 days of history, timezone, footer
   text, your own CSS, and which monitors are shown. A page can live on its own
   domain, drop the "powered by" line and ask search engines to stay away.
 - Serves a status badge per project at `/s/<address>/badge.svg` for readmes

@@ -62,6 +62,15 @@ Each line names how it was verified.
   - Users page: more than one admin account, removing accounts (never your own, never the last) and changing your own password, which signs out your other devices.
   - Motion: pages cross-fade, controls ease on hover and press, dialogs and messages animate in. All of it uses the token durations, which are zero for people who ask for less motion.
   - Verified by store and handler tests. Checked in a browser: the sidebar is 256 pixels wide and 56 as a rail, labels hide in the rail, the add-user dialog opens and settles at full opacity.
+- Design round 5 (2026-11-23).
+  - The sidebar no longer shifts while it slides: labels stay on one line and fade, rows stay 28 pixels tall and icons stay at the same position in both states. Measured in a browser.
+  - Month labels on the incident map, with a test.
+  - The lookback length is any number of days from 7 to 365, and a backfill choice draws the days before a monitor had data as up, degraded, down or no data (schema version 9). The uptime figure only counts measured time. Verified by a handler test.
+  - The rebuilt monitor form, new-incident form, project page, appearance and instance pages were measured at 1440 wide: no horizontal overflow and no control under 24 pixels tall.
+- Checks run on 2026-11-23 on the admin overview:
+  - Contrast, computed from the rendered colours. Dark theme: every text pairing measured is 7.4:1 or higher. Light theme: the lowest is 5.68:1 (muted headings on the sidebar). The requirement for body text is 4.5:1.
+  - Script switched off: an admin page shows each dialog's form in place and hides the buttons that would open it. This needed a fix, because the dialog animation left dialogs invisible without script.
+  - Keyboard: the focus order read from the page is skip link, wordmark, sidebar toggle, then the sidebar entries in order. A walk with real key presses was not possible in the test browser, whose tab is in the background and ignores them.
 - Status page rendered and measured at 1280 and 390 CSS pixels wide in the light theme: no horizontal overflow, 90 day cells on wide screens and 30 on narrow ones. The dark theme was looked at once before the last style fixes and not measured.
 
 ## Done but not verified
@@ -118,6 +127,9 @@ Each line names how it was verified.
 - 2026-11-23: The sidebar's width is the one animated size in the app. Everything else animates only opacity, colour and scale.
 - 2026-11-23: A measurement taken in a background browser tab can show a transition's start value, because the tab draws no frames. Finish the animations before reading sizes.
 
+- 2026-11-23: The old `history_days` column stays in the database unused. The new `lookback_days` column replaces it, because changing a CHECK constraint means rebuilding the projects table.
+- 2026-11-23: Backfilled days say "no data" in their tooltip and never enter the uptime figure. Painting history green must not change the numbers.
+
 ## Do not repeat
 
 - Do not put the raw check error into text that can become public. A test caught this once (`TestStatusPageShowsOnlyWhatIsPublic`).
@@ -125,13 +137,14 @@ Each line names how it was verified.
 - Do not undo a temporary test edit with `git checkout <file>` while that file has other uncommitted changes. It discarded a new migration once. Copy the file aside and copy it back.
 - Chain the commit after the tests with `&&`. A commit went in once with a failing test because the chain used `;`.
 - The `git checkout <file>` mistake above happened a second time on 2026-11-23, after a test mutation in a file that also held new code. Always copy the file aside first.
+- A patch script that stops halfway must stop the commit too. Test its exit code before the commit chain. One commit (`1482684`) carries a message that claims more than it holds because of this.
 - In zsh, `rm -f name*` fails when nothing matches and stops a command chain. Name the files.
 - Headless Chrome will not lay a page out narrower than about 500 pixels. For phone widths, use device metrics emulation over the DevTools protocol.
 
 ## Next
 
 `ROADMAP.md` holds the planned order. The basics are done. The user wants a
-design pass on the status page and admin pages before any new feature. Three rounds are done (see above). Still open in the design pass: the public list of status pages and the error page, month labels on the incident map, and the checks never run: contrast, a keyboard walk, and the admin with script switched off. Work one item at a time, one signed commit per step.
+design pass on the status page and admin pages before any new feature. Five rounds are done (see above) and the queue is empty. Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
 
 ## Open risks
 
