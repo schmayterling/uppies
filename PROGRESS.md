@@ -75,6 +75,16 @@ Each line names how it was verified.
   - Visitors can pick the timezone a status page shows its times in, through a script-free form. New status pages start in the server's own timezone.
   - The settings sections are real tabs that show one pane at a time and keep the open tab in the address.
   - Checked in a browser: the toggle works in both sidebar states, the dialog link opens from the overview and from another page, and the tabs switch panes.
+- Design round 7 (2026-11-23), from the user's feedback on the running app.
+  - Each status page has a top bar with its name, links to its status and incident pages, and up to 6 links of its own set in the settings. The incident history shows the same bar.
+  - Planned maintenance is a list of cards. A week without incidents is one sentence and no timeline.
+  - The sign-in page has two layouts, split (form in two fifths on the left, background in three fifths on the right) and centered (card over the background), and a plain, gradient or uploaded background of up to 2 MB. Both are set under appearance.
+  - Hiding quiet days is a setting of the status page. Visitors no longer have a toggle and the `quiet` address parameter does nothing.
+  - The timezone picker is a sentence with a script-free menu of links.
+  - The latency line has a tooltip per day. Categories and the history heading have a rule under them.
+  - The incident timeline has the day and how long ago it was on the left, and each incident on the right with chips and its updates on a rail: a dot per update in its status colour and a line that stops short of the dots. Open incidents on the status page use the same rail.
+  - On admin pages a script replaces each select with a button and a list drawn by the page. Tick boxes, number fields and file fields are restyled in CSS.
+  - Checked in a browser: both sign-in layouts (512 and 768 pixels of 1280 in split), an upload of 1.3 MB, the select by click and by key events, the menu opening above its sentence, 90 tooltip columns over the latency line.
 - Checks run on 2026-11-23 on the admin overview:
   - Contrast, computed from the rendered colours. Dark theme: every text pairing measured is 7.4:1 or higher. Light theme: the lowest is 5.68:1 (muted headings on the sidebar). The requirement for body text is 4.5:1.
   - Script switched off: an admin page shows each dialog's form in place and hides the buttons that would open it. This needed a fix, because the dialog animation left dialogs invisible without script.
@@ -83,6 +93,9 @@ Each line names how it was verified.
 
 ## Done but not verified
 
+- The date and time field for maintenance windows still opens the browser's own picker. It is the last native control.
+- The custom select was not tried with a screen reader, in Safari or in Firefox. Its list uses the Popover API.
+- Round 7 was looked at in the dark theme at 1280 wide only. The narrow layout of the new timeline and the top bar was not rendered.
 - Colour contrast of the status colours on each surface was not measured. The values come unchanged from the token file.
 - Keyboard-only use and screen reader output were not checked.
 - Behaviour with many monitors (hundreds) was not measured. There are no memory or speed figures yet.
@@ -156,7 +169,7 @@ Each line names how it was verified.
 ## Next
 
 `ROADMAP.md` holds the planned order. The basics are done. The user wants a
-design pass on the status page and admin pages before any new feature. Five rounds are done (see above) and the queue is empty. Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
+design pass on the status page and admin pages before any new feature. Seven rounds are done (see above). Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
 
 ## Open risks
 
