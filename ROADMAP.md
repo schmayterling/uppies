@@ -13,27 +13,24 @@ paid services include as standard.
 - Status pages for several projects from one install, with a 90-day bar.
 - Incidents with dated updates, and private drafts opened by outages.
 - A timeline per project.
-- Alerts to a webhook, Discord or Slack, and an outside heartbeat.
+- DNS and ping checks, push monitors for scheduled jobs, and certificate
+  expiry warnings.
+- Alerts by email and to a webhook, Discord or Slack, and an outside heartbeat.
+- Planned maintenance windows.
+- A Dockerfile.
 - Status page settings: logo, favicon, tagline, homepage link, theme, accent
   colour, days of history, timezone, footer, custom CSS, custom domain, hidden
   monitors, no vendor name, search engine opt-out, and a badge.
 
-## 1. The basics every monitor is expected to have
+## Before the next features
 
-These are missing today and present in nearly every paid service.
+The look and layout of the status page and the admin pages get a design pass
+first.
 
-1. **Email alerts over SMTP.** Email is the one channel every service has.
-2. **Maintenance windows.** A planned window mutes alerts, does not count as
-   downtime, and is announced on the status page ahead of time.
-3. **Certificate expiry warnings.** Read from the HTTPS check that already
-   runs, with a warning some days before the certificate expires.
-4. **Push monitors for scheduled jobs.** A job calls a URL when it finishes.
-   Silence past a grace period means it is down.
-5. **Ping and DNS checks.**
-6. **A Docker image and release builds**, so that installing takes one command.
+## 1. Telling people what is happening
 
-## 2. Telling people what is happening
-
+0. **Release builds**, and a published container image, so that installing
+   takes one command.
 1. **Status page subscriptions.** An Atom feed first, since it needs no mail
    server. Email subscriptions after email alerts exist.
 2. **More history and ranges.** 24 hours, 7 days and 30 days next to the daily
@@ -48,7 +45,7 @@ These are missing today and present in nearly every paid service.
    outage of everything apart from uppies losing its own network, once there is
    an independent reference to check against.
 
-## 3. Automation
+## 2. Automation
 
 1. **A REST API with keys** that covers everything the admin pages do. A
    missing API is the most upvoted complaint about the most used open source
@@ -57,7 +54,7 @@ These are missing today and present in nearly every paid service.
    Items from the file are read-only in the admin pages.
 3. **Import from Uptime Kuma.**
 
-## 4. Growing with a team
+## 3. Growing with a team
 
 1. **Checks from more than one place.** A small probe runs checks elsewhere
    and reports back, and a failure counts only when a second place agrees.

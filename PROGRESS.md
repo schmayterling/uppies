@@ -15,7 +15,7 @@ timeline view and public status pages for several projects from one install.
 go build ./... && go vet ./... && go test -race ./...
 ```
 
-Last run: 2026-11-23, all six packages passed.
+Last run: 2026-11-23, all six packages passed, after the basics were finished.
 
 ## Done and verified
 
@@ -34,6 +34,13 @@ Each line names how it was verified.
 - Schema version 3 and the settings that use it: footer text, a switch for the "powered by" line, a switch that asks search engines not to list the page, a timezone for incident times, and a custom domain whose front page is the status page. Verified by store and handler tests, and by a manual run on 2026-11-23 on the demo database (upgraded from version 2, 2 projects kept).
 - Logo and favicon uploads (schema version 4, `internal/web/images.go`): up to 512 KB each, the type is read from the file's bytes, and images are served sandboxed so that a script inside an SVG cannot run. Verified by store and handler tests, and by uploading an SVG to the demo database with the real binary on 2026-11-23 (a text file was refused with 422).
 - Status badge at `/s/<address>/badge.svg`. Verified by a handler test and by rendering it once in a browser.
+- Schema version 5 (`internal/store/store.go`): the monitors and alert channel tables are rebuilt to allow new kinds, and maintenance windows are added. Migrations now run with foreign keys off on one connection, check foreign keys before committing, and write a backup file (`<database>.backup-v<old version>`) before any upgrade. Verified by an upgrade test that checks rows pointing at monitors survive, and by upgrading the demo database (5 monitors and 206 rollups kept, integrity and foreign key checks clean).
+- DNS and ping checks (`internal/check`). Verified by tests against localhost and reserved addresses, and by the manual run. Ping covers IPv4 only.
+- Push monitors: the job requests `/push/<token>`, and silence longer than one interval plus 10 seconds fails the check. Verified by tests and by the manual run (down after 44 seconds of silence at a 20-second interval).
+- Certificate expiry: read from each HTTPS check, shown in the admin table, with one alert at 14, 7, 3 and 1 days. The reading and the threshold logic are verified by tests. No real certificate near expiry was tried.
+- Email alerts over SMTP (`internal/alert/email.go`, flags `-smtp-addr` and `-smtp-from`). Verified by a test against a fake server and by the manual run against a local fake server. Not tried against a real mail server, so STARTTLS and sign-in are untested.
+- Maintenance windows per project: no checks during a window, announced on the status page. Verified by engine and handler tests and by the manual run.
+- Dockerfile: written and not built, because the Docker daemon on this machine was not running. The same static Linux build command it uses was run by hand and produced a 15 MB binary.
 - Status page rendered and measured at 1280 and 390 CSS pixels wide in the light theme: no horizontal overflow, 90 day cells on wide screens and 30 on narrow ones. The dark theme was looked at once before the last style fixes and not measured.
 
 ## Done but not verified
@@ -68,6 +75,11 @@ Each line names how it was verified.
 - 2026-11-23: Logos and favicons are uploaded files stored in the database, chosen by the user over allowing image URLs from other sites. The page stays self-contained and the content security policy stays strict.
 - 2026-11-23: Custom scripts and tracking codes on status pages are not planned. A status page runs no script at all, and that rule is worth more than analytics.
 
+- 2026-11-23: Ping uses an unprivileged ICMP socket from `golang.org/x/net`, so uppies needs no root and no `ping` program.
+- 2026-11-23: A maintenance window covers a whole project, not single monitors. Checks stop entirely during a window, which is simpler than checking and then discarding the result.
+- 2026-11-23: The SMTP password comes from the environment, never from a flag, so it does not show in a process list.
+- 2026-11-23: Certificate warnings are alerts only. They are not in the timeline, because the timeline's kinds are fixed by a schema constraint and adding one needs a table rebuild.
+
 ## Do not repeat
 
 - Do not put the raw check error into text that can become public. A test caught this once (`TestStatusPageShowsOnlyWhatIsPublic`).
@@ -77,8 +89,8 @@ Each line names how it was verified.
 
 ## Next
 
-`ROADMAP.md` holds the planned order. The first item is email alerts over SMTP,
-then maintenance windows. Work one item at a time, one signed commit per step.
+`ROADMAP.md` holds the planned order. The basics are done. The user wants a
+design pass on the status page and admin pages before any new feature. Work one item at a time, one signed commit per step.
 
 ## Open risks
 
