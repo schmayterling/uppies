@@ -204,7 +204,8 @@ func TestStatusPageShowsOnlyWhatIsPublic(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("status page: got %d, want 200", status)
 	}
-	for _, want := range []string{"everything is down.", "payments api"} {
+	checkedAt := time.UnixMilli(nowMs).UTC().Format(time.RFC3339)
+	for _, want := range []string{`<h1 class="banner-text">everything is down.</h1>`, "payments api", `last check <time datetime="` + checkedAt + `"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("status page is missing %q", want)
 		}

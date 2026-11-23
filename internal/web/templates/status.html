@@ -4,15 +4,16 @@
 <link rel="stylesheet" href="/s/{{.Project.Slug}}/theme.css">{{end}}
 {{define "main"}}
 {{template "site-bar" (pair . "status")}}
-<header class="page-head">
-  <h1>status</h1>
-  {{with .Project.Tagline}}<p class="muted">{{.}}</p>{{end}}
-</header>
-
 <section class="banner banner-{{.BannerState}}" role="status" aria-label="current status">
   {{if .Project.ShowFace}}{{template "status-icon" .BannerIcon}}{{end}}
-  <p class="banner-text">{{.BannerText}}</p>
+  <h1 class="banner-text">{{.BannerText}}</h1>
 </section>
+{{if or .Project.Tagline .LastCheckAtMs}}
+<div class="status-meta">
+  {{with .Project.Tagline}}<p class="muted">{{.}}</p>{{end}}
+  {{with .LastCheckAtMs}}<p class="meta status-checked">last check <time datetime="{{rfc3339 .}}">{{local $.Zone .}}</time></p>{{end}}
+</div>
+{{end}}
 
 {{range .Active}}
 <article class="incident incident-open">

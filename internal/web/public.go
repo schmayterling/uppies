@@ -95,8 +95,10 @@ type statusPage struct {
 	// BannerIcon names the round icon beside the sentence: check, warning, cross, dash, wrench or slash.
 	BannerIcon string
 	BannerText string
-	Components []componentView
-	Active     []incidentView
+	// LastCheckAtMs is the newest check of a monitor shown on this page.
+	LastCheckAtMs int64
+	Components    []componentView
+	Active        []incidentView
 	// Recent lists the last few days, today first, with the resolved incidents of each.
 	Recent []dayGroup
 	// Maintenance holds the running and upcoming windows, soonest first.
@@ -417,6 +419,7 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 	lastCategory := ""
 	for _, m := range monitors {
 		shown = append(shown, m.Monitor)
+		page.LastCheckAtMs = max(page.LastCheckAtMs, m.LastCheckAtMs)
 		names[m.ID] = m.Name
 		state, word := componentState(m.Monitor)
 		days, uptime := uptimeStrip(rollups[m.ID], todayStartMs, project.HistoryDays)

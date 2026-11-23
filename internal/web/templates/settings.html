@@ -149,7 +149,7 @@
     <div class="srow">
       <label class="srow-copy" for="logo"><span>logo</span><small>shown next to the name. png, jpeg, webp, gif or svg, up to 512 KB.</small></label>
       <div class="srow-control">
-        {{with index .Images "logo"}}<img class="logo-preview" src="/s/{{$.Project.Slug}}/images/logo?v={{.}}" alt="the current logo">{{end}}
+        {{with index .Images "logo"}}<img class="logo-preview" src="/s/{{$.Project.Slug}}/images/logo?v={{.}}" width="48" height="48" alt="the current logo">{{end}}
         <input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"{{if index .Problems "logo"}} aria-invalid="true"{{end}}>
       </div>
       {{with index .Problems "logo"}}<p class="problem srow-problem">{{.}}</p>{{end}}
