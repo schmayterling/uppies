@@ -139,9 +139,9 @@
         </div></div>
       </div>
       <div class="srow">
-        <div class="srow-copy" id="b-color-label"><span>block colour</span><small>state follows the monitor: green, red or grey.</small></div>
+        <div class="srow-copy" id="b-color-label"><span>block colour</span><small>the first one follows the monitor's state: green, red or grey.</small></div>
         <div class="srow-control"><div class="swatches" role="radiogroup" aria-labelledby="b-color-label">
-          <label class="segmented"><input type="radio" name="b_color" value=""{{if not .Badge.Color}} checked{{end}}><span>state</span></label>
+          <label class="swatch swatch-state" title="follow the monitor's state"><input type="radio" name="b_color" value=""{{if not .Badge.Color}} checked{{end}}><span class="visually-hidden">follow the monitor's state</span></label>
           {{range .Badge.Swatches}}<label class="swatch swatch-{{.}}"><input type="radio" name="b_color" value="{{.}}"{{if eq (print .) $.Badge.Color}} checked{{end}}><span class="visually-hidden">hue {{.}}</span></label>{{end}}
         </div></div>
       </div>
