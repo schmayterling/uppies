@@ -106,6 +106,18 @@ func choice(form url.Values, field string, allowed []string, current string, pro
 	return value
 }
 
+// announcementText keeps an omitted message and uses the same plain-text rules for both public views.
+func announcementText(form url.Values, field, current string, problems map[string]string) string {
+	if !form.Has(field) {
+		return current
+	}
+	text := strings.TrimSpace(strings.ReplaceAll(form.Get(field), "\r", ""))
+	if !utf8.ValidString(text) || utf8.RuneCountInString(text) > announcementLimit || strings.ContainsRune(text, 0) {
+		problems[field] = "use up to 1000 characters of plain text."
+	}
+	return text
+}
+
 var (
 	domainPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$`)
 	themes        = []string{"auto", "light", "dark"}
@@ -134,12 +146,7 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	p.HideQuietDays = form.Get("hide_quiet_days") == "on"
 	p.CustomCSS = form.Get("custom_css")
 	p.FooterText = strings.TrimSpace(form.Get("footer_text"))
-	if form.Has("announcement") {
-		p.Announcement = strings.TrimSpace(strings.ReplaceAll(form.Get("announcement"), "\r", ""))
-		if !utf8.ValidString(p.Announcement) || utf8.RuneCountInString(p.Announcement) > announcementLimit || strings.ContainsRune(p.Announcement, 0) {
-			problems["announcement"] = "use up to 1000 characters of plain text."
-		}
-	}
+	p.Announcement = announcementText(form, "announcement", p.Announcement, problems)
 	p.AnnouncementColor = choice(form, "announcement_color", announcementColors, p.AnnouncementColor, problems)
 	p.NavLinks = strings.TrimSpace(strings.ReplaceAll(form.Get("nav_links"), "\r", ""))
 	if _, problem := parseNavLinks(p.NavLinks); problem != "" {

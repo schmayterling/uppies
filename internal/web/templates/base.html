@@ -156,7 +156,11 @@
     {{if ne .Project.NavbarLink "homepage"}}{{with .Project.HomepageURL}}<a href="{{.}}" rel="noopener">back to {{$.First.Project.Name}}</a>{{end}}{{end}}
   </nav>
 </header>
-{{if .Project.Announcement}}<aside class="page-announcement announcement-{{or .Project.AnnouncementColor "blue"}}" role="note" aria-label="announcement">{{.Project.Announcement}}</aside>{{end}}
+{{template "pinned-announcement" (pair .Project.Announcement .Project.AnnouncementColor)}}
+{{end}}{{end}}
+
+{{define "pinned-announcement"}}{{if .First}}
+<aside class="page-announcement announcement-{{or .Second "blue"}}" role="note" aria-label="announcement">{{.First}}</aside>
 {{end}}{{end}}
 
 {{/* The row's daily cells and uptime, paired with the lookback in days. */}}

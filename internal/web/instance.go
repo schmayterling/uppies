@@ -29,7 +29,8 @@ type instancePage struct {
 	Layouts     []string
 	Backgrounds []string
 	// ListLayouts are the layouts of the public list of status pages.
-	ListLayouts []string
+	ListLayouts        []string
+	AnnouncementColors []string
 	// GraphFills are the ways a graph can be filled.
 	GraphFills []string
 	// BackgroundVersion is set when a sign-in background image is uploaded,
@@ -43,6 +44,7 @@ func (s *Server) instancePage(r *http.Request, title string) (instancePage, erro
 	var err error
 	page.Layouts, page.Backgrounds, page.ListLayouts = store.LoginLayouts, store.LoginBackgrounds, store.ListLayouts
 	page.GraphFills = store.GraphFills
+	page.AnnouncementColors = announcementColors
 	page.Saved = r.URL.Query().Get("saved") == "1"
 	page.Instance, err = s.store.Instance(r.Context())
 	if err != nil {
@@ -306,6 +308,8 @@ func (s *Server) handleSaveInstance(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	page.Instance.ListAnnouncement = announcementText(r.PostForm, "list_announcement", page.Instance.ListAnnouncement, page.Problems)
+	page.Instance.ListAnnouncementColor = choice(r.PostForm, "list_announcement_color", announcementColors, page.Instance.ListAnnouncementColor, page.Problems)
 	if r.PostForm.Has("list_footer_text") {
 		footer := strings.TrimSpace(r.PostForm.Get("list_footer_text"))
 		if !utf8.ValidString(footer) || apiText("list_footer_text", footer, 0, 500) != nil {

@@ -3,6 +3,7 @@
 <h1 class="visually-hidden">status pages</h1>
 {{if eq .Layout "compact"}}
 {{with .NavLinks}}<nav class="site-links" aria-label="site links">{{template "nav-links" .}}</nav>{{end}}
+{{if .Listed}}{{template "pinned-announcement" (pair .Announcement .AnnouncementColor)}}{{end}}
 {{if .Projects}}
 <ul class="rows index-list">
   {{range .Projects}}<li><a class="row-link" href="/s/{{.Slug}}"><span>{{.Name}}</span><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span></a></li>{{end}}
@@ -13,6 +14,7 @@
   <a class="site-brand" href="/">{{template "status-icon" (index .StateIcons (or .State "ok"))}}{{.Chrome.Brand}}</a>
   <nav class="site-links" aria-label="site links">{{template "nav-links" .NavLinks}}<a href="/admin">sign in</a></nav>
 </header>
+{{if .Listed}}{{template "pinned-announcement" (pair .Announcement .AnnouncementColor)}}{{end}}
 {{if .Projects}}
 <section class="banner banner-{{.State}}" aria-label="summary">
   <p class="banner-text">{{.Summary}}</p>

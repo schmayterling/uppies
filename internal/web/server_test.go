@@ -1336,6 +1336,7 @@ func TestInstancePagesAndUsers(t *testing.T) {
 	}
 	if resp := s.post(t, s.admin, "/admin/instance", url.Values{
 		"name": {"acme ops"}, "public_list": {"on"}, "nav_links": {"docs | https://docs.example.com/"},
+		"list_announcement": {"Planned work <today>.\nAn update will follow."}, "list_announcement_color": {"amber"},
 		"list_footer_text": {"Reach the <ops> team"}, "list_show_powered_by": {"on", "off"},
 	}, nil); resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("save homepage branding: got %d, want 303", resp.StatusCode)
@@ -1350,6 +1351,11 @@ func TestInstancePagesAndUsers(t *testing.T) {
 	}, nil); resp.StatusCode != http.StatusUnprocessableEntity {
 		t.Errorf("unsafe navbar link: got %d, want 422", resp.StatusCode)
 	}
+	if resp := s.post(t, s.admin, "/admin/instance", url.Values{
+		"name": {"acme ops"}, "public_list": {"on"}, "list_announcement_color": {"unknown"},
+	}, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("unknown announcement color: got %d, want 422", resp.StatusCode)
+	}
 	// The list has three layouts. Each one names the page and links to it.
 	for layout, marker := range map[string]string{"rows": `class="index-rows"`, "cards": `class="index-cards"`, "compact": `class="rows index-list"`} {
 		s.post(t, s.admin, "/admin/appearance", url.Values{"theme": {"dark"}, "accent_hue": {"25"}, "list_layout": {layout}}, nil)
@@ -1359,6 +1365,10 @@ func TestInstancePagesAndUsers(t *testing.T) {
 		}
 		if strings.Contains(page, "<h1>status pages</h1>") {
 			t.Errorf("front page in the %s layout has a visible duplicate heading", layout)
+		}
+		notice := strings.Index(page, `class="page-announcement announcement-amber"`)
+		if notice < 0 || notice >= strings.Index(page, marker) || !strings.Contains(page, "Planned work &lt;today&gt;.\nAn update will follow.") {
+			t.Errorf("the %s layout must show the escaped pinned announcement above the list", layout)
 		}
 		for _, want := range []string{
 			marker, "Acme", `href="/s/acme"`, "<title>acme ops status</title>", `href="https://docs.example.com/"`,
@@ -1374,7 +1384,8 @@ func TestInstancePagesAndUsers(t *testing.T) {
 	}
 	s.post(t, s.admin, "/admin/instance", url.Values{"name": {"acme ops"}}, nil)
 	_, page := s.get(t, s.anonymous, "/")
-	if strings.Contains(page, "Acme") || strings.Contains(page, "docs.example.com") || !strings.Contains(page, "acme ops") {
+	if strings.Contains(page, "Acme") || strings.Contains(page, "docs.example.com") ||
+		strings.Contains(page, "Planned work") || !strings.Contains(page, "acme ops") {
 		t.Error("with the public list off, the front page shows the instance name and no status page")
 	}
 	if !strings.Contains(page, "Reach the &lt;ops&gt; team") || !strings.Contains(page, "powered by uppies.") {
@@ -1388,12 +1399,16 @@ func TestInstancePagesAndUsers(t *testing.T) {
 	if !strings.Contains(page, "Reach the &lt;ops&gt; team") || strings.Contains(page, "powered by uppies.") {
 		t.Error("hiding the credit must keep the homepage footer text")
 	}
-	homepage.Set("list_footer_text", "")
-	if resp := s.post(t, s.admin, "/admin/instance", homepage, nil); resp.StatusCode != http.StatusSeeOther {
-		t.Fatalf("clear homepage footer: got %d, want 303", resp.StatusCode)
+	if !strings.Contains(page, "Planned work &lt;today&gt;.") {
+		t.Error("an older form must keep the homepage announcement")
 	}
-	if _, page := s.get(t, s.anonymous, "/"); strings.Contains(page, "index-footer") {
-		t.Error("an empty footer must be omitted")
+	homepage.Set("list_footer_text", "")
+	homepage.Set("list_announcement", "")
+	if resp := s.post(t, s.admin, "/admin/instance", homepage, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("clear homepage footer and announcement: got %d, want 303", resp.StatusCode)
+	}
+	if _, page := s.get(t, s.anonymous, "/"); strings.Contains(page, "index-footer") || strings.Contains(page, "page-announcement") {
+		t.Error("an empty footer and announcement must be omitted")
 	}
 	if _, page := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(page, "powered by uppies.") {
 		t.Error("the homepage setting must not control the credit on a status page")

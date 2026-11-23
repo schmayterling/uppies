@@ -31,6 +31,9 @@ type InstanceSettings struct {
 	// with one row per status page, "cards" a page with a grid of cards, and
 	// "compact" a small card in the middle of the screen.
 	ListLayout string
+	// ListAnnouncement and ListAnnouncementColor set the pinned message above the public list.
+	ListAnnouncement      string
+	ListAnnouncementColor string
 	// ListFooterText and ListShowPoweredBy customize the public homepage footer.
 	ListFooterText    string
 	ListShowPoweredBy bool
@@ -110,6 +113,10 @@ func (s *Store) Instance(ctx context.Context) (InstanceSettings, error) {
 			settings.LoginBackground = value
 		case "list_layout":
 			settings.ListLayout = value
+		case "list_announcement":
+			settings.ListAnnouncement = value
+		case "list_announcement_color":
+			settings.ListAnnouncementColor = value
 		case "list_footer_text":
 			settings.ListFooterText = value
 		case "list_show_powered_by":
@@ -137,6 +144,7 @@ func (s *Store) SaveInstance(ctx context.Context, settings InstanceSettings) err
 		"accent_hue": strconv.Itoa(settings.AccentHue), "public_list": publicList,
 		"login_layout": settings.LoginLayout, "login_background": settings.LoginBackground,
 		"list_layout": settings.ListLayout, "graph_fill": settings.GraphFill,
+		"list_announcement": settings.ListAnnouncement, "list_announcement_color": settings.ListAnnouncementColor,
 		"list_footer_text": settings.ListFooterText, "list_show_powered_by": listPoweredBy,
 	}
 	statement := `insert into instance_settings (key, value) values (?, ?)

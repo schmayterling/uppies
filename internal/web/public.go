@@ -120,9 +120,11 @@ type indexPage struct {
 	// Listed is false when the instance keeps its status pages off the front page.
 	Listed bool
 	// Layout is the instance's choice of how the list is drawn.
-	Layout        string
-	FooterText    string
-	ShowPoweredBy bool
+	Layout            string
+	Announcement      string
+	AnnouncementColor string
+	FooterText        string
+	ShowPoweredBy     bool
 	// State is the worst state among the listed pages and Summary says it in a sentence.
 	State   string
 	Summary string
@@ -252,6 +254,7 @@ func (s *Server) handlePublicList(w http.ResponseWriter, r *http.Request) {
 			Description: "Service status and incident history for " + instance.Name + ".",
 		},
 		Listed: instance.PublicList, Layout: instance.ListLayout, StateIcons: listIcons,
+		Announcement: instance.ListAnnouncement, AnnouncementColor: instance.ListAnnouncementColor,
 		FooterText: instance.ListFooterText, ShowPoweredBy: instance.ListShowPoweredBy,
 	}
 	canonical := publicOrigin(r, instance.PublicURL)
