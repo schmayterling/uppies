@@ -1,40 +1,49 @@
 {{define "main"}}
-<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">projects</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / new incident</nav>
+<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">overview</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / new incident</nav>
+<div class="settings">
 <h1>new incident</h1>
-<form class="form narrow" method="post" action="/admin/projects/{{.Project.ID}}/incidents">
-  <div class="field">
-    <label for="title">title</label>
-    <input id="title" name="title" value="{{.Incident.Title}}" required maxlength="200"{{if index .Problems "title"}} aria-invalid="true" aria-describedby="title-problem"{{end}}>
-    {{with index .Problems "title"}}<p class="problem" id="title-problem">{{.}}</p>{{end}}
+{{if .Problems}}{{template "error" "the incident was not saved. the fields with a problem are marked below."}}{{end}}
+<form method="post" action="/admin/projects/{{.Project.ID}}/incidents">
+  <h2 class="group-title">what is happening</h2>
+  <div class="group">
+    <div class="srow">
+      <label class="srow-copy" for="title"><span>title</span><small>a few words that name the problem.</small></label>
+      <div class="srow-control"><input id="title" name="title" value="{{.Incident.Title}}" required maxlength="200"{{if index .Problems "title"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "title"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <div class="srow-copy" id="impact-label"><span>impact</span><small>how badly people are affected.</small></div>
+      <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="impact-label">
+        {{range .Impacts}}<label><input type="radio" name="impact" value="{{.}}"{{if eq . $.Incident.Impact}} checked{{end}}><span>{{.}}</span></label>{{end}}
+      </div></div>
+      {{with index .Problems "impact"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <label class="srow-copy" for="status"><span>status</span><small>where you are with it right now.</small></label>
+      <div class="srow-control"><select id="status" name="status">
+        {{range .Statuses}}<option value="{{.}}"{{if eq . $.Incident.Status}} selected{{end}}>{{.}}</option>{{end}}
+      </select></div>
+      {{with index .Problems "status"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow" data-stack>
+      <label class="srow-copy" for="message"><span>first update</span><small>what people should know. this is the first entry on the status page.</small></label>
+      <textarea id="message" name="message" rows="4" required maxlength="5000"{{if index .Problems "message"}} aria-invalid="true"{{end}}>{{.Message}}</textarea>
+      {{with index .Problems "message"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    {{if .Monitors}}
+    <div class="srow" data-stack>
+      <div class="srow-copy" id="affected-label"><span>affected monitors</span><small>named on the status page next to the incident.</small></div>
+      <div class="checks" role="group" aria-labelledby="affected-label">
+        {{range .Monitors}}<label class="check"><input type="checkbox" name="monitor" value="{{.ID}}"{{if contains $.Incident.MonitorIDs .ID}} checked{{end}}> {{.Name}}</label>{{end}}
+      </div>
+    </div>
+    {{end}}
   </div>
-  <div class="field">
-    <label for="impact">impact</label>
-    <select id="impact" name="impact">
-      {{range .Impacts}}<option value="{{.}}"{{if eq . $.Incident.Impact}} selected{{end}}>{{.}}</option>{{end}}
-    </select>
-    {{with index .Problems "impact"}}<p class="problem">{{.}}</p>{{end}}
-  </div>
-  <div class="field">
-    <label for="status">status</label>
-    <select id="status" name="status">
-      {{range .Statuses}}<option value="{{.}}"{{if eq . $.Incident.Status}} selected{{end}}>{{.}}</option>{{end}}
-    </select>
-    {{with index .Problems "status"}}<p class="problem">{{.}}</p>{{end}}
-  </div>
-  <div class="field">
-    <label for="message">first update</label>
-    <textarea id="message" name="message" rows="4" required maxlength="5000"{{if index .Problems "message"}} aria-invalid="true" aria-describedby="message-problem"{{end}}>{{.Message}}</textarea>
-    {{with index .Problems "message"}}<p class="problem" id="message-problem">{{.}}</p>{{end}}
-  </div>
-  {{if .Monitors}}
-  <fieldset>
-    <legend>affected monitors</legend>
-    {{range .Monitors}}<label class="check"><input type="checkbox" name="monitor" value="{{.ID}}"{{if contains $.Incident.MonitorIDs .ID}} checked{{end}}> {{.Name}}</label>{{end}}
-  </fieldset>
-  {{end}}
-  <div class="actions">
+  <div class="savebar">
     <button class="button" type="submit" name="action" value="publish">publish</button>
     <button class="button quiet" type="submit" name="action" value="draft">save as draft</button>
+    <a class="button quiet push-end" href="/admin/projects/{{.Project.ID}}">cancel</a>
   </div>
 </form>
+</div>
 {{end}}
