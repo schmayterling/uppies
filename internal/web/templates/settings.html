@@ -55,7 +55,7 @@
       <div class="srow-copy" id="accent-label"><span>accent colour</span><small>used for the name, links and focus rings.</small></div>
       <div class="srow-control"><div class="swatches" role="radiogroup" aria-labelledby="accent-label">
         {{range .Swatches}}<label class="swatch swatch-{{.}}"><input type="radio" name="accent_hue" value="{{.}}"{{if eq . $.Project.AccentHue}} checked{{end}}><span class="visually-hidden">hue {{.}}</span></label>{{end}}
-        {{if .CustomHue}}<label class="swatch swatch-custom"><input type="radio" name="accent_hue" value="{{.Project.AccentHue}}" checked><span>{{.Project.AccentHue}}</span></label>{{end}}
+        {{if .CustomHue}}<label class="swatch swatch-custom" title="your custom colour"><input type="radio" name="accent_hue" value="{{.Project.AccentHue}}" checked><svg viewBox="0 0 2 2" aria-hidden="true"><circle cx="1" cy="1" r="1" fill="oklch(0.62 0.1 {{.Project.AccentHue}})"/></svg><span class="visually-hidden">your custom colour</span></label>{{end}}
       </div></div>
       {{with index .Problems "accent_hue"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>

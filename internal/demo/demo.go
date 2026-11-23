@@ -73,7 +73,7 @@ func Seed(ctx context.Context, st *store.Store, now time.Time) error {
 
 	hibi, hibiIDs, err := seedProject(ctx, st, now, store.Project{
 		Slug: "hibi", Name: "hibi", Tagline: "notes that sync, most of the time.", HomepageURL: "https://example.com",
-		AccentHue: 320, Theme: "auto", ShowFace: true, HistoryDays: 90, ShowPoweredBy: true, Timezone: "Asia/Manila",
+		AccentHue: 330, Theme: "auto", ShowFace: true, HistoryDays: 90, ShowPoweredBy: true, Timezone: "Asia/Manila",
 		FooterText: "questions? write to help@hibi.example",
 	}, hibiMonitors)
 	if err != nil {
