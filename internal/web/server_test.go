@@ -489,7 +489,7 @@ func TestNavbarBrandControlsThePublicHeader(t *testing.T) {
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
-	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(body), "<h1>status pages</h1>") {
+	if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(body), `<h1 class="visually-hidden">status pages</h1>`) {
 		t.Fatalf("custom domain list returned %d, read %v", resp.StatusCode, err)
 	}
 }
@@ -1301,13 +1301,19 @@ func TestInstancePagesAndUsers(t *testing.T) {
 	if _, css := s.get(t, s.anonymous, "/theme.css"); !strings.Contains(css, "color-scheme: dark") || !strings.Contains(css, "0.075 25)") {
 		t.Errorf("theme.css after saving appearance: %q", css)
 	}
-	if _, page := s.get(t, s.anonymous, "/"); !strings.Contains(page, "Acme") {
-		t.Error("the front page lists status pages by default")
+	if _, page := s.get(t, s.anonymous, "/"); !strings.Contains(page, "Acme") || strings.Contains(page, "index-footer") {
+		t.Error("the front page lists status pages without a footer by default")
 	}
 	if resp := s.post(t, s.admin, "/admin/instance", url.Values{
 		"name": {"acme ops"}, "public_list": {"on"}, "nav_links": {"docs | https://docs.example.com/"},
+		"list_footer_text": {"Reach the <ops> team"}, "list_show_powered_by": {"on", "off"},
 	}, nil); resp.StatusCode != http.StatusSeeOther {
-		t.Fatalf("save site name and links: got %d, want 303", resp.StatusCode)
+		t.Fatalf("save homepage branding: got %d, want 303", resp.StatusCode)
+	}
+	if resp := s.post(t, s.admin, "/admin/instance", url.Values{
+		"name": {"acme ops"}, "public_list": {"on"}, "list_footer_text": {strings.Repeat("a", 501)},
+	}, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("overlong footer: got %d, want 422", resp.StatusCode)
 	}
 	if resp := s.post(t, s.admin, "/admin/instance", url.Values{
 		"name": {"acme ops"}, "public_list": {"on"}, "nav_links": {"docs | javascript:alert(1)"},
@@ -1321,7 +1327,13 @@ func TestInstancePagesAndUsers(t *testing.T) {
 		if hasStrip := strings.Contains(page, `class="index-uptime"`); hasStrip != (layout == "rows") {
 			t.Errorf("front page in the %s layout has the wrong uptime strip visibility", layout)
 		}
-		for _, want := range []string{marker, "Acme", `href="/s/acme"`, "<title>acme ops status</title>", `href="https://docs.example.com/"`} {
+		if strings.Contains(page, "<h1>status pages</h1>") {
+			t.Errorf("front page in the %s layout has a visible duplicate heading", layout)
+		}
+		for _, want := range []string{
+			marker, "Acme", `href="/s/acme"`, "<title>acme ops status</title>", `href="https://docs.example.com/"`,
+			`<h1 class="visually-hidden">status pages</h1>`, "Reach the &lt;ops&gt; team", "powered by uppies.",
+		} {
 			if !strings.Contains(page, want) {
 				t.Errorf("front page in the %s layout is missing %q", layout, want)
 			}
@@ -1334,6 +1346,27 @@ func TestInstancePagesAndUsers(t *testing.T) {
 	_, page := s.get(t, s.anonymous, "/")
 	if strings.Contains(page, "Acme") || strings.Contains(page, "docs.example.com") || !strings.Contains(page, "acme ops") {
 		t.Error("with the public list off, the front page shows the instance name and no status page")
+	}
+	if !strings.Contains(page, "Reach the &lt;ops&gt; team") || !strings.Contains(page, "powered by uppies.") {
+		t.Error("an older form must keep the footer settings")
+	}
+	homepage := url.Values{"name": {"acme ops"}, "public_list": {"on"}, "list_show_powered_by": {"off"}}
+	if resp := s.post(t, s.admin, "/admin/instance", homepage, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("hide the footer credit: got %d, want 303", resp.StatusCode)
+	}
+	_, page = s.get(t, s.anonymous, "/")
+	if !strings.Contains(page, "Reach the &lt;ops&gt; team") || strings.Contains(page, "powered by uppies.") {
+		t.Error("hiding the credit must keep the homepage footer text")
+	}
+	homepage.Set("list_footer_text", "")
+	if resp := s.post(t, s.admin, "/admin/instance", homepage, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("clear homepage footer: got %d, want 303", resp.StatusCode)
+	}
+	if _, page := s.get(t, s.anonymous, "/"); strings.Contains(page, "index-footer") {
+		t.Error("an empty footer must be omitted")
+	}
+	if _, page := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(page, "powered by uppies.") {
+		t.Error("the homepage setting must not control the credit on a status page")
 	}
 
 	// Users: add one, refuse a short password, refuse removing yourself, change the password.

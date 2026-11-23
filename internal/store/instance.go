@@ -31,6 +31,9 @@ type InstanceSettings struct {
 	// with one row per status page, "cards" a page with a grid of cards, and
 	// "compact" a small card in the middle of the screen.
 	ListLayout string
+	// ListFooterText and ListShowPoweredBy customize the public homepage footer.
+	ListFooterText    string
+	ListShowPoweredBy bool
 	// GraphFill is how graphs are filled unless a status page or a monitor says otherwise: one of GraphFills.
 	GraphFill string
 }
@@ -107,6 +110,10 @@ func (s *Store) Instance(ctx context.Context) (InstanceSettings, error) {
 			settings.LoginBackground = value
 		case "list_layout":
 			settings.ListLayout = value
+		case "list_footer_text":
+			settings.ListFooterText = value
+		case "list_show_powered_by":
+			settings.ListShowPoweredBy = value == "1"
 		case "graph_fill":
 			settings.GraphFill = value
 		}
@@ -120,12 +127,17 @@ func (s *Store) SaveInstance(ctx context.Context, settings InstanceSettings) err
 	if settings.PublicList {
 		publicList = "1"
 	}
+	listPoweredBy := "0"
+	if settings.ListShowPoweredBy {
+		listPoweredBy = "1"
+	}
 	values := map[string]string{
 		"name": settings.Name, "nav_links": settings.NavLinks, "public_url": settings.PublicURL,
 		"theme":      settings.Theme,
 		"accent_hue": strconv.Itoa(settings.AccentHue), "public_list": publicList,
 		"login_layout": settings.LoginLayout, "login_background": settings.LoginBackground,
 		"list_layout": settings.ListLayout, "graph_fill": settings.GraphFill,
+		"list_footer_text": settings.ListFooterText, "list_show_powered_by": listPoweredBy,
 	}
 	statement := `insert into instance_settings (key, value) values (?, ?)
 		on conflict (key) do update set value = excluded.value`

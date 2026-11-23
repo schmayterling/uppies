@@ -1,7 +1,7 @@
 {{define "head"}}{{if ne .Layout "compact"}}<link rel="stylesheet" href="/theme.css">{{end}}{{end}}
 {{define "main"}}
+<h1 class="visually-hidden">status pages</h1>
 {{if eq .Layout "compact"}}
-<h1>status pages</h1>
 {{with .NavLinks}}<nav class="site-links" aria-label="site links">{{template "nav-links" .}}</nav>{{end}}
 {{if .Projects}}
 <ul class="rows index-list">
@@ -12,9 +12,6 @@
 <header class="site-bar">
   <a class="site-brand" href="/">{{template "status-icon" (index .StateIcons (or .State "ok"))}}{{.Chrome.Brand}}</a>
   <nav class="site-links" aria-label="site links">{{template "nav-links" .NavLinks}}<a href="/admin">sign in</a></nav>
-</header>
-<header class="page-head">
-  <h1>status pages</h1>
 </header>
 {{if .Projects}}
 <section class="banner banner-{{.State}}" aria-label="summary">
@@ -33,6 +30,12 @@
   {{end}}
 </ul>
 {{else}}{{template "index-empty" .}}{{end}}
+{{end}}
+{{if or .FooterText .ShowPoweredBy}}
+<footer class="page-foot meta index-footer">
+  {{with .FooterText}}<p>{{.}}</p>{{end}}
+  {{if .ShowPoweredBy}}<p>powered by uppies.</p>{{end}}
+</footer>
 {{end}}
 {{end}}
 

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"uppies/internal/store"
 )
@@ -304,6 +305,16 @@ func (s *Server) handleSaveInstance(w http.ResponseWriter, r *http.Request) {
 				page.Instance.PublicURL = origin.String()
 			}
 		}
+	}
+	if r.PostForm.Has("list_footer_text") {
+		footer := strings.TrimSpace(r.PostForm.Get("list_footer_text"))
+		if !utf8.ValidString(footer) || apiText("list_footer_text", footer, 0, 500) != nil {
+			page.Problems["list_footer_text"] = "use up to 500 characters of plain text."
+		}
+		page.Instance.ListFooterText = footer
+	}
+	if r.PostForm.Has("list_show_powered_by") {
+		page.Instance.ListShowPoweredBy = r.PostForm.Get("list_show_powered_by") == "on"
 	}
 	if r.PostForm.Has("nav_links") {
 		page.Instance.NavLinks = strings.TrimSpace(r.PostForm.Get("nav_links"))

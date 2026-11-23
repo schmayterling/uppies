@@ -26,6 +26,19 @@
       <span class="srow-control"><input class="switch" type="checkbox" name="public_list"{{if .Instance.PublicList}} checked{{end}}></span>
     </label>
   </div>
+  <h2 class="group-title">homepage footer</h2>
+  <div class="group">
+    <div class="srow">
+      <label class="srow-copy" for="list_footer_text"><span>footer text</span></label>
+      <div class="srow-control"><input id="list_footer_text" name="list_footer_text" value="{{.Instance.ListFooterText}}" maxlength="500"{{if index .Problems "list_footer_text"}} aria-invalid="true" aria-describedby="list-footer-problem"{{end}}></div>
+      {{with index .Problems "list_footer_text"}}<p class="problem srow-problem" id="list-footer-problem">{{.}}</p>{{end}}
+    </div>
+    <label class="srow">
+      <span class="srow-copy"><span>powered by uppies</span><small>show the credit in the homepage footer.</small></span>
+      <span class="srow-control"><input class="switch" type="checkbox" name="list_show_powered_by" value="on"{{if .Instance.ListShowPoweredBy}} checked{{end}}></span>
+    </label>
+    <input type="hidden" name="list_show_powered_by" value="off">
+  </div>
   <div class="savebar"><button class="button" type="submit">save instance</button></div>
 </form>
 

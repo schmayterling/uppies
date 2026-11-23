@@ -79,6 +79,7 @@ p.hint, p.muted { max-inline-size: 75ch; }
 .auth-foot { margin: 0; }
 .auth-card h1 { margin-block-end: var(--space-1); }
 .index-list { margin-block-start: var(--space-4); }
+.index-footer { overflow-wrap: anywhere; }
 /* the public list as a page: one row or one card per status page */
 .index-rows, .index-cards { list-style: none; margin: var(--space-5) 0 0; padding: 0; }
 .index-rows { border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; }
