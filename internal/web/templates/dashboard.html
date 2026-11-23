@@ -38,7 +38,7 @@
       {{range .Rows}}
       <tr>
         <th scope="row"><a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a></th>
-        <td><a class="quiet-link" href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a></td>
+        <td><a class="quiet-link" href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a>{{with .Category}}<span class="meta"> · {{.}}</span>{{end}}</td>
         <td><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span></td>
         <td><div class="strip mini" role="img" aria-label="uptime {{.Uptime}}">{{range .Days}}<span class="day day-{{.State}}" data-tip="{{.Label}}"></span>{{end}}</div></td>
         <td class="number">{{.Uptime}}</td>

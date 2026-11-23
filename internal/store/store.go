@@ -248,6 +248,9 @@ alter table projects add column surface text not null default 'neutral' check (s
 alter table projects add column corners text not null default 'soft' check (corners in ('sharp', 'soft', 'round'));
 alter table projects add column font text not null default 'system' check (font in ('system', 'rounded', 'serif', 'mono'));
 `,
+	`
+alter table monitors add column category text not null default '' check (length(category) <= 80);
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

@@ -43,6 +43,7 @@
   {{if .Components}}
   <ul class="components">
     {{range .Components}}
+    {{with .Category}}<li class="category"><h3>{{.}}</h3></li>{{end}}
     <li class="component">
       <div class="component-head">
         <span class="component-name">{{.Name}}</span>

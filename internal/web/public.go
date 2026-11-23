@@ -46,6 +46,8 @@ type componentView struct {
 	Uptime string
 	// Display picks what is drawn under the name: "bars", "latency", "summary" or "minimal".
 	Display string
+	// Category is set on the first component of each category, for its heading.
+	Category string
 	// Figures are the uptime numbers of the "summary" display.
 	Figures []figure
 	// Spark is the point list of the "latency" display's line, and Latency its caption.
@@ -266,6 +268,7 @@ func (s *Server) statusPage(ctx context.Context, project store.Project) (statusP
 	}
 	names := make(map[int64]string, len(monitors))
 	var shown []store.Monitor
+	lastCategory := ""
 	for _, m := range monitors {
 		if !m.Public {
 			continue
@@ -275,6 +278,9 @@ func (s *Server) statusPage(ctx context.Context, project store.Project) (statusP
 		state, word := componentState(m)
 		days, uptime := uptimeStrip(rollups[m.ID], todayStartMs, project.HistoryDays)
 		view := componentView{Name: m.Name, State: state, Word: word, Days: days, Uptime: uptime, Display: m.Display}
+		if m.Category != lastCategory {
+			view.Category, lastCategory = m.Category, m.Category
+		}
 		switch m.Display {
 		case "summary":
 			for _, span := range []int{7, 30, project.HistoryDays} {

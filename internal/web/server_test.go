@@ -771,3 +771,38 @@ func TestIncidentHistoryPageListsAYearAndHidesDrafts(t *testing.T) {
 		t.Error("the status page must list quiet days and link to the history")
 	}
 }
+
+func TestStatusPageGroupsMonitorsByCategory(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitor := store.Monitor{
+		ProjectID: projectID, Kind: "http", Target: "https://example.com", Public: true,
+		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
+	}
+	for _, m := range []struct{ name, category string }{
+		{"zebra api", "web"}, {"alpha site", "web"}, {"database", "infrastructure"}, {"loose check", ""},
+	} {
+		monitor.Name, monitor.Category = m.name, m.category
+		if _, err := s.store.CreateMonitor(ctx, monitor, 1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, page := s.get(t, s.anonymous, "/s/acme")
+	// Uncategorised monitors come first, then each category once, with its monitors by name.
+	order := []string{"loose check", "<h3>infrastructure</h3>", "database", "<h3>web</h3>", "alpha site", "zebra api"}
+	at := 0
+	for _, want := range order {
+		next := strings.Index(page[at:], want)
+		if next < 0 {
+			t.Fatalf("status page: %q is missing or out of order, wanted the order %v", want, order)
+		}
+		at += next + len(want)
+	}
+	if got := strings.Count(page, "<h3>web</h3>"); got != 1 {
+		t.Errorf("the web heading appears %d times, want once", got)
+	}
+}

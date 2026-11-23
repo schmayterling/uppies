@@ -71,6 +71,12 @@
       <span class="srow-control"><input class="switch" type="checkbox" name="public"{{if .Monitor.Public}} checked{{end}}></span>
     </label>
     <div class="srow">
+      <label class="srow-copy" for="category"><span>category</span><small>monitors with the same category are listed together under it. leave it empty for none.</small></label>
+      <div class="srow-control"><input id="category" name="category" value="{{.Monitor.Category}}" maxlength="80" list="categories"{{if index .Problems "category"}} aria-invalid="true"{{end}}>
+        <datalist id="categories">{{range .Categories}}<option value="{{.}}">{{end}}</datalist></div>
+      {{with index .Problems "category"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
       <label class="srow-copy" for="display"><span>shown as</span><small>what the status page draws under the monitor's name.</small></label>
       <div class="srow-control"><select id="display" name="display">
         {{range .Displays}}<option value="{{.}}"{{if or (eq . $.Monitor.Display) (and (eq . "bars") (not $.Monitor.Display))}} selected{{end}}>{{displayLabel .}}</option>{{end}}

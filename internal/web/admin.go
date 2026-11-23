@@ -443,8 +443,10 @@ type monitorFormPage struct {
 	Monitor  store.Monitor
 	Kinds    []string
 	Displays []string
-	Editing  bool
-	Problems map[string]string
+	// Categories are the ones already used in the project, offered as suggestions.
+	Categories []string
+	Editing    bool
+	Problems   map[string]string
 	// PushURL is where a push monitor's job reports in, empty for other kinds.
 	PushURL string
 }
@@ -528,6 +530,10 @@ func parseMonitorForm(form url.Values, m store.Monitor) (store.Monitor, map[stri
 	m.Keyword = form.Get("keyword")
 	m.Paused = form.Get("paused") == "on"
 	m.Public = form.Get("public") == "on"
+	m.Category = strings.TrimSpace(form.Get("category"))
+	if len(m.Category) > 80 {
+		problems["category"] = "keep the category to 80 characters."
+	}
 	if display := form.Get("display"); display != "" {
 		m.Display = display
 		if !slices.Contains(store.MonitorDisplays, display) {
@@ -577,7 +583,7 @@ func (s *Server) handleNewMonitorForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, http.StatusOK, "monitor_form.html", monitorFormPage{
-		Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: defaultMonitor(id), Kinds: check.Kinds, Displays: store.MonitorDisplays,
+		Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: defaultMonitor(id), Kinds: check.Kinds, Displays: store.MonitorDisplays, Categories: s.categories(r, project.ID),
 	})
 }
 
@@ -599,7 +605,7 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 	m, problems := parseMonitorForm(r.PostForm, defaultMonitor(id))
 	if len(problems) > 0 {
 		s.render(w, r, http.StatusUnprocessableEntity, "monitor_form.html", monitorFormPage{
-			Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, Problems: problems,
+			Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, Categories: s.categories(r, project.ID), Problems: problems,
 		})
 		return
 	}
@@ -615,6 +621,23 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d", id), http.StatusSeeOther)
+}
+
+// categories lists the category names in use in a project. A failure is
+// logged and gives none, since they are only suggestions in a form.
+func (s *Server) categories(r *http.Request, projectID int64) []string {
+	monitors, err := s.store.MonitorsByProject(r.Context(), projectID)
+	if err != nil {
+		s.log.Error("load categories", "project_id", projectID, "error", err)
+		return nil
+	}
+	var names []string
+	for _, m := range monitors {
+		if m.Category != "" && !slices.Contains(names, m.Category) {
+			names = append(names, m.Category)
+		}
+	}
+	return names
 }
 
 // monitorAndProject loads the monitor named by the path and its project.
@@ -638,7 +661,7 @@ func (s *Server) handleEditMonitorForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, http.StatusOK, "monitor_form.html", monitorFormPage{
-		Chrome: s.adminChrome(r, m.Name), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, Editing: true,
+		Chrome: s.adminChrome(r, m.Name), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, Categories: s.categories(r, project.ID), Editing: true,
 		PushURL: pushURL(r, m),
 	})
 }
@@ -656,7 +679,7 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	m, problems := parseMonitorForm(r.PostForm, current)
 	if len(problems) > 0 {
 		s.render(w, r, http.StatusUnprocessableEntity, "monitor_form.html", monitorFormPage{
-			Chrome: s.adminChrome(r, current.Name), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, Editing: true, Problems: problems,
+			Chrome: s.adminChrome(r, current.Name), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, Categories: s.categories(r, project.ID), Editing: true, Problems: problems,
 		})
 		return
 	}

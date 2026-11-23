@@ -139,7 +139,7 @@ dialog .form, dialog form.actions { margin-block-start: var(--space-4); }
 
 /* settings: one narrow column of bordered groups. each row has its label and
    help on the left and its control on the right, after the settings of mux. */
-.settings { max-inline-size: var(--content-width); }
+.settings { inline-size: 100%; }
 .tabs { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-block: var(--space-3) var(--space-2); }
 .tabs a { display: inline-flex; align-items: center; min-block-size: var(--control-height); padding-inline: var(--space-2); border-radius: var(--radius-control); color: var(--muted); text-decoration: none; }
 .tabs a:hover { background: var(--hover); color: var(--ink); }
@@ -155,7 +155,7 @@ label.srow { cursor: pointer; }
 .srow-copy small { color: var(--muted); font-size: var(--text-sm); line-height: var(--leading-body); overflow-wrap: anywhere; }
 .srow-control { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); flex: 0 1 auto; min-inline-size: 0; margin-inline-start: auto; }
 .srow-control > input:not([type="checkbox"], [type="file"], [type="radio"]), .srow-control > select { inline-size: 240px; max-inline-size: 100%; }
-.srow-control > .number-field { inline-size: 96px; font-variant-numeric: tabular-nums; }
+.srow-control > .number-field { font-variant-numeric: tabular-nums; }
 .srow-control form { margin: 0; }
 .srow-problem { flex-basis: 100%; }
 .srow[data-stack] { align-items: stretch; flex-direction: column; }
@@ -168,10 +168,10 @@ label.srow { cursor: pointer; }
 .checks { display: grid; gap: var(--space-1); }
 
 /* a checkbox drawn as a switch */
-.switch { appearance: none; position: relative; inline-size: var(--switch-width); block-size: var(--switch-height); margin: 0; border-radius: var(--radius-round); background: var(--border-control); cursor: pointer; transition: background var(--motion-fast) var(--ease-out); translate: none; }
-.switch::before { content: ""; position: absolute; inset: var(--space-0-5); inline-size: calc(var(--switch-height) - var(--space-1)); border-radius: var(--radius-round); background: var(--background); transition: translate var(--motion-fast) var(--ease-out); }
-.switch:checked { background: var(--accent); }
-.switch:checked::before { translate: calc(var(--switch-width) - var(--switch-height)) 0; }
+input[type="checkbox"].switch { appearance: none; position: relative; flex: none; inline-size: var(--switch-width); block-size: var(--switch-height); margin: 0; border-radius: var(--radius-round); background: var(--border-control); cursor: pointer; transition: background var(--motion-fast) var(--ease-out); translate: none; }
+input[type="checkbox"].switch::before { content: ""; position: absolute; inset: var(--space-0-5); inline-size: calc(var(--switch-height) - var(--space-1)); border-radius: var(--radius-round); background: var(--background); transition: translate var(--motion-fast) var(--ease-out); }
+input[type="checkbox"].switch:checked { background: var(--accent); }
+input[type="checkbox"].switch:checked::before { translate: calc(var(--switch-width) - var(--switch-height)) 0; }
 
 /* radio buttons drawn as one segmented control */
 .segmented { display: inline-flex; padding: var(--space-0-5); border: 1px solid var(--border-control); border-radius: var(--radius-control); background: var(--surface); }
@@ -391,6 +391,8 @@ input[type="file"] { padding: var(--space-1); }
 .face-none { color: var(--muted); }
 
 .components { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-5); }
+.category h3 { margin-block-start: var(--space-3); color: var(--muted); font-size: var(--text-sm); font-weight: var(--weight-regular); }
+.category:first-child h3 { margin-block-start: 0; }
 .component-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); margin-block-end: var(--space-2); }
 .component-name { font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
 .strip { display: flex; align-items: flex-end; gap: var(--space-0-5); block-size: var(--space-6); }

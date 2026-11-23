@@ -25,7 +25,8 @@ type monitorSpec struct {
 	intervalS                   int
 	paused, hidden              bool
 	// display is how the status page draws the monitor, empty for the default bars.
-	display string
+	display  string
+	category string
 	// state is how the monitor looks right after seeding: "up", "down" or "" for not checked yet.
 	state string
 	// historyDays is how many past days of history to invent, and badDays maps
@@ -35,13 +36,13 @@ type monitorSpec struct {
 }
 
 var hibiMonitors = []monitorSpec{
-	{name: "website", kind: "http", target: "https://example.com/", keyword: "Example Domain", intervalS: 60, state: "up", historyDays: 90, badDays: map[int]int{12: 25, 40: 180}},
-	{name: "api", kind: "http", target: "https://www.cloudflare.com/cdn-cgi/trace", intervalS: 60, state: "up", historyDays: 90, badDays: map[int]int{5: 4, 6: 95, 70: 10}, display: "latency"},
-	{name: "sync service", kind: "http", target: "https://uppies-demo.invalid/health", intervalS: 60, state: "down", historyDays: 45, badDays: map[int]int{1: 30}},
-	{name: "database port", kind: "tcp", target: "one.one.one.one:443", intervalS: 120, state: "up", historyDays: 20, display: "minimal"},
-	{name: "dns record", kind: "dns", target: "example.com", intervalS: 300, state: "up", historyDays: 60, badDays: map[int]int{33: 12}},
-	{name: "edge network", kind: "ping", target: "1.1.1.1", intervalS: 60, state: "up", historyDays: 90, display: "summary"},
-	{name: "nightly backup", kind: "push", target: "push", intervalS: 86400, state: "up", historyDays: 30, badDays: map[int]int{9: 1440}},
+	{name: "website", category: "web", kind: "http", target: "https://example.com/", keyword: "Example Domain", intervalS: 60, state: "up", historyDays: 90, badDays: map[int]int{12: 25, 40: 180}},
+	{name: "api", category: "web", kind: "http", target: "https://www.cloudflare.com/cdn-cgi/trace", intervalS: 60, state: "up", historyDays: 90, badDays: map[int]int{5: 4, 6: 95, 70: 10}, display: "latency"},
+	{name: "sync service", category: "web", kind: "http", target: "https://uppies-demo.invalid/health", intervalS: 60, state: "down", historyDays: 45, badDays: map[int]int{1: 30}},
+	{name: "database port", category: "infrastructure", kind: "tcp", target: "one.one.one.one:443", intervalS: 120, state: "up", historyDays: 20, display: "minimal"},
+	{name: "dns record", category: "infrastructure", kind: "dns", target: "example.com", intervalS: 300, state: "up", historyDays: 60, badDays: map[int]int{33: 12}},
+	{name: "edge network", category: "infrastructure", kind: "ping", target: "1.1.1.1", intervalS: 60, state: "up", historyDays: 90, display: "summary"},
+	{name: "nightly backup", category: "jobs", kind: "push", target: "push", intervalS: 86400, state: "up", historyDays: 30, badDays: map[int]int{9: 1440}},
 	{name: "legacy importer", kind: "http", target: "https://example.org/", intervalS: 300, paused: true, state: "up", historyDays: 10},
 	{name: "a monitor with an unusually long name that has to wrap somewhere", kind: "tcp", target: "192.0.2.1:81", intervalS: 120, state: "down", historyDays: 3},
 	{name: "internal queue", kind: "http", target: "https://example.net/", intervalS: 120, hidden: true, state: "up", historyDays: 14},
@@ -152,7 +153,7 @@ func seedMonitor(ctx context.Context, st *store.Store, now time.Time, projectID 
 	m := store.Monitor{
 		ProjectID: projectID, Name: spec.name, Kind: spec.kind, Target: spec.target, Keyword: spec.keyword,
 		IntervalS: spec.intervalS, TimeoutMs: 10_000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
-		Paused: spec.paused, Public: !spec.hidden, Display: spec.display,
+		Paused: spec.paused, Public: !spec.hidden, Display: spec.display, Category: spec.category,
 	}
 	if spec.kind == "push" {
 		m.PushToken = "demo-" + spec.name

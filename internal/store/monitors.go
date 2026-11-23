@@ -67,6 +67,8 @@ type Monitor struct {
 	Public         bool // shown on the status page
 	// Display is how the status page draws the monitor: "bars", "latency", "summary" or "minimal".
 	Display string
+	// Category groups monitors on the status page and in tables. Empty for none.
+	Category string
 
 	Tracker       health.Tracker
 	StatusSinceMs int64
@@ -86,7 +88,7 @@ type Monitor struct {
 const monitorColumns = `id, project_id, name, kind, target, keyword, interval_s, timeout_ms, retries,
 	retry_interval_s, recovery_checks, paused, public, status, status_since_ms, fail_streak, ok_streak,
 	failing_since_ms, last_check_at_ms, last_latency_ms, last_error, push_token, last_push_at_ms,
-	cert_expires_at_ms, cert_warned_days, display`
+	cert_expires_at_ms, cert_warned_days, display, category`
 
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -98,7 +100,7 @@ func scanMonitor(row rowScanner) (Monitor, error) {
 		&m.Retries, &m.RetryIntervalS, &m.RecoveryChecks, &m.Paused, &m.Public, &m.Tracker.Status, &m.StatusSinceMs,
 		&m.Tracker.FailStreak, &m.Tracker.OKStreak, &m.Tracker.FailingSinceMs, &m.LastCheckAtMs,
 		&m.LastLatencyMs, &m.LastError, &m.PushToken, &m.LastPushAtMs, &m.CertExpiresAtMs, &m.CertWarnedDays,
-		&m.Display)
+		&m.Display, &m.Category)
 	return m, err
 }
 
@@ -203,10 +205,10 @@ func (s *Store) DeleteProject(ctx context.Context, id int64) error {
 func (s *Store) CreateMonitor(ctx context.Context, m Monitor, nowMs int64) (int64, error) {
 	res, err := s.db.ExecContext(ctx, `
 		insert into monitors (project_id, name, kind, target, keyword, interval_s, timeout_ms, retries,
-			retry_interval_s, recovery_checks, paused, public, push_token, display, status_since_ms, created_at_ms)
-		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			retry_interval_s, recovery_checks, paused, public, push_token, display, category, status_since_ms, created_at_ms)
+		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		m.ProjectID, m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries,
-		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.Public, m.PushToken, displayOrDefault(m.Display), nowMs, nowMs)
+		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.Public, m.PushToken, displayOrDefault(m.Display), m.Category, nowMs, nowMs)
 	if err != nil {
 		return 0, err
 	}
@@ -229,10 +231,10 @@ func (s *Store) UpdateMonitor(ctx context.Context, m Monitor) error {
 	res, err := s.db.ExecContext(ctx, `
 		update monitors set name = ?, kind = ?, target = ?, keyword = ?, interval_s = ?, timeout_ms = ?,
 			retries = ?, retry_interval_s = ?, recovery_checks = ?, paused = ?, public = ?, push_token = ?,
-			display = ?
+			display = ?, category = ?
 		where id = ?`,
 		m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries, m.RetryIntervalS,
-		m.RecoveryChecks, m.Paused, m.Public, m.PushToken, displayOrDefault(m.Display), m.ID)
+		m.RecoveryChecks, m.Paused, m.Public, m.PushToken, displayOrDefault(m.Display), m.Category, m.ID)
 	if err != nil {
 		return err
 	}
@@ -269,14 +271,15 @@ func (s *Store) Monitor(ctx context.Context, id int64) (Monitor, error) {
 	return m, err
 }
 
-// Monitors lists every monitor, ordered by project and name.
+// Monitors lists every monitor, ordered by project, category and name.
 func (s *Store) Monitors(ctx context.Context) ([]Monitor, error) {
-	return s.monitors(ctx, "select "+monitorColumns+" from monitors order by project_id, name, id")
+	return s.monitors(ctx, "select "+monitorColumns+" from monitors order by project_id, category, name, id")
 }
 
-// MonitorsByProject lists one project's monitors by name.
+// MonitorsByProject lists one project's monitors by category, then name.
+// Monitors without a category come first.
 func (s *Store) MonitorsByProject(ctx context.Context, projectID int64) ([]Monitor, error) {
-	return s.monitors(ctx, "select "+monitorColumns+" from monitors where project_id = ? order by name, id", projectID)
+	return s.monitors(ctx, "select "+monitorColumns+" from monitors where project_id = ? order by category, name, id", projectID)
 }
 
 func (s *Store) monitors(ctx context.Context, query string, args ...any) ([]Monitor, error) {
