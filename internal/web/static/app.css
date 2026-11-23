@@ -81,7 +81,8 @@ strong { font-weight: var(--weight-semibold); }
 .sidebar-head .icon-button { flex: none; margin-inline-start: auto; }
 [data-sidebar="rail"] .shell { grid-template-columns: var(--rail-width) minmax(0, 1fr); }
 [data-sidebar="rail"] .nav-label { opacity: 0; pointer-events: none; }
-[data-sidebar="rail"] .sidebar .wordmark { position: absolute; }
+/* out of the flow and hidden, so the invisible wordmark cannot sit on top of the toggle and take its clicks */
+[data-sidebar="rail"] .sidebar .wordmark { position: absolute; visibility: hidden; }
 [data-sidebar="rail"] .sidebar-head .icon-button { margin-inline: auto; }
 .nav-divider { margin: var(--space-3) var(--space-2); border: 0; border-block-start: 1px solid var(--border); }
 .nav-logo { flex: none; inline-size: var(--icon-size); block-size: var(--icon-size); border-radius: var(--radius-inner); object-fit: contain; }
@@ -250,7 +251,7 @@ table.dense tbody th a:hover { text-decoration: underline; }
 @media (max-width: 860px) {
   .sidebar-head .icon-button { display: none; }
   [data-sidebar="rail"] .nav-label { opacity: 1; pointer-events: auto; }
-  [data-sidebar="rail"] .sidebar .wordmark { position: static; }
+  [data-sidebar="rail"] .sidebar .wordmark { position: static; visibility: visible; }
   .shell { grid-template-columns: minmax(0, 1fr); }
   .sidebar { position: static; block-size: auto; border-inline-end: 0; border-block-end: 1px solid var(--border); }
   .content { padding: var(--space-4); }
