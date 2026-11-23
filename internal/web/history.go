@@ -76,8 +76,8 @@ type historyPage struct {
 	// Months holds one label per week: the month's short name on the week in
 	// which the month starts, and empty otherwise.
 	Months []string
-	Total    int
-	Days     []dayGroup
+	Total  int
+	Days   []dayGroup
 	// HideQuiet leaves days without incidents out of the timeline.
 	HideQuiet bool
 }
