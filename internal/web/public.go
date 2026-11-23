@@ -125,6 +125,7 @@ type indexPage struct {
 	AnnouncementColor string
 	FooterText        string
 	ShowPoweredBy     bool
+	IncidentHistory   indexIncidentHistory
 	// State is the worst state among the listed pages and Summary says it in a sentence.
 	State   string
 	Summary string
@@ -267,6 +268,11 @@ func (s *Server) handlePublicList(w http.ResponseWriter, r *http.Request) {
 	}
 	if instance.PublicList {
 		page.NavLinks, _ = parseNavLinks(instance.NavLinks)
+		page.IncidentHistory, err = s.loadIndexIncidentHistory(r)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
 	} else {
 		projects = nil
 	}

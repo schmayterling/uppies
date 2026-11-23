@@ -56,7 +56,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 		startedAt:       time.Now(),
 	}
 	names := []string{
-		"index.html", "status.html", "error.html", "setup.html", "login.html", "dashboard.html",
+		"index.html", "index_incidents_archive.html", "status.html", "error.html", "setup.html", "login.html", "dashboard.html",
 		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "monitor.html", "alerts.html", "monitors.html", "maintenance.html", "maintenance_history.html", "editor.html", "projects.html", "appearance.html", "instance.html", "users.html", "api_tokens.html",
 	}
 	icons, err := staticFiles.ReadFile("static/icons.svg")
@@ -81,7 +81,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 	}
 	for _, name := range names {
 		page, err := template.New("base.html").Funcs(templateFuncs).Funcs(pageAssets).
-			ParseFS(templateFiles, "templates/base.html", "templates/"+name)
+			ParseFS(templateFiles, "templates/base.html", "templates/index_incidents.html", "templates/"+name)
 		if err != nil {
 			return nil, err
 		}
@@ -105,6 +105,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 	mux.HandleFunc("GET /status-pages", s.handlePublicList)
+	mux.HandleFunc("GET /incidents", s.handleIndexIncidents)
 	mux.HandleFunc("GET /robots.txt", s.handleRobots)
 	mux.HandleFunc("GET /sitemap.xml", s.handleSitemap)
 	mux.HandleFunc("GET /theme.css", s.handleInstanceTheme)

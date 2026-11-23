@@ -33,6 +33,7 @@
 </ul>
 {{else}}{{template "index-empty" .}}{{end}}
 {{end}}
+{{if .Listed}}{{template "index-incidents" .IncidentHistory}}{{end}}
 {{if or .FooterText .ShowPoweredBy}}
 <footer class="page-foot meta index-footer">
   {{with .FooterText}}<p>{{.}}</p>{{end}}
