@@ -223,6 +223,55 @@ func readMaintenanceWindows(ctx context.Context, q queries, query string, args .
 	return windows, monitors.Err()
 }
 
+// MaintenanceCoverage describes which monitors an active window rests on a page.
+type MaintenanceCoverage struct {
+	PageWide bool
+	monitors map[int64]bool
+}
+
+func (c MaintenanceCoverage) Covers(monitorID int64) bool {
+	return c.PageWide || c.monitors[monitorID]
+}
+
+// ActiveMaintenanceCoverage groups running windows by page. A zero project ID includes every page.
+func (s *Store) ActiveMaintenanceCoverage(ctx context.Context, atMs, projectID int64) (map[int64]MaintenanceCoverage, error) {
+	query := `
+		select w.project_id, w.scoped, m.monitor_id
+		from maintenance_windows w
+		left join maintenance_window_monitors m on m.window_id = w.id
+		where w.starts_at_ms <= ? and (w.until_further_notice = 1 or w.ends_at_ms > ?)`
+	args := []any{atMs, atMs}
+	if projectID != 0 {
+		query += " and w.project_id = ?"
+		args = append(args, projectID)
+	}
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	byPage := make(map[int64]MaintenanceCoverage)
+	for rows.Next() {
+		var pageID int64
+		var scoped bool
+		var monitorID sql.NullInt64
+		if err := rows.Scan(&pageID, &scoped, &monitorID); err != nil {
+			return nil, err
+		}
+		coverage := byPage[pageID]
+		if !scoped {
+			coverage.PageWide = true
+		} else if monitorID.Valid {
+			if coverage.monitors == nil {
+				coverage.monitors = make(map[int64]bool)
+			}
+			coverage.monitors[monitorID.Int64] = true
+		}
+		byPage[pageID] = coverage
+	}
+	return byPage, rows.Err()
+}
+
 // InMaintenance reports whether an active window covers a monitor on one of its pages.
 func (s *Store) InMaintenance(ctx context.Context, monitorID, atMs int64) (bool, error) {
 	var active bool

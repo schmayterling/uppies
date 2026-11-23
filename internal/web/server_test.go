@@ -1037,6 +1037,30 @@ func TestScopedMaintenanceNoticeAndEndedHistory(t *testing.T) {
 		t.Fatal("scoped notice did not mask just the selected monitor and show its update")
 	}
 
+	other, err := s.store.CreateProject(ctx, "other", "Other", now.UnixMilli())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.PlaceMonitor(ctx, other, selected); err != nil {
+		t.Fatal(err)
+	}
+	listRow := func(slug string) string {
+		t.Helper()
+		_, list := s.get(t, s.anonymous, "/status-pages")
+		_, after, found := strings.Cut(list, `href="/s/`+slug+`"`)
+		row, _, closed := strings.Cut(after, "</li>")
+		if !found || !closed {
+			t.Fatalf("missing row for %s", slug)
+		}
+		return row
+	}
+	if row := listRow("acme"); !strings.Contains(row, "1 of 1 up") || !strings.Contains(row, "all up") {
+		t.Error("the public list must count only the uncovered monitor")
+	}
+	if row := listRow("other"); !strings.Contains(row, "0 of 1 up") || !strings.Contains(row, "problems") {
+		t.Error("the same monitor remains down on a page without maintenance")
+	}
+
 	if err := s.store.SetPlacements(ctx, projectID, []store.Placement{
 		{MonitorID: selected}, {MonitorID: uncovered, ExcludeFromStatus: true},
 	}); err != nil {
@@ -1046,12 +1070,18 @@ func TestScopedMaintenanceNoticeAndEndedHistory(t *testing.T) {
 	if !strings.Contains(public, "planned maintenance is under way.") {
 		t.Fatal("the only contributing monitor is covered, so the page should say maintenance")
 	}
+	if !strings.Contains(listRow("acme"), "under maintenance") {
+		t.Error("the list must report maintenance when every contributing monitor is covered")
+	}
 	if response := s.post(t, s.admin, window+"/end", nil, nil); response.StatusCode != http.StatusSeeOther {
 		t.Fatalf("end window: got %d, want 303", response.StatusCode)
 	}
 	_, public = s.get(t, s.anonymous, "/s/acme")
 	if strings.Contains(public, "Open database work") || !strings.Contains(public, "everything is down.") {
 		t.Fatal("ending the window did not restore component status and retire the notice")
+	}
+	if row := listRow("acme"); !strings.Contains(row, "0 of 1 up") || !strings.Contains(row, "problems") {
+		t.Error("ending maintenance must restore the list's problem status")
 	}
 	_, history := s.get(t, s.admin, collection)
 	_, detail := s.get(t, s.admin, window)

@@ -268,7 +268,16 @@ func (s *Server) handlePublicList(w http.ResponseWriter, r *http.Request) {
 		projects = nil
 	}
 	var rollups map[int64][]store.DayRollup
-	todayStartMs := store.DayStartMs(s.now().UnixMilli())
+	var maintenance map[int64]store.MaintenanceCoverage
+	nowMs := s.now().UnixMilli()
+	if len(projects) > 0 {
+		maintenance, err = s.store.ActiveMaintenanceCoverage(r.Context(), nowMs, 0)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+	}
+	todayStartMs := store.DayStartMs(nowMs)
 	if page.Layout == "rows" && len(projects) > 0 {
 		var longest int
 		for _, p := range projects {
@@ -282,9 +291,13 @@ func (s *Server) handlePublicList(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, p := range projects {
 		monitors := counted[p.ID]
-		state, _ := banner(monitors, 0)
+		status, current := currentPageStatus(monitors, maintenance[p.ID], 0)
+		state := overallViews[status].state
 		row := indexProject{
-			Project: p, State: state, Word: indexWords[state], Count: upCount(monitors), LogoVersion: logos[p.ID],
+			Project: p, State: state, Word: indexWords[state], Count: upCount(current), LogoVersion: logos[p.ID],
+		}
+		if status == overallMaintenance {
+			row.Word, row.Count = "under maintenance", ""
 		}
 		if page.Layout == "rows" {
 			pageRollups := make(map[int64][]store.DayRollup, len(monitors))
@@ -436,7 +449,9 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 		return statusPage{}, err
 	}
 	monitors := groupByCategory(placed)
-	todayStartMs := store.DayStartMs(s.now().UnixMilli())
+	now := s.now()
+	nowMs := now.UnixMilli()
+	todayStartMs := store.DayStartMs(nowMs)
 	sinceMs := todayStartMs - int64(project.HistoryDays-1)*dayMs
 	rollups, err := s.store.DailyRollups(ctx, project.ID, sinceMs)
 	if err != nil {
@@ -455,7 +470,11 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 		return statusPage{}, err
 	}
 	zone, zoneName := pageZone(project, askedZone)
-	nowMs := s.now().UnixMilli()
+	maintenance, err := s.store.ActiveMaintenanceCoverage(ctx, nowMs, project.ID)
+	if err != nil {
+		return statusPage{}, err
+	}
+	coverage := maintenance[project.ID]
 	windows, err := s.store.MaintenanceWindows(ctx, project.ID, nowMs)
 	if err != nil {
 		return statusPage{}, err
@@ -484,31 +503,25 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 	for _, m := range monitors {
 		names[m.ID] = m.Name
 	}
-	resting := make(map[int64]bool)
-	allResting := false
 	for _, w := range windows {
-		running := w.RunningAt(nowMs)
-		view := maintenanceView{MaintenanceWindow: w, Running: running, Updates: updates[w.ID]}
-		allResting = allResting || (running && !w.Scoped)
+		view := maintenanceView{MaintenanceWindow: w, Running: w.RunningAt(nowMs), Updates: updates[w.ID]}
 		for _, id := range w.MonitorIDs {
 			if name, placed := names[id]; placed {
 				view.Affected = append(view.Affected, name)
-				resting[id] = resting[id] || running
 			}
 		}
 		page.Maintenance = append(page.Maintenance, view)
 	}
-	var counted []store.Monitor
+	var contributors []store.Monitor
 	excluded := make(map[int64]bool)
-	restingContributor := false
 	lastCategory := ""
 	for _, m := range monitors {
-		underMaintenance := allResting || resting[m.ID]
+		underMaintenance := coverage.Covers(m.ID)
 		if m.ExcludeFromStatus || underMaintenance {
 			excluded[m.ID] = true
-			restingContributor = restingContributor || !m.ExcludeFromStatus
-		} else {
-			counted = append(counted, m.Monitor)
+		}
+		if !m.ExcludeFromStatus {
+			contributors = append(contributors, m.Monitor)
 		}
 		page.LastCheckAtMs = max(page.LastCheckAtMs, m.LastCheckAtMs)
 		state, word := componentState(m.Monitor)
@@ -548,18 +561,16 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 			}
 		}
 	}
-	page.Recent = recentDayGroups(resolved, s.now(), zone)
+	page.Recent = recentDayGroups(resolved, now, zone)
 	if project.HideQuietDays {
 		page.Recent = slices.DeleteFunc(page.Recent, func(g dayGroup) bool { return g.QuietDays > 0 })
 	}
 	page.Calm = !slices.ContainsFunc(page.Recent, func(g dayGroup) bool { return g.QuietDays == 0 })
 	// Saved links were checked when they were saved, so a problem here is not expected and shows none.
 	page.NavLinks, _ = parseNavLinks(project.NavLinks)
-	page.Overall = overall(counted, countedIncidents)
-	if allResting || (restingContributor && len(counted) == 0) {
-		page.Overall = overallMaintenance
-	}
-	page.BannerState, page.BannerText = overallViews[page.Overall].state, overallViews[page.Overall].text
+	status, counted := currentPageStatus(contributors, coverage, countedIncidents)
+	page.Overall = status
+	page.BannerState, page.BannerText = overallViews[status].state, overallViews[status].text
 	page.BannerIcon = overallIcons[page.Overall]
 	if page.Overall == overallWaiting && len(counted) == 0 && len(monitors) > 0 {
 		page.BannerText = "no components affect overall status."
@@ -619,6 +630,23 @@ var overallViews = map[overallStatus]struct{ state, text string }{
 func banner(monitors []store.Monitor, activeIncidents int) (state, text string) {
 	view := overallViews[overall(monitors, activeIncidents)]
 	return view.state, view.text
+}
+
+// currentPageStatus counts contributors outside this page's active maintenance windows.
+func currentPageStatus(contributors []store.Monitor, coverage store.MaintenanceCoverage, activeIncidents int) (overallStatus, []store.Monitor) {
+	if coverage.PageWide {
+		return overallMaintenance, nil
+	}
+	current := make([]store.Monitor, 0, len(contributors))
+	for _, m := range contributors {
+		if !coverage.Covers(m.ID) {
+			current = append(current, m)
+		}
+	}
+	if len(contributors) > 0 && len(current) == 0 {
+		return overallMaintenance, nil
+	}
+	return overall(current, activeIncidents), current
 }
 
 func overall(monitors []store.Monitor, activeIncidents int) overallStatus {

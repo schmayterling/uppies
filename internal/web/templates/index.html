@@ -22,7 +22,7 @@
   <li><a class="index-item" href="/s/{{.Slug}}">
     {{if .LogoVersion}}<span class="index-logo"><img src="/s/{{.Slug}}/images/logo?v={{.LogoVersion}}" alt=""></span>{{end}}
     <span class="index-copy"><span class="index-name">{{.Name}}</span>{{with .Tagline}}<span class="index-tagline">{{.}}</span>{{end}}</span>
-    <span class="index-count meta">{{.Count}}</span>
+    {{with .Count}}<span class="index-count meta">{{.}}</span>{{end}}
     <span class="index-state state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
   </a>
   {{if eq $.Layout "rows"}}<div class="index-uptime">{{template "uptime-strip" (pair . .HistoryDays)}}</div>{{end}}
