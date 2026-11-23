@@ -67,3 +67,22 @@ func TestIncidentMap(t *testing.T) {
 		t.Errorf("jan 4: got %+v, want a quiet day", cell)
 	}
 }
+
+func TestYearDayGroupsCanHideQuietDays(t *testing.T) {
+	now := time.Date(2026, 1, 5, 12, 0, 0, 0, time.UTC)
+	incidents := []incidentView{
+		{Incident: incidentAt("a", "minor", time.Date(2026, 1, 3, 8, 0, 0, 0, time.UTC))},
+		{Incident: incidentAt("b", "critical", time.Date(2026, 1, 3, 9, 0, 0, 0, time.UTC))},
+	}
+	all := yearDayGroups(incidents, 2026, now, time.UTC, false)
+	if len(all) != 5 || all[0].Date != "jan 5, 2026" || all[4].Date != "jan 1, 2026" {
+		t.Fatalf("with quiet days: got %d groups, want jan 5 back to jan 1 and nothing after today", len(all))
+	}
+	if all[2].Date != "jan 3, 2026" || len(all[2].Incidents) != 2 || all[2].Level != 3 || all[1].Level != 0 {
+		t.Fatalf("jan 3: got %+v, want both incidents at the critical level, and a quiet jan 4", all[2])
+	}
+	busy := yearDayGroups(incidents, 2026, now, time.UTC, true)
+	if len(busy) != 1 || busy[0].Date != "jan 3, 2026" {
+		t.Fatalf("without quiet days: got %+v, want only jan 3", busy)
+	}
+}

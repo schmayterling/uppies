@@ -767,8 +767,15 @@ func TestIncidentHistoryPageListsAYearAndHidesDrafts(t *testing.T) {
 	if !strings.Contains(page, "summer outage") || strings.Contains(page, "checkout errors") {
 		t.Error("last year's history must show only last year's incident")
 	}
-	if _, page := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(page, "no incidents on this day.") || !strings.Contains(page, "/s/acme/history") {
+	if _, page := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(page, "no incidents.") || !strings.Contains(page, "/s/acme/history") {
 		t.Error("the status page must list quiet days and link to the history")
+	}
+	if _, page := s.get(t, s.anonymous, "/s/acme/history"); !strings.Contains(page, "no incidents.") {
+		t.Error("the history lists quiet days unless asked not to")
+	}
+	_, page = s.get(t, s.anonymous, "/s/acme/history?quiet=hide")
+	if strings.Contains(page, "no incidents.") || !strings.Contains(page, "checkout errors") {
+		t.Error("with quiet=hide the history shows only days with incidents")
 	}
 }
 

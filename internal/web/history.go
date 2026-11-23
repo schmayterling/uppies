@@ -17,6 +17,42 @@ const recentDays = 7
 type dayGroup struct {
 	Date      string
 	Incidents []incidentView
+	// Level is the worst impact of the day's incidents, 0 for a quiet day.
+	Level int
+}
+
+// worstLevel returns the highest impact level among incidents.
+func worstLevel(incidents []incidentView) int {
+	level := 0
+	for _, in := range incidents {
+		level = max(level, impactLevels[in.Impact])
+	}
+	return level
+}
+
+// yearDayGroups lists the days of a year, newest first and never past today,
+// each with the incidents that started on it. With hideQuiet, days without
+// incidents are left out.
+func yearDayGroups(incidents []incidentView, year int, now time.Time, zone *time.Location, hideQuiet bool) []dayGroup {
+	byDay := make(map[string][]incidentView)
+	for _, in := range incidents {
+		label := dayLabel(time.UnixMilli(in.StartedAtMs).In(zone))
+		byDay[label] = append(byDay[label], in)
+	}
+	day := time.Date(year, time.December, 31, 12, 0, 0, 0, zone)
+	if day.After(now) {
+		day = time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, zone)
+	}
+	var groups []dayGroup
+	for ; day.Year() == year; day = day.AddDate(0, 0, -1) {
+		label := dayLabel(day)
+		found := byDay[label]
+		if hideQuiet && len(found) == 0 {
+			continue
+		}
+		groups = append(groups, dayGroup{Date: label, Incidents: found, Level: worstLevel(found)})
+	}
+	return groups
 }
 
 // heatCell is one day of the incident map. Level is 0 for a day without
@@ -39,6 +75,8 @@ type historyPage struct {
 	Weeks    [][]heatCell
 	Total    int
 	Days     []dayGroup
+	// HideQuiet leaves days without incidents out of the timeline.
+	HideQuiet bool
 }
 
 var impactLevels = map[string]int{"minor": 1, "major": 2, "critical": 3}
@@ -46,21 +84,6 @@ var impactLevels = map[string]int{"minor": 1, "major": 2, "critical": 3}
 // dayLabel names a day the way the lists show it, such as "nov 23, 2026".
 func dayLabel(day time.Time) string {
 	return strings.ToLower(day.Format("Jan 2, 2006"))
-}
-
-// groupByDay puts incidents under the day they started on, in the given zone.
-// The incidents must be sorted newest first, and so are the groups.
-func groupByDay(incidents []incidentView, zone *time.Location) []dayGroup {
-	var groups []dayGroup
-	for _, in := range incidents {
-		label := dayLabel(time.UnixMilli(in.StartedAtMs).In(zone))
-		if len(groups) == 0 || groups[len(groups)-1].Date != label {
-			groups = append(groups, dayGroup{Date: label})
-		}
-		last := &groups[len(groups)-1]
-		last.Incidents = append(last.Incidents, in)
-	}
-	return groups
 }
 
 // recentDayGroups lists the last recentDays days, today first, each with the
@@ -76,7 +99,7 @@ func recentDayGroups(resolved []incidentView, now time.Time, zone *time.Location
 	today := now.In(zone)
 	for daysAgo := range recentDays {
 		label := dayLabel(today.AddDate(0, 0, -daysAgo))
-		groups = append(groups, dayGroup{Date: label, Incidents: byDay[label]})
+		groups = append(groups, dayGroup{Date: label, Incidents: byDay[label], Level: worstLevel(byDay[label])})
 	}
 	return groups
 }
@@ -167,16 +190,17 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page := historyPage{
-		Chrome:   chrome{Title: project.Name + " incident history", Unbranded: !project.ShowPoweredBy},
-		Project:  project,
-		Zone:     zone,
-		Images:   images,
-		Year:     year,
-		PrevYear: year - 1,
-		Weeks:    incidentMap(incidents, year, now, zone),
-		Total:    len(incidents),
-		Days:     groupByDay(views, zone),
+		Chrome:    chrome{Title: project.Name + " incident history", Unbranded: !project.ShowPoweredBy},
+		Project:   project,
+		Zone:      zone,
+		Images:    images,
+		Year:      year,
+		PrevYear:  year - 1,
+		Weeks:     incidentMap(incidents, year, now, zone),
+		Total:     len(incidents),
+		HideQuiet: r.URL.Query().Get("quiet") == "hide",
 	}
+	page.Days = yearDayGroups(views, year, now, zone, page.HideQuiet)
 	if year < now.Year() {
 		page.NextYear = year + 1
 	}

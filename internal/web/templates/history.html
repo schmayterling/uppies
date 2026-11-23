@@ -11,8 +11,8 @@
   <div class="title-row">
     <h2 id="map-heading">{{.Year}}</h2>
     <nav class="actions" aria-label="years">
-      <a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.PrevYear}}">{{.PrevYear}}</a>
-      {{if .NextYear}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.NextYear}}">{{.NextYear}}</a>{{end}}
+      <a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.PrevYear}}{{if .HideQuiet}}&amp;quiet=hide{{end}}">{{.PrevYear}}</a>
+      {{if .NextYear}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.NextYear}}{{if .HideQuiet}}&amp;quiet=hide{{end}}">{{.NextYear}}</a>{{end}}
     </nav>
   </div>
   <div class="heat-scroll">
@@ -24,14 +24,10 @@
 </section>
 
 <section aria-labelledby="list-heading">
-  <h2 id="list-heading">{{if eq .Total 1}}1 incident{{else}}{{.Total}} incidents{{end}} in {{.Year}}</h2>
-  {{range .Days}}
-  <div class="day-group">
-    <h3 class="day-heading">{{.Date}}</h3>
-    {{range .Incidents}}{{template "incident" (pair . $.Zone)}}{{end}}
+  <div class="title-row">
+    <h2 id="list-heading">{{if eq .Total 1}}1 incident{{else}}{{.Total}} incidents{{end}} in {{.Year}}</h2>
+    {{if .HideQuiet}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.Year}}">show quiet days</a>{{else}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.Year}}&amp;quiet=hide">hide quiet days</a>{{end}}
   </div>
-  {{else}}
-  <p class="muted">no incidents were reported in {{.Year}}.</p>
-  {{end}}
+  {{if .Days}}{{template "days" (pair .Days .Zone)}}{{else}}<p class="muted">no incidents were reported in {{.Year}}.</p>{{end}}
 </section>
 {{end}}

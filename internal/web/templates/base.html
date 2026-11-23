@@ -70,13 +70,24 @@
 {{define "info"}}<p class="admonition admonition-info">{{template "icon" "info"}}<span>{{.}}</span></p>{{end}}
 {{define "success"}}<p class="admonition admonition-success" role="status">{{template "icon" "circle-check"}}<span>{{.}}</span></p>{{end}}
 
-{{define "incident"}}{{with .First}}<article class="incident">
-  <h4>{{.Title}}</h4>
-  <p class="meta">{{.Impact}} impact{{if .Affected}} · affected {{range $i, $name := .Affected}}{{if $i}}, {{end}}{{$name}}{{end}}{{end}}</p>
-  <ol class="updates">
-    {{range .Updates}}<li><strong>{{.Status}}</strong> <span class="update-body">{{.Body}}</span> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Second .AtMs}}</time></li>{{end}}
-  </ol>
-</article>{{end}}{{end}}
+{{define "days"}}<ol class="tl">
+  {{range .First}}
+  <li class="tl-day tl-level-{{.Level}}">
+    <h3 class="tl-date">{{.Date}}</h3>
+    {{range .Incidents}}
+    <article class="tl-incident">
+      <h4>{{.Title}}</h4>
+      <p class="meta">{{.Impact}} impact{{if .Affected}} · affected {{range $i, $name := .Affected}}{{if $i}}, {{end}}{{$name}}{{end}}{{end}}</p>
+      <ol class="tl-updates">
+        {{range .Updates}}<li><span class="tl-status">{{.Status}}</span> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Second .AtMs}}</time><p class="update-body">{{.Body}}</p></li>{{end}}
+      </ol>
+    </article>
+    {{else}}
+    <p class="tl-quiet muted">no incidents.</p>
+    {{end}}
+  </li>
+  {{end}}
+</ol>{{end}}
 
 {{define "icon"}}<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#{{.}}"/></svg>{{end}}
 

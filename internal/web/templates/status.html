@@ -84,12 +84,7 @@
     <h2 id="history-heading">past incidents</h2>
     <a class="meta" href="/s/{{.Project.Slug}}/history">incident history</a>
   </div>
-  {{range .Recent}}
-  <div class="day-group">
-    <h3 class="day-heading">{{.Date}}</h3>
-    {{range .Incidents}}{{template "incident" (pair . $.Zone)}}{{else}}<p class="muted">no incidents on this day.</p>{{end}}
-  </div>
-  {{end}}
+  {{template "days" (pair .Recent .Zone)}}
 </section>
 
 <footer class="page-foot meta">
