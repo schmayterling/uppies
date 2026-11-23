@@ -176,7 +176,16 @@
     <span class="srow-copy"><span>status badge</span><small>a small image of the current state, for a readme or another site.</small></span>
     <span class="srow-control"><a href="/s/{{.Project.Slug}}/badge.svg"><img src="/s/{{.Project.Slug}}/badge.svg" alt="the status badge"></a></span>
   </div>
+  <div class="srow">
+    <span class="srow-copy"><span>88 by 31, state</span><small class="target">/s/{{.Project.Slug}}/88x31.svg</small></span>
+    <span class="srow-control"><img class="badge88" src="/s/{{.Project.Slug}}/88x31.svg" width="88" height="31" alt="the state of this status page as an 88 by 31 image"><img class="badge88" src="/s/{{.Project.Slug}}/88x31.svg?theme=light" width="88" height="31" alt="the same on a white ground"></span>
+  </div>
+  <div class="srow">
+    <span class="srow-copy"><span>88 by 31, uptime</span><small class="target">/s/{{.Project.Slug}}/88x31.svg?show=uptime&amp;days=30</small></span>
+    <span class="srow-control"><img class="badge88" src="/s/{{.Project.Slug}}/88x31.svg?show=uptime&amp;days=30" width="88" height="31" alt="the uptime of this status page over 30 days as an 88 by 31 image"></span>
+  </div>
 </div>
+<p class="hint">the same numbers always give the same image. options go in the address: theme=light for a white ground, label= and up to four letters for other words on the block, days= for the uptime's window. each component has its own images on its public page.</p>
 </div>
 </div>
 {{end}}

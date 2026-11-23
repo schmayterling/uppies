@@ -87,6 +87,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	mux.HandleFunc("GET /s/{slug}/history", s.handleHistory)
 	mux.HandleFunc("GET /s/{slug}/theme.css", s.handleTheme)
 	mux.HandleFunc("GET /s/{slug}/badge.svg", s.handleBadge)
+	mux.HandleFunc("GET /s/{slug}/88x31.svg", s.handlePageBadge)
 	mux.HandleFunc("GET /s/{slug}/monitors/{id}", s.handleMonitorPage)
 	mux.HandleFunc("GET /s/{slug}/monitors/{id}/{badge}", s.handleMonitorBadge)
 	mux.HandleFunc("GET /s/{slug}/images/{kind}", s.handleImage)

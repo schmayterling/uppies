@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -81,6 +82,46 @@ func TestPercentileBadgeIsDeterministicAnd88By31(t *testing.T) {
 	}
 }
 
+func TestStateAndUptimeBadgesAndTheirOptions(t *testing.T) {
+	up := drawBadge(statusSpec("Acme Payments API", stateOK, "up"))
+	if !strings.Contains(up, `aria-label="Acme Payments API is up"`) || !strings.Contains(up, badgeColours[stateOK]) {
+		t.Errorf("state badge: %q", up)
+	}
+	// A name is cut to what fits under the value, in the letters the font has.
+	if got := badgeWord("Acme Payments API", 9); got != "acme paym" {
+		t.Errorf("name on a badge: got %q, want %q", got, "acme paym")
+	}
+	if got := badgeWord("日本 <b>ok</b>", 4); got != "bok" {
+		t.Errorf("a label keeps only what can be drawn: got %q, want %q", got, "bok")
+	}
+	cases := []struct{ uptime, value, title string }{
+		{"99.94% uptime", "99.9", "uptime of api over 30 days: 99.94%"},
+		{"100% uptime", "100", "uptime of api over 30 days: 100%"},
+		{"no data yet", "--", "uptime of api over 30 days: no data"},
+	}
+	for _, c := range cases {
+		spec := uptimeSpec("api", c.uptime, 30, stateOK)
+		if spec.Value != c.value || spec.Title != c.title || spec.Sub != "30d" {
+			t.Errorf("%q: got value %q sub %q title %q, want %q, 30d and %q", c.uptime, spec.Value, spec.Sub, spec.Title, c.value, c.title)
+		}
+	}
+	// Options change the look and never the numbers. The same options give the same image.
+	spec := uptimeSpec("api", "99.94% uptime", 30, stateOK)
+	light := badgeOptions(spec, url.Values{"theme": {"light"}, "label": {"Live!!"}})
+	if !light.Light || light.Label != "live" || light.Value != spec.Value {
+		t.Errorf("options: got %+v", light)
+	}
+	if drawBadge(light) == drawBadge(spec) || drawBadge(light) != drawBadge(light) {
+		t.Error("a light badge must differ from a dark one, and be the same each time")
+	}
+	for query, want := range map[string]int{"": 90, "days=7": 7, "days=0": 90, "days=9999": 90, "days=abc": 90} {
+		values, _ := url.ParseQuery(query)
+		if got := badgeDays(values, 90); got != want {
+			t.Errorf("days from %q: got %d, want %d", query, got, want)
+		}
+	}
+}
+
 func TestBadgeTextDrawsOneRectanglePerRunOfPixels(t *testing.T) {
 	// A dash is one row of five pixels: one rectangle, three rows down.
 	if got, want := badgeText("-", 10, 20, 2), "M10 26h10v2h-10z"; got != want {
@@ -136,7 +177,7 @@ func TestMonitorDetailPagesAndBadges(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("public monitor page: got %d, want 200", status)
 	}
-	for _, want := range []string{"api", "p99, 24 h", "4000 ms", "p50, 24 h", "response time, last 24 hours", public + "/p95.svg", "<polyline"} {
+	for _, want := range []string{"api", "p99, 24 h", "4000 ms", "p50, 24 h", "response time, last 24 hours", public + "/88x31.svg?show=p95", "<polyline"} {
 		if !strings.Contains(page, want) {
 			t.Errorf("public monitor page is missing %q", want)
 		}
@@ -162,6 +203,23 @@ func TestMonitorDetailPagesAndBadges(t *testing.T) {
 	}
 	if _, again := s.get(t, s.anonymous, public+"/p99.svg"); again != badge {
 		t.Error("the badge changed between two requests with the same data")
+	}
+	// One address serves every kind, for a component and for the whole page.
+	for path, want := range map[string]string{
+		public + "/88x31.svg":                       `aria-label="api is up"`,
+		public + "/88x31.svg?show=p99":              "p99 response time over 24 hours: 4000 ms",
+		public + "/88x31.svg?show=uptime&days=7":    "uptime of api over 7 days: 100%",
+		"/s/acme/88x31.svg":                         `aria-label="Acme is up"`,
+		"/s/acme/88x31.svg?show=uptime&theme=light": "uptime of Acme over 90 days: 100%",
+	} {
+		if status, image := s.get(t, s.anonymous, path); status != http.StatusOK || !strings.Contains(image, want) || !strings.Contains(image, `width="88" height="31"`) {
+			t.Errorf("%s: got %d, want an 88 by 31 image with %q", path, status, want)
+		}
+	}
+	for _, path := range []string{public + "/88x31.svg?show=nonsense", "/s/acme/88x31.svg?show=p99", "/s/nowhere/88x31.svg"} {
+		if status, _ := s.get(t, s.anonymous, path); status != http.StatusNotFound {
+			t.Errorf("%s: got %d, want 404", path, status)
+		}
 	}
 	if _, p90 := s.get(t, s.anonymous, public+"/p90.svg"); !strings.Contains(p90, "p90 response time over 24 hours: 4000 ms") {
 		t.Errorf("p90 of four values is the largest: %q", p90)

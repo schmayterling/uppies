@@ -149,6 +149,7 @@ p.hint, p.muted { max-inline-size: 75ch; }
 /* icons take the size and colour of the text they sit in */
 .icon { flex: none; inline-size: var(--icon-size); block-size: var(--icon-size); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .icon-button {
+  font: inherit;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -229,7 +230,7 @@ dialog .form, dialog form.actions { margin-block-start: var(--space-4); }
 .srow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); min-block-size: var(--control-height-touch); padding: var(--space-2) var(--space-3); font-weight: var(--weight-regular); }
 label.srow { cursor: pointer; }
 .srow-copy { display: grid; gap: var(--space-0-5); flex: 1 1 260px; min-inline-size: 0; font-weight: var(--weight-regular); }
-.srow-copy > :first-child { color: var(--ink); font-size: var(--text-ui); font-weight: var(--weight-semibold); }
+.srow-copy > :first-child { color: var(--ink); font-size: var(--text-ui); font-weight: var(--weight-regular); }
 .srow-copy small { color: var(--muted); font-size: var(--text-sm); line-height: var(--leading-body); overflow-wrap: anywhere; }
 .srow-control { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); flex: 0 1 auto; min-inline-size: 0; margin-inline-start: auto; }
 .srow-control > input:not([type="checkbox"], [type="file"], [type="radio"]), .srow-control > select { inline-size: 240px; max-inline-size: 100%; }
@@ -251,11 +252,14 @@ label.srow { cursor: pointer; }
 .order-grip { display: inline-grid; place-items: center; margin-inline-end: var(--space-1); color: var(--muted); cursor: grab; vertical-align: middle; }
 tbody:has(> [data-drag]) > .empty-row { display: none; }
 /* the editor of a status page: its controls on the left, the page itself on the right */
-.content:has(.editor) { max-inline-size: none; }
-.editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-5); align-items: start; }
-.editor-preview { position: sticky; inset-block-start: var(--space-4); }
-/* the preview is as tall as the window, so no empty band is left under it once it sticks */
-.preview { display: block; inline-size: 100%; block-size: calc(100vh - var(--space-4) * 2); border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--background); }
+/* the page is the two panes and nothing else: the left one holds the page's
+   own heading and every control and scrolls, the right one is the preview
+   from the top of the window to the bottom */
+.content:has(.editor) { max-inline-size: none; padding: 0; }
+.editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); align-items: start; }
+.editor-controls { padding: var(--space-5) var(--space-5) var(--space-8) var(--space-6); }
+.editor-preview { position: sticky; inset-block-start: 0; block-size: 100vh; padding: var(--space-3) var(--space-3) var(--space-3) 0; }
+.preview { display: block; inline-size: 100%; block-size: 100%; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--background); }
 .editor-group { margin-block-start: var(--space-4); }
 .editor-group-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .editor-group-head h3 { margin: 0; color: var(--muted); font-size: var(--text-sm); font-weight: var(--weight-regular); }
@@ -271,13 +275,12 @@ tbody:has(> [data-drag]) > .empty-row { display: none; }
 .editor-moves { display: flex; gap: var(--space-0-5); }
 .editor-look { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .editor-look > .select, .editor-look > select { flex: 1 1 0; inline-size: auto; min-inline-size: 0; }
-/* the first heading of the controls lines up with the top of the preview */
-.editor-controls > section:first-child { margin-block-start: 0; }
+.editor-controls > section { margin-block-start: var(--space-6); }
 .editor-add { display: flex; gap: var(--space-2); margin-block-start: var(--space-3); }
 .editor-add > .select, .editor-add > select { flex: 1; min-inline-size: 0; }
 @media (max-width: 1100px) {
   .editor { grid-template-columns: minmax(0, 1fr); }
-  .editor-preview { position: static; }
+  .editor-preview { position: static; block-size: 80vh; padding: var(--space-3); }
 }
 /* with script a form marked data-autosave saves itself, so its save button goes */
 .has-script form[data-autosave] .savebar > button[type="submit"] { display: none; }
@@ -534,7 +537,7 @@ td time { white-space: nowrap; }
 code { font-family: var(--font-mono); font-size: var(--text-sm); }
 
 /* state: a word, a colour and a shape together */
-.state { display: inline-flex; align-items: center; gap: var(--space-1-5); white-space: nowrap; font-size: var(--text-ui); }
+.state { display: inline-flex; align-items: center; gap: var(--space-1-5); white-space: nowrap; font-size: var(--text-sm); }
 .mark { flex: none; fill: currentColor; }
 .mark .hollow { fill: none; stroke: currentColor; stroke-width: 2; }
 .state-ok { color: var(--status-success); }
@@ -835,5 +838,6 @@ dialog[open]::backdrop { opacity: 1; transition-duration: var(--motion-base); }
 
 /* a touch screen gets form text of 16px, which also keeps ios from zooming into a field */
 @media (pointer: coarse) {
-  input:not([type="checkbox"], [type="radio"]), select, textarea, .select-button { font-size: var(--text-body); }
+  /* 16px is the size below which ios zooms into a focused field. the tool density shrinks every text token, so the number is written out. */
+  input:not([type="checkbox"], [type="radio"]), select, textarea, .select-button { font-size: 16px; }
 }

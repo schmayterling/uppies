@@ -246,7 +246,7 @@ func (s *Server) handleMonitorPage(w http.ResponseWriter, r *http.Request) {
 	page := monitorPage{
 		Chrome:  chrome{Title: m.Name + " · " + project.Name, Unbranded: !project.ShowPoweredBy, Favicon: s.faviconAddress(r.Context())},
 		Project: project, Monitor: m, Category: placed.Category, Images: images, Zone: zone, ZoneName: zoneName, Detail: detail,
-		Badges: []string{"p90", "p95", "p99"}, Origin: scheme + "://" + r.Host,
+		Badges: []string{"status", "uptime", "p90", "p95", "p99"}, Origin: scheme + "://" + r.Host,
 	}
 	page.State, page.Word = componentState(m)
 	if zoneName != project.Timezone {
@@ -257,15 +257,20 @@ func (s *Server) handleMonitorPage(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusOK, "monitor.html", page)
 }
 
-// handleMonitorBadge serves one percentile of a monitor's response time over
-// the last day as an 88 by 31 image.
+// handleMonitorBadge serves an 88 by 31 image of one monitor on a status
+// page. "88x31.svg" takes what to show from the address: show=status, uptime,
+// p50, p90, p95 or p99, with days= for the uptime, and theme= and label= for
+// the look. "p90.svg", "p95.svg" and "p99.svg" are short for the percentiles.
 func (s *Server) handleMonitorBadge(w http.ResponseWriter, r *http.Request) {
-	p, known := badgePercentiles[r.PathValue("badge")]
-	if !known {
+	query := r.URL.Query()
+	show := query.Get("show")
+	if p, short := badgePercentiles[r.PathValue("badge")]; short {
+		show = fmt.Sprintf("p%d", p)
+	} else if r.PathValue("badge") != "88x31.svg" {
 		http.NotFound(w, r)
 		return
 	}
-	_, m, err := s.publicMonitor(r)
+	project, m, err := s.publicMonitor(r)
 	if errors.Is(err, store.ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -274,15 +279,91 @@ func (s *Server) handleMonitorBadge(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	latencies, err := s.store.LatenciesSince(r.Context(), m.ID, s.now().UnixMilli()-detailWindowMs)
+	state, word := componentState(m.Monitor)
+	nowMs := s.now().UnixMilli()
+	var spec badgeSpec
+	switch show {
+	case "", "status":
+		spec = statusSpec(m.Name, state, badgeStateWords[state])
+		if word == "paused" {
+			spec = statusSpec(m.Name, state, "off")
+		}
+	case "uptime":
+		days := badgeDays(query, project.HistoryDays)
+		todayStartMs := store.DayStartMs(nowMs)
+		rollups, err := s.store.MonitorRollups(r.Context(), m.ID, todayStartMs-int64(days-1)*dayMs)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		_, uptime := uptimeStrip(rollups, todayStartMs, days)
+		spec = uptimeSpec(m.Name, uptime, days, state)
+	case "p50", "p90", "p95", "p99":
+		p, _ := strconv.Atoi(strings.TrimPrefix(show, "p"))
+		latencies, err := s.store.LatenciesSince(r.Context(), m.ID, nowMs-detailWindowMs)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		spec = percentileSpec(p, latencies, state)
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	s.writeBadge(w, r, badgeOptions(spec, query))
+}
+
+// handlePageBadge serves an 88 by 31 image of a whole status page: its
+// current state, or with show=uptime the uptime of everything it shows.
+func (s *Server) handlePageBadge(w http.ResponseWriter, r *http.Request) {
+	project, err := s.store.ProjectBySlug(r.Context(), r.PathValue("slug"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	page, err := s.statusPage(r.Context(), project, "")
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	state, _ := componentState(m.Monitor)
+	query := r.URL.Query()
+	var spec badgeSpec
+	switch query.Get("show") {
+	case "", "status":
+		spec = statusSpec(project.Name, page.BannerState, pageBadgeWords[page.Overall])
+	case "uptime":
+		days := badgeDays(query, project.HistoryDays)
+		todayStartMs := store.DayStartMs(s.now().UnixMilli())
+		rollups, err := s.store.DailyRollups(r.Context(), project.ID, todayStartMs-int64(days-1)*dayMs)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		var coveredMs, downMs int64
+		for _, monitorDays := range rollups {
+			for _, d := range monitorDays {
+				coveredMs += d.CoveredMs
+				downMs += d.DownMs
+			}
+		}
+		spec = uptimeSpec(project.Name, uptimePercent(coveredMs, downMs), days, page.BannerState)
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	s.writeBadge(w, r, badgeOptions(spec, query))
+}
+
+// pageBadgeWords says a status page's overall state in at most four characters.
+var pageBadgeWords = map[overallStatus]string{
+	overallUp: "up", overallPartial: "down", overallDown: "down", overallIncident: "warn",
+	overallWaiting: "wait", overallMaintenance: "fix",
+}
+
+func (s *Server) writeBadge(w http.ResponseWriter, r *http.Request, spec badgeSpec) {
 	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Header().Set("Cache-Control", "max-age=60")
-	if _, err := io.WriteString(w, percentileBadge(p, latencies, state)); err != nil {
+	if _, err := io.WriteString(w, drawBadge(spec)); err != nil {
 		s.log.Error("write badge", "path", r.URL.Path, "error", err)
 	}
 }
