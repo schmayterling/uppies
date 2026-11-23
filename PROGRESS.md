@@ -55,6 +55,13 @@ Each line names how it was verified.
   - An incident history page at `/s/<address>/history`: a year map of incidents in the style of a contribution graph, and a timeline of status updates by day with a link that hides quiet days.
   - Dialogs for adding an alert channel and for posting an incident update.
   - Looked at in a browser on the demo data: settings page, incident page with its dialog, status page with all four displays, history page. Not looked at after their rebuild: monitor form, new-incident form, project page.
+- Design round 4 (2026-11-23), asked for by the user.
+  - The sidebar lists overview, appearance, instance and users, then a divider and the status pages with their logo or a default icon. Collapsed, it is a 56-pixel rail of icons.
+  - Appearance page: theme and accent for the admin and sign-in pages, served as `/theme.css`.
+  - Instance page: the instance name and whether the front page lists the status pages (schema version 8, table `instance_settings`).
+  - Users page: more than one admin account, removing accounts (never your own, never the last) and changing your own password, which signs out your other devices.
+  - Motion: pages cross-fade, controls ease on hover and press, dialogs and messages animate in. All of it uses the token durations, which are zero for people who ask for less motion.
+  - Verified by store and handler tests. Checked in a browser: the sidebar is 256 pixels wide and 56 as a rail, labels hide in the rail, the add-user dialog opens and settles at full opacity.
 - Status page rendered and measured at 1280 and 390 CSS pixels wide in the light theme: no horizontal overflow, 90 day cells on wide screens and 30 on narrow ones. The dark theme was looked at once before the last style fixes and not measured.
 
 ## Done but not verified
@@ -105,6 +112,11 @@ Each line names how it was verified.
 - 2026-11-23: A monitor's category is a plain name on the monitor, not a table of its own. Monitors with the same name group together. Renaming a category means editing its monitors.
 - 2026-11-23: The incident history shows one calendar year at a time, in the project's timezone.
 - 2026-11-23: Look settings that a form does not send keep their value, so older forms and scripts still save.
+
+- 2026-11-23: There are no roles. Every account can manage everything. Roles wait for a real need.
+- 2026-11-23: Maintenance windows stay on each status page's own page, because a window belongs to one status page.
+- 2026-11-23: The sidebar's width is the one animated size in the app. Everything else animates only opacity, colour and scale.
+- 2026-11-23: A measurement taken in a background browser tab can show a transition's start value, because the tab draws no frames. Finish the animations before reading sizes.
 
 ## Do not repeat
 

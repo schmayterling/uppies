@@ -36,6 +36,8 @@ and several planned features are missing (see "Not built yet").
   domain, drop the "powered by" line and ask search engines to stay away.
 - Serves a status badge per project at `/s/<address>/badge.svg` for readmes
   and other sites.
+- Has an admin with more than one account, its own theme, and instance
+  settings such as the name and whether the status pages are listed publicly.
 - Runs as one binary and stores everything in one SQLite file.
 
 ## Run it
