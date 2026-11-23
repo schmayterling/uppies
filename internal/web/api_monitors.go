@@ -32,6 +32,9 @@ type apiMonitor struct {
 	LastLatencyMs  *int64        `json:"last_latency_ms"`
 	LastPushAt     *time.Time    `json:"last_push_at"`
 	CertExpiresAt  *time.Time    `json:"cert_expires_at"`
+
+	AutoCreateIncident  string `json:"auto_create_incident"`
+	AutoResolveIncident string `json:"auto_resolve_incident"`
 }
 
 func (m apiMonitor) cursor() string { return m.ID }
@@ -54,6 +57,7 @@ func monitorJSON(m store.Monitor) apiMonitor {
 		ID: strconv.FormatInt(m.ID, 10), Name: m.Name, Tags: monitorTags(m.Tags), Kind: m.Kind,
 		IntervalS: m.IntervalS, TimeoutMs: m.TimeoutMs, Retries: m.Retries,
 		RetryIntervalS: m.RetryIntervalS, RecoveryChecks: m.RecoveryChecks, Paused: m.Paused,
+		AutoCreateIncident: m.AutoCreateIncident, AutoResolveIncident: m.AutoResolveIncident,
 		Status: m.Tracker.Status, StatusSince: time.UnixMilli(m.StatusSinceMs).UTC(),
 		LastCheckAt: apiOptionalTime(m.LastCheckAtMs), LastLatencyMs: latency,
 		LastPushAt: apiOptionalTime(m.LastPushAtMs), CertExpiresAt: apiOptionalTime(m.CertExpiresAtMs),
@@ -72,6 +76,9 @@ type monitorPatch struct {
 	RetryIntervalS *int      `json:"retry_interval_s"`
 	RecoveryChecks *int      `json:"recovery_checks"`
 	Paused         *bool     `json:"paused"`
+
+	AutoCreateIncident  *string `json:"auto_create_incident"`
+	AutoResolveIncident *string `json:"auto_resolve_incident"`
 }
 
 func (input monitorPatch) apply(m *store.Monitor) error {
@@ -168,10 +175,34 @@ func (input monitorPatch) apply(m *store.Monitor) error {
 	if input.TimeoutMs != nil && m.TimeoutMs%1000 != 0 {
 		return invalidAPIField("timeout_ms", "Use a whole number of seconds expressed in milliseconds.")
 	}
+	if input.AutoCreateIncident != nil {
+		if !slices.Contains(store.IncidentCreateModes, *input.AutoCreateIncident) {
+			return invalidAPIField("auto_create_incident", "Use off, draft or publish.")
+		}
+		m.AutoCreateIncident = *input.AutoCreateIncident
+	}
+	if input.AutoResolveIncident != nil {
+		if !slices.Contains(store.IncidentResolveModes, *input.AutoResolveIncident) {
+			return invalidAPIField("auto_resolve_incident", "Use off, drafts or all.")
+		}
+		m.AutoResolveIncident = *input.AutoResolveIncident
+	}
 	if input.Paused != nil {
 		m.Paused = *input.Paused
 	}
 	return nil
+}
+
+func (s *Server) authorizeMonitorIncidentPolicy(w http.ResponseWriter, r *http.Request, input monitorPatch) bool {
+	if input.AutoCreateIncident != nil && *input.AutoCreateIncident == store.IncidentCreatePublish {
+		if !s.checkAPIPermission(w, r, incidentsCreate) || !s.checkAPIPermission(w, r, incidentsPublish) {
+			return false
+		}
+	}
+	if input.AutoResolveIncident != nil && *input.AutoResolveIncident == store.IncidentResolveAll {
+		return s.checkAPIPermission(w, r, incidentsUpdate)
+	}
+	return true
 }
 
 func (s *Server) apiListMonitors(w http.ResponseWriter, r *http.Request) {
@@ -202,6 +233,9 @@ func (s *Server) apiCreateMonitor(w http.ResponseWriter, r *http.Request) {
 		s.apiFailure(w, r, err)
 		return
 	}
+	if !s.authorizeMonitorIncidentPolicy(w, r, input) {
+		return
+	}
 	id, err := s.store.CreateMonitor(r.Context(), m, s.now().UnixMilli())
 	if err != nil {
 		s.apiFailure(w, r, err)
@@ -219,6 +253,9 @@ func (s *Server) apiUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 	var input monitorPatch
 	if !s.decodeAPIJSON(w, r, &input) {
+		return
+	}
+	if !s.authorizeMonitorIncidentPolicy(w, r, input) {
 		return
 	}
 	if err := s.store.EditMonitor(r.Context(), id, input.apply); err != nil {

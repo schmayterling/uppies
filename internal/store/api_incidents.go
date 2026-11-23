@@ -51,7 +51,7 @@ func (s *Store) CreatePageIncident(ctx context.Context, in Incident, firstUpdate
 			return err
 		}
 		var err error
-		id, err = insertIncident(ctx, tx, in, firstUpdate, nowMs)
+		id, err = insertIncident(ctx, tx, in, firstUpdate, nowMs, sql.NullInt64{})
 		return err
 	})
 	return id, err

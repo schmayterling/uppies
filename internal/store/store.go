@@ -477,6 +477,16 @@ create table api_token_permissions (
 	primary key (token_id, permission)
 ) strict, without rowid;
 `,
+	// Step 21 configures incident automation per monitor. Existing incidents
+	// have no recorded source, so a recovery leaves them for an admin to review.
+	`
+alter table monitors add column auto_create_incident text not null default 'draft'
+	check (auto_create_incident in ('off', 'draft', 'publish'));
+alter table monitors add column auto_resolve_incident text not null default 'drafts'
+	check (auto_resolve_incident in ('off', 'drafts', 'all'));
+alter table incidents add column source_monitor_id integer references monitors(id) on delete set null;
+create index incidents_source_monitor on incidents(source_monitor_id);
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

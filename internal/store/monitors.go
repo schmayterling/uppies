@@ -64,6 +64,20 @@ func scanProject(row rowScanner) (Project, error) {
 	return p, err
 }
 
+// Incident automation modes control the response to confirmed monitor transitions.
+const (
+	IncidentAutomationOff = "off"
+	IncidentCreateDraft   = "draft"
+	IncidentCreatePublish = "publish"
+	IncidentResolveDrafts = "drafts"
+	IncidentResolveAll    = "all"
+)
+
+var (
+	IncidentCreateModes  = []string{IncidentAutomationOff, IncidentCreateDraft, IncidentCreatePublish}
+	IncidentResolveModes = []string{IncidentAutomationOff, IncidentResolveDrafts, IncidentResolveAll}
+)
+
 // Monitor is one thing uppies checks, with its settings and current state.
 type Monitor struct {
 	ID             int64
@@ -78,6 +92,9 @@ type Monitor struct {
 	RetryIntervalS int
 	RecoveryChecks int
 	Paused         bool
+
+	AutoCreateIncident  string
+	AutoResolveIncident string
 
 	Tracker       health.Tracker
 	StatusSinceMs int64
@@ -97,7 +114,7 @@ type Monitor struct {
 const monitorColumns = `id, name, kind, target, keyword, interval_s, timeout_ms, retries,
 	retry_interval_s, recovery_checks, paused, status, status_since_ms, fail_streak, ok_streak,
 	failing_since_ms, last_check_at_ms, last_latency_ms, last_error, push_token, last_push_at_ms,
-	cert_expires_at_ms, cert_warned_days, tags`
+	cert_expires_at_ms, cert_warned_days, tags, auto_create_incident, auto_resolve_incident`
 
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -108,7 +125,8 @@ func scanMonitor(row rowScanner) (Monitor, error) {
 	err := row.Scan(&m.ID, &m.Name, &m.Kind, &m.Target, &m.Keyword, &m.IntervalS, &m.TimeoutMs,
 		&m.Retries, &m.RetryIntervalS, &m.RecoveryChecks, &m.Paused, &m.Tracker.Status, &m.StatusSinceMs,
 		&m.Tracker.FailStreak, &m.Tracker.OKStreak, &m.Tracker.FailingSinceMs, &m.LastCheckAtMs,
-		&m.LastLatencyMs, &m.LastError, &m.PushToken, &m.LastPushAtMs, &m.CertExpiresAtMs, &m.CertWarnedDays, &m.Tags)
+		&m.LastLatencyMs, &m.LastError, &m.PushToken, &m.LastPushAtMs, &m.CertExpiresAtMs, &m.CertWarnedDays, &m.Tags,
+		&m.AutoCreateIncident, &m.AutoResolveIncident)
 	return m, err
 }
 
@@ -248,11 +266,13 @@ func (s *Store) CreateMonitor(ctx context.Context, m Monitor, nowMs int64) (int6
 	var id int64
 	err := s.db.QueryRowContext(ctx, `
 		insert into monitors (name, kind, target, keyword, interval_s, timeout_ms, retries,
-			retry_interval_s, recovery_checks, paused, push_token, status_since_ms, created_at_ms, tags, position)
-		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (select coalesce(max(position), 0) + 1 from monitors))
+			retry_interval_s, recovery_checks, paused, push_token, status_since_ms, created_at_ms, tags,
+			auto_create_incident, auto_resolve_incident, position)
+		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (select coalesce(max(position), 0) + 1 from monitors))
 		returning id`,
 		m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries,
-		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.PushToken, nowMs, nowMs, m.Tags).Scan(&id)
+		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.PushToken, nowMs, nowMs, m.Tags,
+		cmp.Or(m.AutoCreateIncident, IncidentCreateDraft), cmp.Or(m.AutoResolveIncident, IncidentResolveDrafts)).Scan(&id)
 	return id, err
 }
 
@@ -292,10 +312,12 @@ func (s *Store) EditMonitor(ctx context.Context, id int64, edit func(*Monitor) e
 func updateMonitor(ctx context.Context, exec execSQL, m Monitor) error {
 	res, err := exec(ctx, `
 		update monitors set name = ?, kind = ?, target = ?, keyword = ?, interval_s = ?, timeout_ms = ?,
-			retries = ?, retry_interval_s = ?, recovery_checks = ?, paused = ?, push_token = ?, tags = ?
+			retries = ?, retry_interval_s = ?, recovery_checks = ?, paused = ?, push_token = ?, tags = ?,
+			auto_create_incident = coalesce(nullif(?, ''), auto_create_incident),
+			auto_resolve_incident = coalesce(nullif(?, ''), auto_resolve_incident)
 		where id = ?`,
 		m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries, m.RetryIntervalS,
-		m.RecoveryChecks, m.Paused, m.PushToken, m.Tags, m.ID)
+		m.RecoveryChecks, m.Paused, m.PushToken, m.Tags, m.AutoCreateIncident, m.AutoResolveIncident, m.ID)
 	if err != nil {
 		return err
 	}

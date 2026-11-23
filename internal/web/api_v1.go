@@ -117,26 +117,33 @@ func bearerToken(r *http.Request) string {
 func (s *Server) requireAPIPermission(permission string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
-		token := bearerToken(r)
-		if token == "" {
-			s.apiUnauthorized(w, r)
-			return
-		}
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 		r = r.WithContext(ctx)
-		allowed, err := s.store.APITokenAllows(ctx, hashToken(token), permission, s.now().UnixMilli())
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			s.apiUnauthorized(w, r)
-		case err != nil:
-			s.apiFailure(w, r, err)
-		case permission != "" && !allowed:
-			s.apiError(w, r, http.StatusForbidden, "insufficient_permission", "This token requires "+permission+".")
-		default:
+		if s.checkAPIPermission(w, r, permission) {
 			next(w, r)
 		}
 	}
+}
+
+func (s *Server) checkAPIPermission(w http.ResponseWriter, r *http.Request, permission string) bool {
+	token := bearerToken(r)
+	if token == "" {
+		s.apiUnauthorized(w, r)
+		return false
+	}
+	allowed, err := s.store.APITokenAllows(r.Context(), hashToken(token), permission, s.now().UnixMilli())
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		s.apiUnauthorized(w, r)
+	case err != nil:
+		s.apiFailure(w, r, err)
+	case permission != "" && !allowed:
+		s.apiError(w, r, http.StatusForbidden, "insufficient_permission", "This token requires "+permission+".")
+	default:
+		return true
+	}
+	return false
 }
 
 func (s *Server) apiUnauthorized(w http.ResponseWriter, r *http.Request) {

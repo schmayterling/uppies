@@ -113,6 +113,7 @@ func defaultMonitor() store.Monitor {
 	return store.Monitor{
 		Kind: check.KindHTTP, IntervalS: 60, TimeoutMs: 10_000,
 		Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
+		AutoCreateIncident: store.IncidentCreateDraft, AutoResolveIncident: store.IncidentResolveDrafts,
 	}
 }
 

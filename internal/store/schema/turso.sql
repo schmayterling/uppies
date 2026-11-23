@@ -1,4 +1,4 @@
--- Fresh Uppies schema, version 20.
+-- Fresh Uppies schema, version 21.
 create table if not exists projects (
 	id integer primary key,
 	slug text not null unique check (length(slug) between 1 and 64),
@@ -56,7 +56,9 @@ create table if not exists monitors (
 	cert_expires_at_ms integer not null default 0,
 	cert_warned_days integer not null default 0,
 	position integer not null default 0,
-	tags text not null default '' check (length(tags) <= 1000)
+	tags text not null default '' check (length(tags) <= 1000),
+	auto_create_incident text not null default 'draft' check (auto_create_incident in ('off', 'draft', 'publish')),
+	auto_resolve_incident text not null default 'drafts' check (auto_resolve_incident in ('off', 'drafts', 'all'))
 ) strict;
 
 create unique index if not exists monitors_push_token on monitors(push_token) where push_token <> '';
@@ -96,10 +98,13 @@ create table if not exists incidents (
 	published integer not null default 0 check (published in (0, 1)),
 	started_at_ms integer not null,
 	resolved_at_ms integer,
-	created_at_ms integer not null
+	created_at_ms integer not null,
+	source_monitor_id integer references monitors(id) on delete set null
 ) strict;
 
 create index if not exists incidents_project_started on incidents(project_id, started_at_ms);
+
+create index if not exists incidents_source_monitor on incidents(source_monitor_id);
 
 create table if not exists incident_updates (
 	id integer primary key,

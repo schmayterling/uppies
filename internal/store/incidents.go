@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"strings"
 )
 
@@ -41,22 +40,23 @@ func (s *Store) CreateIncident(ctx context.Context, in Incident, firstUpdate str
 	var id int64
 	err := s.write(ctx, func(tx *transaction) error {
 		var err error
-		id, err = insertIncident(ctx, tx, in, firstUpdate, nowMs)
+		id, err = insertIncident(ctx, tx, in, firstUpdate, nowMs, sql.NullInt64{})
 		return err
 	})
 	return id, err
 }
 
-func insertIncident(ctx context.Context, tx *transaction, in Incident, firstUpdate string, nowMs int64) (int64, error) {
+func insertIncident(ctx context.Context, tx *transaction, in Incident, firstUpdate string, nowMs int64, sourceMonitorID sql.NullInt64) (int64, error) {
 	var resolvedAtMs sql.NullInt64
 	if in.Status == "resolved" {
 		resolvedAtMs = sql.NullInt64{Int64: nowMs, Valid: true}
 	}
 	var id int64
 	err := tx.QueryRowContext(ctx, `
-		insert into incidents (project_id, title, impact, status, published, started_at_ms, resolved_at_ms, created_at_ms)
-		values (?, ?, ?, ?, ?, ?, ?, ?) returning id`,
-		in.ProjectID, in.Title, in.Impact, in.Status, in.Published, in.StartedAtMs, resolvedAtMs, nowMs).Scan(&id)
+		insert into incidents (project_id, title, impact, status, published, started_at_ms, resolved_at_ms, created_at_ms,
+			source_monitor_id)
+		values (?, ?, ?, ?, ?, ?, ?, ?, ?) returning id`,
+		in.ProjectID, in.Title, in.Impact, in.Status, in.Published, in.StartedAtMs, resolvedAtMs, nowMs, sourceMonitorID).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -98,21 +98,13 @@ func (s *Store) AddIncidentUpdate(ctx context.Context, incidentID int64, status,
 }
 
 func addIncidentUpdate(ctx context.Context, tx *transaction, incidentID int64, status, body string, nowMs int64) error {
-	var projectID int64
-	var title string
-	var published bool
-	err := tx.QueryRowContext(ctx, "select project_id, title, published from incidents where id = ?", incidentID).
-		Scan(&projectID, &title, &published)
-	if errors.Is(err, sql.ErrNoRows) {
-		return ErrNotFound
-	}
+	var exists bool
+	err := tx.QueryRowContext(ctx, "select exists (select 1 from incidents where id = ?)", incidentID).Scan(&exists)
 	if err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx,
-		"insert into incident_updates (incident_id, status, body, at_ms) values (?, ?, ?, ?)",
-		incidentID, status, body, nowMs); err != nil {
-		return err
+	if !exists {
+		return ErrNotFound
 	}
 	var resolvedAt sql.NullInt64
 	if status == "resolved" {
@@ -122,12 +114,19 @@ func addIncidentUpdate(ctx context.Context, tx *transaction, incidentID int64, s
 		status, resolvedAt, incidentID); err != nil {
 		return err
 	}
-	if !published {
-		return nil
+	return appendIncidentUpdate(ctx, tx, incidentID, status, body, nowMs)
+}
+
+func appendIncidentUpdate(ctx context.Context, tx *transaction, incidentID int64, status, body string, nowMs int64) error {
+	if _, err := tx.ExecContext(ctx,
+		"insert into incident_updates (incident_id, status, body, at_ms) values (?, ?, ?, ?)",
+		incidentID, status, body, nowMs); err != nil {
+		return err
 	}
-	_, err = tx.ExecContext(ctx, `
+	_, err := tx.ExecContext(ctx, `
 		insert into events (project_id, kind, at_ms, incident_id, title, detail)
-		values (?, 'incident_update', ?, ?, ?, ?)`, projectID, nowMs, incidentID, title, status+": "+body)
+		select project_id, 'incident_update', ?, id, title, ? from incidents where id = ? and published = 1`,
+		nowMs, status+": "+body, incidentID)
 	return err
 }
 

@@ -163,15 +163,21 @@ on a status page. A new monitor starts with no channel assignments.
 | `keyword` | Write-only. HTTP response text to match, up to 200 characters. Empty clears it. |
 | `interval_s` | Integer 20–86,400. Default 60. |
 | `timeout_ms` | Integer 1,000–60,000 in whole-second increments. Default 10,000. |
-| `retries` | Integer 0–10. Default 2. |
+| `retries` | Additional consecutive failures after the initial failed check. Integer 0–10. Default 2, so the third failed check marks the monitor down. |
 | `retry_interval_s` | Integer 1–3,600. Default 20. |
-| `recovery_checks` | Integer 1–10. Default 2. |
+| `recovery_checks` | Consecutive successful checks needed to confirm recovery. Integer 1–10. Default 2. |
+| `auto_create_incident` | `off`, `draft` (default), or `publish`. On a confirmed outage, create a draft or published incident on each page showing the monitor. |
+| `auto_resolve_incident` | `off`, `drafts` (default), or `all`. On confirmed recovery, resolve drafts only or both drafts and published incidents created by this monitor. |
 | `paused` | Boolean. Default false. |
 
 Reads return the ID and non-secret settings, plus `status` (`unknown`,
 `up` or `down`), `status_since`, and nullable `last_check_at`,
 `last_latency_ms`, `last_push_at` and `cert_expires_at`. The API restricts
 raw check errors and the push reporting URL to the admin console.
+Setting `publish` also requires `incidents:create` and `incidents:publish`.
+Setting `all` also requires `incidents:update`. Omit either policy in PATCH
+to keep its current value. Manual incidents and incidents created before source
+tracking stay open until someone resolves them.
 
 The monitor's `/alert-channels` subresource reads or replaces assignments
 with `{"alert_channel_ids":["1"]}`. Each ID must be distinct and refer to

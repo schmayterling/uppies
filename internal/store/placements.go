@@ -44,7 +44,8 @@ func (s *Store) placed(ctx context.Context, query string, args ...any) ([]Placed
 			&m.ID, &m.Name, &m.Kind, &m.Target, &m.Keyword, &m.IntervalS, &m.TimeoutMs,
 			&m.Retries, &m.RetryIntervalS, &m.RecoveryChecks, &m.Paused, &m.Tracker.Status, &m.StatusSinceMs,
 			&m.Tracker.FailStreak, &m.Tracker.OKStreak, &m.Tracker.FailingSinceMs, &m.LastCheckAtMs,
-			&m.LastLatencyMs, &m.LastError, &m.PushToken, &m.LastPushAtMs, &m.CertExpiresAtMs, &m.CertWarnedDays, &m.Tags)
+			&m.LastLatencyMs, &m.LastError, &m.PushToken, &m.LastPushAtMs, &m.CertExpiresAtMs, &m.CertWarnedDays, &m.Tags,
+			&m.AutoCreateIncident, &m.AutoResolveIncident)
 		if err != nil {
 			return nil, err
 		}
@@ -57,7 +58,7 @@ func (s *Store) placed(ctx context.Context, query string, args ...any) ([]Placed
 const monitorColumnsOf = `m.id, m.name, m.kind, m.target, m.keyword, m.interval_s, m.timeout_ms, m.retries,
 	m.retry_interval_s, m.recovery_checks, m.paused, m.status, m.status_since_ms, m.fail_streak, m.ok_streak,
 	m.failing_since_ms, m.last_check_at_ms, m.last_latency_ms, m.last_error, m.push_token, m.last_push_at_ms,
-	m.cert_expires_at_ms, m.cert_warned_days, m.tags`
+	m.cert_expires_at_ms, m.cert_warned_days, m.tags, m.auto_create_incident, m.auto_resolve_incident`
 
 // MonitorsByProject lists the monitors a status page shows, in the page's order.
 func (s *Store) MonitorsByProject(ctx context.Context, projectID int64) ([]PlacedMonitor, error) {

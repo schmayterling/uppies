@@ -705,6 +705,22 @@ func parseMonitorForm(form url.Values, m store.Monitor) (store.Monitor, map[stri
 	m.Retries = formInt(form, "retries", 0, 10, problems)
 	m.RetryIntervalS = formInt(form, "retry_interval_s", 1, 3600, problems)
 	m.RecoveryChecks = formInt(form, "recovery_checks", 1, 10, problems)
+	if form.Has("auto_create_incident") {
+		value := form.Get("auto_create_incident")
+		if slices.Contains(store.IncidentCreateModes, value) {
+			m.AutoCreateIncident = value
+		} else {
+			problems["auto_create_incident"] = "choose what happens when the monitor goes down."
+		}
+	}
+	if form.Has("auto_resolve_incident") {
+		value := form.Get("auto_resolve_incident")
+		if slices.Contains(store.IncidentResolveModes, value) {
+			m.AutoResolveIncident = value
+		} else {
+			problems["auto_resolve_incident"] = "choose what happens when the monitor recovers."
+		}
+	}
 	return m, problems
 }
 

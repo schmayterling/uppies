@@ -62,6 +62,30 @@ func TestAPIMonitorCRUDKeepsCredentialBearingSettingsPrivate(t *testing.T) {
 	s.api(t, http.MethodGet, "/monitors/1", token, "", http.StatusNotFound)
 }
 
+func TestAPIMonitorIncidentPolicies(t *testing.T) {
+	s := newSite(t)
+	restricted := createAPIToken(t, s, monitorsRead, monitorsCreate, monitorsUpdate)
+	allowed := createAPIToken(t, s, monitorsRead, monitorsCreate, monitorsUpdate, incidentsCreate, incidentsPublish, incidentsUpdate)
+	s.api(t, http.MethodPost, "/monitors", restricted, `{"name":"Probe","kind":"push","auto_create_incident":"publish"}`, http.StatusForbidden)
+	s.api(t, http.MethodPost, "/monitors", allowed, `{"name":"Probe","kind":"push","auto_create_incident":"publish"}`, http.StatusCreated)
+
+	_, body := s.api(t, http.MethodGet, "/monitors/1", restricted, "", http.StatusOK)
+	if !strings.Contains(body, `"auto_create_incident":"publish"`) || !strings.Contains(body, `"auto_resolve_incident":"drafts"`) {
+		t.Fatalf("read response is missing the published policy and default resolution: %s", body)
+	}
+	s.api(t, http.MethodPatch, "/monitors/1", restricted, `{"auto_resolve_incident":"all"}`, http.StatusForbidden)
+	s.api(t, http.MethodPatch, "/monitors/1", allowed, `{"auto_resolve_incident":"all"}`, http.StatusNoContent)
+	s.api(t, http.MethodPatch, "/monitors/1", restricted, `{"name":"Probe renamed"}`, http.StatusNoContent)
+	_, body = s.api(t, http.MethodPatch, "/monitors/1", restricted, `{"auto_create_incident":""}`, http.StatusUnprocessableEntity)
+	if !strings.Contains(body, `"field":"auto_create_incident"`) {
+		t.Fatalf("invalid policy response is missing the field: %s", body)
+	}
+	_, body = s.api(t, http.MethodGet, "/monitors/1", restricted, "", http.StatusOK)
+	if !strings.Contains(body, `"auto_create_incident":"publish"`) || !strings.Contains(body, `"auto_resolve_incident":"all"`) {
+		t.Fatalf("updating unrelated settings changed the incident policies: %s", body)
+	}
+}
+
 func TestAPIReplacesMonitorChannelAssignmentsAtomically(t *testing.T) {
 	s := newSite(t)
 	ctx := context.Background()

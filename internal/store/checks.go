@@ -33,12 +33,14 @@ type CheckResult struct {
 
 // RecordCheck stores a check, adds it to the day's rollup, updates the
 // monitor's state and, on a confirmed change, appends a timeline event and
-// opens or closes the monitor's draft incident.
+// applies the monitor's incident settings.
 // It returns ErrNotFound when the monitor was deleted while the check ran.
 func (s *Store) RecordCheck(ctx context.Context, r CheckResult) error {
 	return s.write(ctx, func(tx *transaction) error {
-		var name string
-		err := tx.QueryRowContext(ctx, "select name from monitors where id = ?", r.MonitorID).Scan(&name)
+		var name, autoCreate, autoResolve string
+		err := tx.QueryRowContext(ctx, `
+			select name, auto_create_incident, auto_resolve_incident from monitors where id = ?`, r.MonitorID).
+			Scan(&name, &autoCreate, &autoResolve)
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -106,16 +108,21 @@ func (s *Store) RecordCheck(ctx context.Context, r CheckResult) error {
 			kind, r.AtMs, r.MonitorID, name, r.Error); err != nil {
 			return err
 		}
-		if r.Step.Change == health.WentDown {
-			return openDraftIncidents(ctx, tx, name, r)
+		switch r.Step.Change {
+		case health.WentDown:
+			if autoCreate != IncidentAutomationOff {
+				return openMonitorIncidents(ctx, tx, name, r, autoCreate == IncidentCreatePublish)
+			}
+		case health.WentUp:
+			if autoResolve != IncidentAutomationOff {
+				return resolveMonitorIncidents(ctx, tx, r.MonitorID, r.AtMs, autoResolve == IncidentResolveAll)
+			}
 		}
-		return resolveDraftIncidents(ctx, tx, r.MonitorID, r.AtMs)
+		return nil
 	})
 }
 
-// openDraftIncidents prepares a draft on every status page that shows the
-// monitor. A monitor on no page gets none.
-func openDraftIncidents(ctx context.Context, tx *transaction, monitorName string, r CheckResult) error {
+func openMonitorIncidents(ctx context.Context, tx *transaction, monitorName string, r CheckResult, publish bool) error {
 	rows, err := tx.QueryContext(ctx, "select project_id from page_monitors where monitor_id = ? order by project_id", r.MonitorID)
 	if err != nil {
 		return err
@@ -131,54 +138,63 @@ func openDraftIncidents(ctx context.Context, tx *transaction, monitorName string
 	if err := errors.Join(rows.Err(), rows.Close()); err != nil {
 		return err
 	}
+	// Check errors can name private hosts. Only the monitor name goes into
+	// incident text, which may be public as soon as the incident is created.
+	title := monitorName + " is down"
+	firstUpdate := fmt.Sprintf("we are looking into a problem with %s.", monitorName)
+	source := sql.NullInt64{Int64: r.MonitorID, Valid: true}
 	for _, projectID := range projectIDs {
-		if err := openDraftIncident(ctx, tx, projectID, monitorName, r); err != nil {
+		_, err := insertIncident(ctx, tx, Incident{
+			ProjectID: projectID, Title: title, Impact: "major", Status: "investigating",
+			Published: publish, StartedAtMs: r.Step.Tracker.FailingSinceMs,
+			MonitorIDs: []int64{r.MonitorID},
+		}, firstUpdate, r.AtMs, source)
+		if err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// openDraftIncident prepares a private incident for a confirmed outage, so
-// that publishing it only needs a person's decision.
-func openDraftIncident(ctx context.Context, tx *transaction, projectID int64, monitorName string, r CheckResult) error {
-	// The raw check error can name private hosts, and this text becomes public
-	// when the draft is published. The error stays in the admin timeline.
-	const firstUpdate = "we are looking into a problem with %s."
-	_, err := insertIncident(ctx, tx, Incident{
-		ProjectID:   projectID,
-		Title:       monitorName + " is down",
-		Impact:      "major",
-		Status:      "investigating",
-		StartedAtMs: r.Step.Tracker.FailingSinceMs,
-		MonitorIDs:  []int64{r.MonitorID},
-	}, fmt.Sprintf(firstUpdate, monitorName), r.AtMs)
-	return err
-}
-
-// resolveDraftIncidents closes the unpublished incidents of a recovered
-// monitor. Published incidents stay open until a person resolves them.
-func resolveDraftIncidents(ctx context.Context, tx *transaction, monitorID, nowMs int64) error {
+func resolveMonitorIncidents(ctx context.Context, tx *transaction, monitorID, nowMs int64, includePublished bool) error {
+	maxPublished := 0
+	if includePublished {
+		maxPublished = 1
+	}
 	rows, err := tx.QueryContext(ctx, `
-		select i.id from incidents i
-		join incident_monitors im on im.incident_id = i.id
-		where im.monitor_id = ? and i.published = 0 and i.resolved_at_ms is null`, monitorID)
+		select id from incidents where source_monitor_id = ? and resolved_at_ms is null and published <= ? order by id`,
+		monitorID, maxPublished)
 	if err != nil {
 		return err
 	}
-	var drafts []int64
+	var incidentIDs []int64
 	for rows.Next() {
 		var id int64
 		if err := rows.Scan(&id); err != nil {
 			return errors.Join(err, rows.Close())
 		}
-		drafts = append(drafts, id)
+		incidentIDs = append(incidentIDs, id)
 	}
 	if err := errors.Join(rows.Err(), rows.Close()); err != nil {
 		return err
 	}
-	for _, id := range drafts {
-		if err := addIncidentUpdate(ctx, tx, id, "resolved", "the monitor recovered", nowMs); err != nil {
+	for _, id := range incidentIDs {
+		// A manual update or publication may have changed the incident after we read it.
+		res, err := tx.ExecContext(ctx, `
+			update incidents set status = 'resolved', resolved_at_ms = ?
+			where id = ? and source_monitor_id = ? and resolved_at_ms is null and published <= ?`,
+			nowMs, id, monitorID, maxPublished)
+		if err != nil {
+			return err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			continue
+		}
+		if err := appendIncidentUpdate(ctx, tx, id, "resolved", "the monitor recovered", nowMs); err != nil {
 			return err
 		}
 	}

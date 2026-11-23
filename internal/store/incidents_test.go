@@ -69,6 +69,145 @@ func TestAnOutageOpensADraftThatRecoveryCloses(t *testing.T) {
 	}
 }
 
+func TestPublishedIncidentFollowsConfirmedMonitorTransitions(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	projectID, err := s.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitor := newMonitor()
+	monitor.Retries, monitor.RecoveryChecks = 1, 2
+	monitor.AutoCreateIncident, monitor.AutoResolveIncident = IncidentCreatePublish, IncidentResolveAll
+	monitorID, err := s.CreateMonitor(ctx, monitor, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PlaceMonitor(ctx, projectID, monitorID); err != nil {
+		t.Fatal(err)
+	}
+
+	policy := health.Policy{Retries: monitor.Retries, RecoveryChecks: monitor.RecoveryChecks}
+	tracker := health.Tracker{Status: health.Unknown}
+	var incident Incident
+	for i, result := range []struct {
+		ok     bool
+		status string
+	}{
+		{true, ""},
+		{false, ""},
+		{false, "investigating"},
+		{false, "investigating"},
+		{true, "investigating"},
+		{true, "resolved"},
+	} {
+		atMs := 10_000 + int64(i)*60_000
+		step := health.Advance(tracker, result.ok, atMs, 60_000, policy)
+		checkError := ""
+		if !result.ok {
+			checkError = "could not connect to private-host.example"
+		}
+		if err := s.RecordCheck(ctx, CheckResult{MonitorID: monitorID, AtMs: atMs, OK: result.ok, Error: checkError, Step: step}); err != nil {
+			t.Fatal(err)
+		}
+		tracker = step.Tracker
+		public, err := s.PublishedIncidents(ctx, projectID, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.status == "" {
+			if len(public) != 0 {
+				t.Fatalf("check %d published before confirmation: %+v", i+1, public)
+			}
+		} else {
+			if len(public) != 1 || public[0].Status != result.status {
+				t.Fatalf("check %d published incidents: got %+v, want one %s incident", i+1, public, result.status)
+			}
+			incident = public[0]
+		}
+	}
+	if incident.StartedAtMs != 70_000 || incident.ResolvedAtMs.Int64 != 310_000 || len(incident.Updates) != 2 {
+		t.Fatalf("wrong confirmed outage timeline: %+v", incident)
+	}
+	if incident.Updates[0].Body != "the monitor recovered" || incident.Updates[1].Body != "we are looking into a problem with api." {
+		t.Fatalf("wrong public incident text: %+v", incident.Updates)
+	}
+}
+
+func TestMonitorIncidentAutomationCanBeTurnedOff(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	projectID, err := s.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitor := newMonitor()
+	monitor.AutoCreateIncident, monitor.AutoResolveIncident = IncidentAutomationOff, IncidentAutomationOff
+	monitor.ID, err = s.CreateMonitor(ctx, monitor, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PlaceMonitor(ctx, projectID, monitor.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	recordChange(t, s, monitor.ID, 100_000, health.WentDown, "status 503")
+	incidents, err := s.IncidentsByProject(ctx, projectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(incidents) != 0 {
+		t.Fatalf("outage created incidents with creation disabled: %+v", incidents)
+	}
+	recordChange(t, s, monitor.ID, 200_000, health.WentUp, "")
+
+	monitor.AutoCreateIncident, monitor.AutoResolveIncident = IncidentCreateDraft, ""
+	if err := s.UpdateMonitor(ctx, monitor); err != nil {
+		t.Fatal(err)
+	}
+	recordChange(t, s, monitor.ID, 300_000, health.WentDown, "status 503")
+	recordChange(t, s, monitor.ID, 400_000, health.WentUp, "")
+
+	incidents, err = s.IncidentsByProject(ctx, projectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(incidents) != 1 || incidents[0].Published || incidents[0].ResolvedAtMs.Valid {
+		t.Fatalf("recovery with resolution disabled: got %+v, want one open draft", incidents)
+	}
+}
+
+func TestRecoveryLeavesAManualDraftOpen(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	projectID, err := s.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitorID, err := createPlaced(ctx, s, projectID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manualID, err := s.CreateIncident(ctx, Incident{
+		ProjectID: projectID, Title: "manual draft", Impact: "minor", Status: "investigating",
+		StartedAtMs: 1, MonitorIDs: []int64{monitorID},
+	}, "investigating this independently", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	recordChange(t, s, monitorID, 100_000, health.WentDown, "status 503")
+	recordChange(t, s, monitorID, 200_000, health.WentUp, "")
+
+	manual, err := s.Incident(ctx, manualID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manual.Status != "investigating" || manual.ResolvedAtMs.Valid || len(manual.Updates) != 1 {
+		t.Fatalf("recovery changed the manual incident: %+v", manual)
+	}
+}
+
 func TestRecoveryLeavesAPublishedIncidentOpen(t *testing.T) {
 	ctx := context.Background()
 	s := openTemp(t)

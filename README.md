@@ -18,9 +18,12 @@ and several planned features are missing (see "Not built yet").
   it calls it up again, so one failed request does not raise an alarm.
 - Serves one public status page per project at `/s/<address>`, with a 90-day
   uptime bar per monitor. The pages are plain HTML and work without JavaScript.
-- Opens a private draft incident when a monitor goes down. You decide whether
-  to publish it. Published incidents carry dated updates with a status
-  (investigating, identified, monitoring, resolved).
+- Lets you choose how each monitor handles confirmed outages: do nothing,
+  create a private draft, or publish an incident. On recovery, it can leave
+  its incidents open, resolve drafts, or resolve drafts and published incidents.
+  The defaults create and resolve drafts. Manual incidents stay under your control.
+  Published incidents carry dated updates with a status (investigating, identified,
+  monitoring, resolved).
 - Keeps a timeline per project of every outage, recovery and incident update.
 - Sends an alert when a monitor goes down and when it recovers, by email or
   to a plain webhook (JSON), Discord or Slack. The alert says what failed, why, and on

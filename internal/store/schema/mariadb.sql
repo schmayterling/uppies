@@ -1,4 +1,4 @@
--- Fresh Uppies schema, version 20.
+-- Fresh Uppies schema, version 21.
 create table if not exists projects (
 	id bigint auto_increment primary key,
 	slug varchar(65) not null unique check (char_length(slug) between 1 and 64),
@@ -59,6 +59,8 @@ create table if not exists monitors (
 	cert_warned_days bigint not null default 0,
 	position bigint not null default 0,
 	tags text not null default '' check (char_length(tags) <= 1000),
+	auto_create_incident text not null default 'draft' check (auto_create_incident in ('off', 'draft', 'publish')),
+	auto_resolve_incident text not null default 'drafts' check (auto_resolve_incident in ('off', 'drafts', 'all')),
 	-- Empty push tokens do not participate in the unique index.
 	unique_push_token longtext as (nullif(push_token, '')) virtual invisible,
 	unique key monitors_push_token (unique_push_token),
@@ -101,8 +103,11 @@ create table if not exists incidents (
 	started_at_ms bigint not null,
 	resolved_at_ms bigint,
 	created_at_ms bigint not null,
+	source_monitor_id bigint,
 	key incidents_project_started (project_id, started_at_ms),
-	foreign key (project_id) references projects(id) on delete cascade
+	key incidents_source_monitor (source_monitor_id),
+	foreign key (project_id) references projects(id) on delete cascade,
+	foreign key (source_monitor_id) references monitors(id) on delete set null
 ) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_nopad_bin;
 
 create table if not exists incident_updates (

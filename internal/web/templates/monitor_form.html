@@ -81,7 +81,7 @@
       {{with index .Problems "timeout_s"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
     <div class="srow">
-      <label class="srow-copy" for="retries"><span>retries before it counts as down</span><small>with 2 retries, the third failed check in a row marks the monitor down.</small></label>
+      <label class="srow-copy" for="retries"><span>retries before it counts as down</span><small>the initial check and every retry must fail in a row. with 2 retries, that means 3 failed checks.</small></label>
       <div class="srow-control"><input class="number-field" id="retries" name="retries" type="number" inputmode="numeric" min="0" max="10" value="{{.Monitor.Retries}}" required{{if index .Problems "retries"}} aria-invalid="true"{{end}}></div>
       {{with index .Problems "retries"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
@@ -91,9 +91,31 @@
       {{with index .Problems "retry_interval_s"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
     <div class="srow">
-      <label class="srow-copy" for="recovery_checks"><span>good checks before it counts as up</span><small>keeps a flapping service from reporting a recovery too early.</small></label>
+      <label class="srow-copy" for="recovery_checks"><span>good checks before it counts as up</span><small>this many checks must succeed in a row to confirm a recovery.</small></label>
       <div class="srow-control"><input class="number-field" id="recovery_checks" name="recovery_checks" type="number" inputmode="numeric" min="1" max="10" value="{{.Monitor.RecoveryChecks}}" required{{if index .Problems "recovery_checks"}} aria-invalid="true"{{end}}></div>
       {{with index .Problems "recovery_checks"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+  </div>
+
+  <h2 class="group-title">incident automation</h2>
+  <div class="group">
+    <div class="srow">
+      <label class="srow-copy" for="auto_create_incident"><span>when the monitor goes down</span><small id="auto-create-hint">after the outage is confirmed, apply this to each status page showing the monitor.</small></label>
+      <div class="srow-control"><select id="auto_create_incident" name="auto_create_incident" aria-describedby="auto-create-hint{{if index .Problems "auto_create_incident"}} auto-create-problem{{end}}"{{if index .Problems "auto_create_incident"}} aria-invalid="true"{{end}}>
+        <option value="off"{{if eq .Monitor.AutoCreateIncident "off"}} selected{{end}}>do nothing</option>
+        <option value="draft"{{if eq .Monitor.AutoCreateIncident "draft"}} selected{{end}}>create a draft</option>
+        <option value="publish"{{if eq .Monitor.AutoCreateIncident "publish"}} selected{{end}}>publish an incident</option>
+      </select></div>
+      {{with index .Problems "auto_create_incident"}}<p class="problem srow-problem" id="auto-create-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <label class="srow-copy" for="auto_resolve_incident"><span>when the monitor recovers</span><small id="auto-resolve-hint">after recovery is confirmed, apply this to incidents created by this monitor.</small></label>
+      <div class="srow-control"><select id="auto_resolve_incident" name="auto_resolve_incident" aria-describedby="auto-resolve-hint{{if index .Problems "auto_resolve_incident"}} auto-resolve-problem{{end}}"{{if index .Problems "auto_resolve_incident"}} aria-invalid="true"{{end}}>
+        <option value="off"{{if eq .Monitor.AutoResolveIncident "off"}} selected{{end}}>do nothing</option>
+        <option value="drafts"{{if eq .Monitor.AutoResolveIncident "drafts"}} selected{{end}}>resolve drafts only</option>
+        <option value="all"{{if eq .Monitor.AutoResolveIncident "all"}} selected{{end}}>resolve drafts and published</option>
+      </select></div>
+      {{with index .Problems "auto_resolve_incident"}}<p class="problem srow-problem" id="auto-resolve-problem">{{.}}</p>{{end}}
     </div>
   </div>
 
