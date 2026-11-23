@@ -923,3 +923,48 @@ func TestLookbackLengthAndBackfillAreFree(t *testing.T) {
 		}
 	}
 }
+
+func TestAVisitorCanPickTheTimezone(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 2026-11-23 04:05 UTC is 13:05 in Tokyo, which is nine hours ahead.
+	at := time.Date(2026, 11, 23, 4, 5, 0, 0, time.UTC).UnixMilli()
+	_, err = s.store.CreateIncident(ctx, store.Incident{
+		ProjectID: projectID, Title: "slow search", Impact: "minor", Status: "investigating", Published: true, StartedAtMs: at,
+	}, "search is slow.", at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func(path string) string {
+		_, page := s.get(t, s.anonymous, path)
+		return html.UnescapeString(page)
+	}
+	if page := read("/s/acme"); !strings.Contains(page, "2026-11-23 04:05 utc") {
+		t.Error("without a choice the page shows the project's zone, which is UTC here")
+	}
+	page := read("/s/acme?tz=Asia/Tokyo")
+	// The template writes the slash in a link's query as %2f, which means the same.
+	if !strings.Contains(page, "2026-11-23 13:05 +09:00") || !strings.Contains(page, `history?tz=Asia%2fTokyo`) {
+		t.Error("with tz=Asia/Tokyo the page shows Tokyo time and carries the choice into its links")
+	}
+	if page := read("/s/acme?tz=Mars/Olympus"); !strings.Contains(page, "2026-11-23 04:05 utc") {
+		t.Error("an unknown zone falls back to the project's zone")
+	}
+}
+
+func TestANewProjectStartsInTheSystemTimezone(t *testing.T) {
+	t.Setenv("TZ", "Asia/Tokyo")
+	s := newSite(t)
+	resp := s.post(t, s.admin, "/admin/projects", url.Values{"name": {"Acme"}, "slug": {"acme"}}, nil)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("create: got %d, want 303", resp.StatusCode)
+	}
+	p, err := s.store.ProjectBySlug(context.Background(), "acme")
+	if err != nil || p.Timezone != "Asia/Tokyo" {
+		t.Fatalf("new project: timezone %q err=%v, want the system zone Asia/Tokyo", p.Timezone, err)
+	}
+}

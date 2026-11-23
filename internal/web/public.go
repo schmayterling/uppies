@@ -72,7 +72,12 @@ type statusPage struct {
 	// Zone is the timezone that incident times are shown in.
 	Zone *time.Location
 	// Images maps each image kind the project has to its version.
-	Images      map[string]int64
+	Images map[string]int64
+	// ZoneName is the timezone times are shown in, Zones the ones offered, and
+	// TZ the visitor's own choice when it differs from the project's.
+	ZoneName    string
+	Zones       []string
+	TZ          string
 	Overall     overallStatus
 	BannerState string
 	BannerText  string
@@ -223,7 +228,7 @@ func (s *Server) handleStatusPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) renderStatusPage(w http.ResponseWriter, r *http.Request, project store.Project) {
-	page, err := s.statusPage(r.Context(), project)
+	page, err := s.statusPage(r.Context(), project, r.URL.Query().Get("tz"))
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -247,7 +252,7 @@ func (s *Server) handleBadge(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	page, err := s.statusPage(r.Context(), project)
+	page, err := s.statusPage(r.Context(), project, r.URL.Query().Get("tz"))
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -272,7 +277,7 @@ func (s *Server) handleBadge(w http.ResponseWriter, r *http.Request) {
 }
 
 // statusPage gathers everything the public sees about a project.
-func (s *Server) statusPage(ctx context.Context, project store.Project) (statusPage, error) {
+func (s *Server) statusPage(ctx context.Context, project store.Project, askedZone string) (statusPage, error) {
 	monitors, err := s.store.MonitorsByProject(ctx, project.ID)
 	if err != nil {
 		return statusPage{}, err
@@ -291,17 +296,18 @@ func (s *Server) statusPage(ctx context.Context, project store.Project) (statusP
 	if err != nil {
 		return statusPage{}, err
 	}
-	zone, err := time.LoadLocation(project.Timezone)
-	if err != nil {
-		// The zone was valid when it was saved. A system without that zone falls back to UTC.
-		zone = time.UTC
-	}
+	zone, zoneName := pageZone(project, askedZone)
 
 	page := statusPage{
 		Chrome:  chrome{Title: project.Name + " status", Unbranded: !project.ShowPoweredBy},
 		Project: project,
 		Zone:    zone,
 		Images:  images,
+	}
+	page.ZoneName, page.Zones = zoneName, zoneChoices(project, zoneName)
+	// TZ carries a visitor's own choice into links. It is empty when the page shows the project's zone.
+	if zoneName != project.Timezone {
+		page.TZ = zoneName
 	}
 	names := make(map[int64]string, len(monitors))
 	var shown []store.Monitor

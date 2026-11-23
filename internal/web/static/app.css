@@ -346,7 +346,8 @@ input[type="checkbox"] { flex: none; inline-size: var(--icon-size); block-size: 
 .admonition-danger { --tone: var(--status-danger); }
 .admonition-warning { --tone: var(--status-warning); }
 .admonition-success { --tone: var(--status-success); }
-.content > .admonition, .content > form > .admonition { margin-block: var(--space-4); }
+/* an admonition keeps its distance from whatever it follows: a heading, a line of text or a row of facts */
+.content > .admonition, .content > form > .admonition, .settings > .admonition, .settings > form > .admonition { margin-block: var(--space-4); }
 .channel { display: flex; gap: var(--space-2); align-items: baseline; min-inline-size: 0; }
 .rows form { margin: 0; }
 
@@ -427,7 +428,7 @@ input[type="file"] { padding: var(--space-1); }
 /* a tooltip for each day, drawn without script. it opens on hover and on a
    tap, and the cells near either end align it inward so it stays on screen. */
 .day { position: relative; }
-.day:hover { opacity: 0.75; }
+/* no fade on the hovered bar: its tooltip is part of it and would turn see-through with it */
 .day:hover::after {
   content: attr(data-tip);
   position: absolute;
@@ -536,6 +537,10 @@ input[type="file"] { padding: var(--space-1); }
 .heat-legend { display: flex; align-items: center; gap: var(--space-1-5); margin-block-start: var(--space-2); }
 .heat-legend .heat-cell { inline-size: var(--space-3); margin-inline-start: var(--space-2); }
 
+.zone-picker { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-block-start: var(--space-7); }
+.zone-picker label { font-size: inherit; font-weight: var(--weight-regular); }
+.zone-picker select { inline-size: auto; }
+.zone-picker + .page-foot { margin-block-start: var(--space-3); }
 .page-foot { margin-block-start: var(--space-7); }
 
 /* phones show 30 days so each day stays wide enough to see */

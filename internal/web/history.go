@@ -111,6 +111,8 @@ type historyPage struct {
 	Days   []dayGroup
 	// HideQuiet leaves days without incidents out of the timeline.
 	HideQuiet bool
+	// TZ is the visitor's own timezone choice, empty when the project's zone is shown.
+	TZ string
 	// Page is the page of the timeline shown, from 1. Older and Newer are the
 	// neighbouring pages, 0 when there is none.
 	Page, Older, Newer int
@@ -233,10 +235,7 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	zone, err := time.LoadLocation(project.Timezone)
-	if err != nil {
-		zone = time.UTC // the zone was valid when saved
-	}
+	zone, zoneName := pageZone(project, r.URL.Query().Get("tz"))
 	now := s.now().In(zone)
 	// An absent or impossible year means the current one.
 	year, err := strconv.Atoi(r.URL.Query().Get("year"))
@@ -281,6 +280,9 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 		Months:    monthLabels(year, zone),
 		Total:     len(incidents),
 		HideQuiet: r.URL.Query().Get("quiet") == "hide",
+	}
+	if zoneName != project.Timezone {
+		page.TZ = zoneName
 	}
 	groups := yearDayGroups(views, year, now, zone, page.HideQuiet)
 	// A missing or impossible page number means the first page.

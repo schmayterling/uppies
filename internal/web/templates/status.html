@@ -82,10 +82,18 @@
 <section aria-labelledby="history-heading">
   <div class="title-row">
     <h2 id="history-heading">past incidents</h2>
-    <a class="meta" href="/s/{{.Project.Slug}}/history">incident history</a>
+    <a class="meta" href="/s/{{.Project.Slug}}/history{{with .TZ}}?tz={{.}}{{end}}">incident history</a>
   </div>
   {{template "days" (pair .Recent .Zone)}}
 </section>
+
+<form class="zone-picker meta" method="get" action="/s/{{.Project.Slug}}">
+  <label for="tz">times are shown in</label>
+  <select id="tz" name="tz">
+    {{range .Zones}}<option value="{{.}}"{{if eq . $.ZoneName}} selected{{end}}>{{.}}</option>{{end}}
+  </select>
+  <button class="button quiet" type="submit">show</button>
+</form>
 
 <footer class="page-foot meta">
   {{with .Project.FooterText}}<p>{{.}}</p>{{end}}

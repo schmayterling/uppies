@@ -6,6 +6,7 @@ package demo
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"uppies/internal/health"
@@ -156,7 +157,8 @@ func seedMonitor(ctx context.Context, st *store.Store, now time.Time, projectID 
 		Paused: spec.paused, Public: !spec.hidden, Display: spec.display, Category: spec.category,
 	}
 	if spec.kind == "push" {
-		m.PushToken = "demo-" + spec.name
+		// A token goes into a URL, so the spaces of the name become dashes.
+		m.PushToken = "demo-" + strings.ReplaceAll(spec.name, " ", "-")
 	}
 	id, err := st.CreateMonitor(ctx, m, nowMs)
 	if err != nil {

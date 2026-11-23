@@ -3,7 +3,7 @@
 {{with index .Images "favicon"}}<link rel="icon" href="/s/{{$.Project.Slug}}/images/favicon?v={{.}}">{{end}}{{end}}
 {{define "main"}}
 <header class="page-head">
-  <p class="meta"><a href="/s/{{.Project.Slug}}">back to the status page</a></p>
+  <p class="meta"><a href="/s/{{.Project.Slug}}{{with .TZ}}?tz={{.}}{{end}}">back to the status page</a></p>
   <h1>{{with index .Images "logo"}}<img class="logo" src="/s/{{$.Project.Slug}}/images/logo?v={{.}}" alt="">{{end}}{{.Project.Name}} incident history</h1>
 </header>
 
@@ -11,8 +11,8 @@
   <div class="title-row">
     <h2 id="map-heading">{{.Year}}</h2>
     <nav class="actions" aria-label="years">
-      <a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.PrevYear}}{{if .HideQuiet}}&amp;quiet=hide{{end}}">{{.PrevYear}}</a>
-      {{if .NextYear}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.NextYear}}{{if .HideQuiet}}&amp;quiet=hide{{end}}">{{.NextYear}}</a>{{end}}
+      <a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.PrevYear}}{{if .HideQuiet}}&amp;quiet=hide{{end}}{{with .TZ}}&amp;tz={{.}}{{end}}">{{.PrevYear}}</a>
+      {{if .NextYear}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.NextYear}}{{if .HideQuiet}}&amp;quiet=hide{{end}}{{with .TZ}}&amp;tz={{.}}{{end}}">{{.NextYear}}</a>{{end}}
     </nav>
   </div>
   <div class="heat-scroll">
@@ -31,14 +31,14 @@
 <section aria-labelledby="list-heading">
   <div class="title-row">
     <h2 id="list-heading">{{if eq .Total 1}}1 incident{{else}}{{.Total}} incidents{{end}} in {{.Year}}</h2>
-    {{if .HideQuiet}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.Year}}">show quiet days</a>{{else}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.Year}}&amp;quiet=hide">hide quiet days</a>{{end}}
+    {{if .HideQuiet}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.Year}}{{with .TZ}}&amp;tz={{.}}{{end}}">show quiet days</a>{{else}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.Year}}&amp;quiet=hide{{with .TZ}}&amp;tz={{.}}{{end}}">hide quiet days</a>{{end}}
   </div>
   {{if .Days}}{{template "days" (pair .Days .Zone)}}{{else}}<p class="muted">no incidents were reported in {{.Year}}.</p>{{end}}
   {{if or .Older .Newer}}
   <nav class="actions pager" aria-label="pages of the timeline">
-    {{if .Newer}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.Year}}&amp;page={{.Newer}}{{if .HideQuiet}}&amp;quiet=hide{{end}}">newer</a>{{end}}
+    {{if .Newer}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.Year}}&amp;page={{.Newer}}{{if .HideQuiet}}&amp;quiet=hide{{end}}{{with .TZ}}&amp;tz={{.}}{{end}}">newer</a>{{end}}
     <span class="meta">page {{.Page}}</span>
-    {{if .Older}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.Year}}&amp;page={{.Older}}{{if .HideQuiet}}&amp;quiet=hide{{end}}">older</a>{{end}}
+    {{if .Older}}<a class="button quiet" href="/s/{{.Project.Slug}}/history?year={{.Year}}&amp;page={{.Older}}{{if .HideQuiet}}&amp;quiet=hide{{end}}{{with .TZ}}&amp;tz={{.}}{{end}}">older</a>{{end}}
   </nav>
   {{end}}
 </section>

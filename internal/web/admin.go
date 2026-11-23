@@ -249,6 +249,9 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		} else if err != nil {
 			s.fail(w, r, err)
 			return
+		} else if err := s.useSystemZone(r, id); err != nil {
+			s.fail(w, r, err)
+			return
 		}
 	}
 	if len(problems) > 0 {
@@ -262,6 +265,17 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d", id), http.StatusSeeOther)
+}
+
+// useSystemZone starts a new project in the server's own timezone, which is
+// most likely the owner's. It can be changed in the project's settings.
+func (s *Server) useSystemZone(r *http.Request, projectID int64) error {
+	project, err := s.store.ProjectByID(r.Context(), projectID)
+	if err != nil {
+		return err
+	}
+	project.Timezone = systemZoneName()
+	return s.store.UpdateProject(r.Context(), project)
 }
 
 type eventRow struct {
