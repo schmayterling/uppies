@@ -156,6 +156,14 @@ create table alert_channels (
 ) strict;
 create index alert_channels_project on alert_channels(project_id);
 `,
+	`
+alter table projects add column footer_text text not null default '' check (length(footer_text) <= 500);
+alter table projects add column show_powered_by integer not null default 1 check (show_powered_by in (0, 1));
+alter table projects add column noindex integer not null default 0 check (noindex in (0, 1));
+alter table projects add column timezone text not null default 'UTC' check (length(timezone) between 1 and 64);
+alter table projects add column domain text not null default '' check (length(domain) <= 253);
+create unique index projects_domain on projects(domain) where domain <> '';
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

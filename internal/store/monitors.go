@@ -24,14 +24,23 @@ type Project struct {
 	ShowFace    bool
 	HistoryDays int // 30, 60 or 90
 	CustomCSS   string
+	FooterText  string
+	// ShowPoweredBy keeps the "powered by uppies" line in the footer.
+	ShowPoweredBy bool
+	// NoIndex asks search engines not to list the page.
+	NoIndex  bool
+	Timezone string // IANA name, such as "Asia/Manila"
+	// Domain is a hostname that serves this status page at its root, empty for none.
+	Domain string
 }
 
-const projectColumns = "id, slug, name, tagline, homepage_url, accent_hue, theme, show_face, history_days, custom_css"
+const projectColumns = `id, slug, name, tagline, homepage_url, accent_hue, theme, show_face, history_days,
+	custom_css, footer_text, show_powered_by, noindex, timezone, domain`
 
 func scanProject(row rowScanner) (Project, error) {
 	var p Project
 	err := row.Scan(&p.ID, &p.Slug, &p.Name, &p.Tagline, &p.HomepageURL, &p.AccentHue, &p.Theme,
-		&p.ShowFace, &p.HistoryDays, &p.CustomCSS)
+		&p.ShowFace, &p.HistoryDays, &p.CustomCSS, &p.FooterText, &p.ShowPoweredBy, &p.NoIndex, &p.Timezone, &p.Domain)
 	return p, err
 }
 
@@ -131,17 +140,35 @@ func (s *Store) project(ctx context.Context, query string, arg any) (Project, er
 	return p, err
 }
 
-// UpdateProject changes a project's name and status page settings. The slug stays.
+// ErrDomainTaken is returned when another project already uses a domain.
+var ErrDomainTaken = errors.New("domain already in use")
+
+// UpdateProject changes a project's name and status page settings. The slug
+// stays. It returns ErrDomainTaken when the domain belongs to another project.
 func (s *Store) UpdateProject(ctx context.Context, p Project) error {
 	res, err := s.db.ExecContext(ctx, `
 		update projects set name = ?, tagline = ?, homepage_url = ?, accent_hue = ?, theme = ?,
-			show_face = ?, history_days = ?, custom_css = ?
+			show_face = ?, history_days = ?, custom_css = ?, footer_text = ?, show_powered_by = ?,
+			noindex = ?, timezone = ?, domain = ?
 		where id = ?`,
-		p.Name, p.Tagline, p.HomepageURL, p.AccentHue, p.Theme, p.ShowFace, p.HistoryDays, p.CustomCSS, p.ID)
+		p.Name, p.Tagline, p.HomepageURL, p.AccentHue, p.Theme, p.ShowFace, p.HistoryDays, p.CustomCSS,
+		p.FooterText, p.ShowPoweredBy, p.NoIndex, p.Timezone, p.Domain, p.ID)
+	var sqliteErr *sqlite.Error
+	if errors.As(err, &sqliteErr) && sqliteErr.Code() == sqliteConstraintUnique {
+		return ErrDomainTaken
+	}
 	if err != nil {
 		return err
 	}
 	return requireOneRow(res)
+}
+
+// ProjectByDomain returns the project served on a hostname, or ErrNotFound.
+func (s *Store) ProjectByDomain(ctx context.Context, domain string) (Project, error) {
+	if domain == "" {
+		return Project{}, ErrNotFound
+	}
+	return s.project(ctx, "select "+projectColumns+" from projects where domain = ?", domain)
 }
 
 // DeleteProject removes a project with its monitors, history and incidents.

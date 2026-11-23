@@ -226,7 +226,10 @@ func TestUpgradingAVersionOneFileKeepsItsDataAndAddsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Project{ID: 7, Slug: "acme", Name: "Acme", AccentHue: 200, Theme: "auto", ShowFace: true, HistoryDays: 90}
+	want := Project{
+		ID: 7, Slug: "acme", Name: "Acme", AccentHue: 200, Theme: "auto", ShowFace: true, HistoryDays: 90,
+		ShowPoweredBy: true, Timezone: "UTC",
+	}
 	if got != want {
 		t.Fatalf("project after upgrade: got %+v, want %+v", got, want)
 	}
@@ -259,5 +262,38 @@ func TestAnAlertChannelCanOnlyBeDeletedThroughItsProject(t *testing.T) {
 	}
 	if err := s.DeleteAlertChannel(ctx, mine, channelID); err != nil {
 		t.Fatalf("delete through its own project: %v", err)
+	}
+}
+
+func TestADomainBelongsToOneProject(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	for _, slug := range []string{"one", "two", "three"} {
+		if _, err := s.CreateProject(ctx, slug, slug, 1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	one, err := s.ProjectBySlug(ctx, "one")
+	if err != nil {
+		t.Fatal(err)
+	}
+	two, err := s.ProjectBySlug(ctx, "two")
+	if err != nil {
+		t.Fatal(err)
+	}
+	one.Domain = "status.example.com"
+	if err := s.UpdateProject(ctx, one); err != nil {
+		t.Fatal(err)
+	}
+	two.Domain = "status.example.com"
+	if err := s.UpdateProject(ctx, two); !errors.Is(err, ErrDomainTaken) {
+		t.Fatalf("second project on the same domain: got err=%v, want ErrDomainTaken", err)
+	}
+	found, err := s.ProjectByDomain(ctx, "status.example.com")
+	if err != nil || found.Slug != "one" {
+		t.Fatalf("lookup by domain: got %q err=%v, want project one", found.Slug, err)
+	}
+	if _, err := s.ProjectByDomain(ctx, ""); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("lookup of the empty domain: got err=%v, want ErrNotFound although two projects have none", err)
 	}
 }
