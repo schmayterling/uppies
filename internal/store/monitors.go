@@ -15,6 +15,24 @@ type Project struct {
 	ID   int64
 	Slug string
 	Name string
+
+	// How the public status page looks.
+	Tagline     string
+	HomepageURL string
+	AccentHue   int    // 0 to 360, the hue of the accent colour
+	Theme       string // "auto", "light" or "dark"
+	ShowFace    bool
+	HistoryDays int // 30, 60 or 90
+	CustomCSS   string
+}
+
+const projectColumns = "id, slug, name, tagline, homepage_url, accent_hue, theme, show_face, history_days, custom_css"
+
+func scanProject(row rowScanner) (Project, error) {
+	var p Project
+	err := row.Scan(&p.ID, &p.Slug, &p.Name, &p.Tagline, &p.HomepageURL, &p.AccentHue, &p.Theme,
+		&p.ShowFace, &p.HistoryDays, &p.CustomCSS)
+	return p, err
 }
 
 // Monitor is one thing uppies checks, with its settings and current state.
@@ -31,6 +49,7 @@ type Monitor struct {
 	RetryIntervalS int
 	RecoveryChecks int
 	Paused         bool
+	Public         bool // shown on the status page
 
 	Tracker       health.Tracker
 	StatusSinceMs int64
@@ -40,7 +59,7 @@ type Monitor struct {
 }
 
 const monitorColumns = `id, project_id, name, kind, target, keyword, interval_s, timeout_ms, retries,
-	retry_interval_s, recovery_checks, paused, status, status_since_ms, fail_streak, ok_streak,
+	retry_interval_s, recovery_checks, paused, public, status, status_since_ms, fail_streak, ok_streak,
 	failing_since_ms, last_check_at_ms, last_latency_ms, last_error`
 
 type rowScanner interface {
@@ -50,7 +69,7 @@ type rowScanner interface {
 func scanMonitor(row rowScanner) (Monitor, error) {
 	var m Monitor
 	err := row.Scan(&m.ID, &m.ProjectID, &m.Name, &m.Kind, &m.Target, &m.Keyword, &m.IntervalS, &m.TimeoutMs,
-		&m.Retries, &m.RetryIntervalS, &m.RecoveryChecks, &m.Paused, &m.Tracker.Status, &m.StatusSinceMs,
+		&m.Retries, &m.RetryIntervalS, &m.RecoveryChecks, &m.Paused, &m.Public, &m.Tracker.Status, &m.StatusSinceMs,
 		&m.Tracker.FailStreak, &m.Tracker.OKStreak, &m.Tracker.FailingSinceMs, &m.LastCheckAtMs,
 		&m.LastLatencyMs, &m.LastError)
 	return m, err
@@ -78,15 +97,15 @@ func (s *Store) CreateProject(ctx context.Context, slug, name string, nowMs int6
 
 // Projects lists all projects by name.
 func (s *Store) Projects(ctx context.Context) ([]Project, error) {
-	rows, err := s.db.QueryContext(ctx, "select id, slug, name from projects order by name, id")
+	rows, err := s.db.QueryContext(ctx, "select "+projectColumns+" from projects order by name, id")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var projects []Project
 	for rows.Next() {
-		var p Project
-		if err := rows.Scan(&p.ID, &p.Slug, &p.Name); err != nil {
+		p, err := scanProject(rows)
+		if err != nil {
 			return nil, err
 		}
 		projects = append(projects, p)
@@ -96,21 +115,33 @@ func (s *Store) Projects(ctx context.Context) ([]Project, error) {
 
 // ProjectBySlug returns the project with that slug, or ErrNotFound.
 func (s *Store) ProjectBySlug(ctx context.Context, slug string) (Project, error) {
-	return s.project(ctx, "select id, slug, name from projects where slug = ?", slug)
+	return s.project(ctx, "select "+projectColumns+" from projects where slug = ?", slug)
 }
 
 // ProjectByID returns the project with that id, or ErrNotFound.
 func (s *Store) ProjectByID(ctx context.Context, id int64) (Project, error) {
-	return s.project(ctx, "select id, slug, name from projects where id = ?", id)
+	return s.project(ctx, "select "+projectColumns+" from projects where id = ?", id)
 }
 
 func (s *Store) project(ctx context.Context, query string, arg any) (Project, error) {
-	var p Project
-	err := s.db.QueryRowContext(ctx, query, arg).Scan(&p.ID, &p.Slug, &p.Name)
+	p, err := scanProject(s.db.QueryRowContext(ctx, query, arg))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Project{}, ErrNotFound
 	}
 	return p, err
+}
+
+// UpdateProject changes a project's name and status page settings. The slug stays.
+func (s *Store) UpdateProject(ctx context.Context, p Project) error {
+	res, err := s.db.ExecContext(ctx, `
+		update projects set name = ?, tagline = ?, homepage_url = ?, accent_hue = ?, theme = ?,
+			show_face = ?, history_days = ?, custom_css = ?
+		where id = ?`,
+		p.Name, p.Tagline, p.HomepageURL, p.AccentHue, p.Theme, p.ShowFace, p.HistoryDays, p.CustomCSS, p.ID)
+	if err != nil {
+		return err
+	}
+	return requireOneRow(res)
 }
 
 // DeleteProject removes a project with its monitors, history and incidents.
@@ -123,10 +154,10 @@ func (s *Store) DeleteProject(ctx context.Context, id int64) error {
 func (s *Store) CreateMonitor(ctx context.Context, m Monitor, nowMs int64) (int64, error) {
 	res, err := s.db.ExecContext(ctx, `
 		insert into monitors (project_id, name, kind, target, keyword, interval_s, timeout_ms, retries,
-			retry_interval_s, recovery_checks, paused, status_since_ms, created_at_ms)
-		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			retry_interval_s, recovery_checks, paused, public, status_since_ms, created_at_ms)
+		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		m.ProjectID, m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries,
-		m.RetryIntervalS, m.RecoveryChecks, m.Paused, nowMs, nowMs)
+		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.Public, nowMs, nowMs)
 	if err != nil {
 		return 0, err
 	}
@@ -137,10 +168,10 @@ func (s *Store) CreateMonitor(ctx context.Context, m Monitor, nowMs int64) (int6
 func (s *Store) UpdateMonitor(ctx context.Context, m Monitor) error {
 	res, err := s.db.ExecContext(ctx, `
 		update monitors set name = ?, kind = ?, target = ?, keyword = ?, interval_s = ?, timeout_ms = ?,
-			retries = ?, retry_interval_s = ?, recovery_checks = ?, paused = ?
+			retries = ?, retry_interval_s = ?, recovery_checks = ?, paused = ?, public = ?
 		where id = ?`,
 		m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries, m.RetryIntervalS,
-		m.RecoveryChecks, m.Paused, m.ID)
+		m.RecoveryChecks, m.Paused, m.Public, m.ID)
 	if err != nil {
 		return err
 	}

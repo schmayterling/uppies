@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -26,7 +27,7 @@ func openTemp(t *testing.T) *Store {
 
 func newMonitor(projectID int64) Monitor {
 	return Monitor{
-		ProjectID: projectID, Name: "api", Kind: "http", Target: "https://example.com/health",
+		ProjectID: projectID, Name: "api", Kind: "http", Target: "https://example.com/health", Public: true,
 		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
 	}
 }
@@ -189,5 +190,74 @@ func TestASlugCanBeUsedOnce(t *testing.T) {
 	}
 	if _, err := s.CreateProject(ctx, "acme", "Another Acme", 2); !errors.Is(err, ErrSlugTaken) {
 		t.Fatalf("second project with the same slug: got err=%v, want ErrSlugTaken", err)
+	}
+}
+
+func TestUpgradingAVersionOneFileKeepsItsDataAndAddsDefaults(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "uppies.db")
+	old, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	setup := migrations[0] + `
+		pragma user_version = 1;
+		insert into projects (id, slug, name, created_at_ms) values (7, 'acme', 'Acme', 1);
+		insert into monitors (project_id, name, kind, target, interval_s, timeout_ms, retries,
+			retry_interval_s, recovery_checks, status_since_ms, created_at_ms)
+		values (7, 'api', 'http', 'https://example.com', 60, 5000, 2, 20, 2, 1, 1);`
+	if _, err := old.ExecContext(ctx, setup); err != nil {
+		t.Fatal(err)
+	}
+	if err := old.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := Open(ctx, path)
+	if err != nil {
+		t.Fatalf("open a version 1 file: %v", err)
+	}
+	defer func() {
+		if err := s.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	got, err := s.ProjectBySlug(ctx, "acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Project{ID: 7, Slug: "acme", Name: "Acme", AccentHue: 200, Theme: "auto", ShowFace: true, HistoryDays: 90}
+	if got != want {
+		t.Fatalf("project after upgrade: got %+v, want %+v", got, want)
+	}
+	monitors, err := s.MonitorsByProject(ctx, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(monitors) != 1 || !monitors[0].Public {
+		t.Fatalf("monitors after upgrade: got %+v, want one public monitor", monitors)
+	}
+}
+
+func TestAnAlertChannelCanOnlyBeDeletedThroughItsProject(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	mine, err := s.CreateProject(ctx, "mine", "Mine", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	theirs, err := s.CreateProject(ctx, "theirs", "Theirs", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	channelID, err := s.CreateAlertChannel(ctx, AlertChannel{ProjectID: mine, Kind: "webhook", URL: "https://example.com/hook"}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteAlertChannel(ctx, theirs, channelID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("delete through another project: got err=%v, want ErrNotFound", err)
+	}
+	if err := s.DeleteAlertChannel(ctx, mine, channelID); err != nil {
+		t.Fatalf("delete through its own project: %v", err)
 	}
 }

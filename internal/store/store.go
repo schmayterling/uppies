@@ -136,6 +136,26 @@ create table sessions (
 ) strict, without rowid;
 create index sessions_user on sessions(user_id);
 `,
+	`
+alter table projects add column tagline text not null default '' check (length(tagline) <= 200);
+alter table projects add column homepage_url text not null default '' check (length(homepage_url) <= 2048);
+alter table projects add column accent_hue integer not null default 200 check (accent_hue between 0 and 360);
+alter table projects add column theme text not null default 'auto' check (theme in ('auto', 'light', 'dark'));
+alter table projects add column show_face integer not null default 1 check (show_face in (0, 1));
+alter table projects add column history_days integer not null default 90 check (history_days in (30, 60, 90));
+alter table projects add column custom_css text not null default '' check (length(custom_css) <= 20000);
+
+alter table monitors add column public integer not null default 1 check (public in (0, 1));
+
+create table alert_channels (
+	id integer primary key,
+	project_id integer not null references projects(id) on delete cascade,
+	kind text not null check (kind in ('webhook', 'discord', 'slack')),
+	url text not null check (length(url) between 1 and 2048),
+	created_at_ms integer not null
+) strict;
+create index alert_channels_project on alert_channels(project_id);
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.
