@@ -353,3 +353,62 @@ func TestProjectImagesAreReplacedAndRemoved(t *testing.T) {
 		t.Fatalf("after a remove: got err=%v, want ErrNotFound", err)
 	}
 }
+
+func TestInstanceSettingsDefaultAndSave(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	got, err := s.Instance(ctx)
+	if err != nil || got != (InstanceSettings{Name: "uppies", Theme: "auto", AccentHue: 200, PublicList: true}) {
+		t.Fatalf("fresh install: got %+v err=%v, want the defaults", got, err)
+	}
+	want := InstanceSettings{Name: "acme status", Theme: "dark", AccentHue: 25, PublicList: false}
+	if err := s.SaveInstance(ctx, want); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.Instance(ctx); err != nil || got != want {
+		t.Fatalf("after a save: got %+v err=%v, want %+v", got, err, want)
+	}
+}
+
+func TestUsersCanBeAddedButTheLastOneStays(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	if _, err := s.CreateFirstUser(ctx, "may", "hash-1", 1); err != nil {
+		t.Fatal(err)
+	}
+	firstID, _, err := s.UserPasswordHash(ctx, "may")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteUser(ctx, firstID); !errors.Is(err, ErrLastUser) {
+		t.Fatalf("deleting the only account: got err=%v, want ErrLastUser", err)
+	}
+	if err := s.CreateUser(ctx, "may", "hash-2", 2); !errors.Is(err, ErrUsernameTaken) {
+		t.Fatalf("a second may: got err=%v, want ErrUsernameTaken", err)
+	}
+	if err := s.CreateUser(ctx, "sam", "hash-2", 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateSession(ctx, "kept", firstID, 1, 9_000); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateSession(ctx, "other-device", firstID, 1, 9_000); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetPassword(ctx, firstID, "hash-3", "kept"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SessionUser(ctx, "kept", 2); err != nil {
+		t.Errorf("the session that changed the password was ended: %v", err)
+	}
+	if _, err := s.SessionUser(ctx, "other-device", 2); !errors.Is(err, ErrNotFound) {
+		t.Errorf("another session survived a password change: err=%v, want ErrNotFound", err)
+	}
+	if err := s.DeleteUser(ctx, firstID); err != nil {
+		t.Fatalf("deleting one of two accounts: %v", err)
+	}
+	users, err := s.Users(ctx)
+	if err != nil || len(users) != 1 || users[0].Username != "sam" {
+		t.Fatalf("users: got %+v err=%v, want only sam", users, err)
+	}
+}

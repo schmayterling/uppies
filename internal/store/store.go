@@ -251,6 +251,12 @@ alter table projects add column font text not null default 'system' check (font 
 	`
 alter table monitors add column category text not null default '' check (length(category) <= 80);
 `,
+	`
+create table instance_settings (
+	key text primary key,
+	value text not null
+) strict, without rowid;
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.
