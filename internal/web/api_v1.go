@@ -44,6 +44,16 @@ func (s *Server) registerAPI(mux *http.ServeMux) {
 		{"DELETE /api/v1/monitors/{id}", monitorsDelete, s.apiDeleteMonitor},
 		{"GET /api/v1/monitors/{id}/alert-channels", monitorsRead, s.apiReadMonitorChannels},
 		{"PUT /api/v1/monitors/{id}/alert-channels", monitorsUpdate, s.apiWriteMonitorChannels},
+		{"GET /api/v1/alert-channels", channelsRead, s.apiListChannels},
+		{"POST /api/v1/alert-channels", channelsCreate, s.apiCreateChannel},
+		{"GET /api/v1/alert-channels/{id}", channelsRead, s.apiReadChannel},
+		{"PATCH /api/v1/alert-channels/{id}", channelsUpdate, s.apiUpdateChannel},
+		{"DELETE /api/v1/alert-channels/{id}", channelsDelete, s.apiDeleteChannel},
+		{"GET /api/v1/status-pages/{id}/maintenance", maintenanceRead, s.apiListMaintenance},
+		{"POST /api/v1/status-pages/{id}/maintenance", maintenanceCreate, s.apiCreateMaintenance},
+		{"GET /api/v1/status-pages/{id}/maintenance/{window}", maintenanceRead, s.apiReadMaintenance},
+		{"PATCH /api/v1/status-pages/{id}/maintenance/{window}", maintenanceUpdate, s.apiUpdateMaintenance},
+		{"DELETE /api/v1/status-pages/{id}/maintenance/{window}", maintenanceDelete, s.apiDeleteMaintenance},
 	}
 	allowed := make(map[string][]string)
 	for _, route := range routes {

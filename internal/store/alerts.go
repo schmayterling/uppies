@@ -22,18 +22,60 @@ type AlertChannel struct {
 func (s *Store) CreateAlertChannel(ctx context.Context, c AlertChannel, nowMs int64) (int64, error) {
 	var id int64
 	err := s.write(ctx, func(tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx,
-			"insert into alert_channels (kind, url, created_at_ms) values (?, ?, ?)", c.Kind, c.URL, nowMs)
-		if err != nil {
-			return err
-		}
-		if id, err = res.LastInsertId(); err != nil {
+		var err error
+		if id, err = insertAlertChannel(ctx, tx.ExecContext, c, nowMs); err != nil {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, "insert into monitor_channels (monitor_id, channel_id) select id, ? from monitors", id)
 		return err
 	})
 	return id, err
+}
+
+// CreateUnassignedAlertChannel adds a channel without changing monitor assignments.
+func (s *Store) CreateUnassignedAlertChannel(ctx context.Context, c AlertChannel, nowMs int64) (int64, error) {
+	return insertAlertChannel(ctx, s.db.ExecContext, c, nowMs)
+}
+
+func insertAlertChannel(ctx context.Context, exec execSQL, c AlertChannel, nowMs int64) (int64, error) {
+	res, err := exec(ctx, "insert into alert_channels (kind, url, created_at_ms) values (?, ?, ?)", c.Kind, c.URL, nowMs)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func scanAlertChannel(row rowScanner) (AlertChannel, error) {
+	var c AlertChannel
+	err := row.Scan(&c.ID, &c.Kind, &c.URL)
+	if errors.Is(err, sql.ErrNoRows) {
+		return AlertChannel{}, ErrNotFound
+	}
+	return c, err
+}
+
+const alertChannelByID = "select id, kind, url from alert_channels where id = ?"
+
+func (s *Store) AlertChannel(ctx context.Context, id int64) (AlertChannel, error) {
+	return scanAlertChannel(s.db.QueryRowContext(ctx, alertChannelByID, id))
+}
+
+// EditAlertChannel changes configuration without changing monitor assignments.
+func (s *Store) EditAlertChannel(ctx context.Context, id int64, edit func(*AlertChannel) error) error {
+	return s.write(ctx, func(tx *sql.Tx) error {
+		channel, err := scanAlertChannel(tx.QueryRowContext(ctx, alertChannelByID, id))
+		if err != nil {
+			return err
+		}
+		if err := edit(&channel); err != nil {
+			return err
+		}
+		res, err := tx.ExecContext(ctx, "update alert_channels set kind = ?, url = ? where id = ?", channel.Kind, channel.URL, id)
+		if err != nil {
+			return err
+		}
+		return requireOneRow(res)
+	})
 }
 
 func (s *Store) channels(ctx context.Context, query string, args ...any) ([]AlertChannel, error) {
@@ -44,8 +86,8 @@ func (s *Store) channels(ctx context.Context, query string, args ...any) ([]Aler
 	defer rows.Close()
 	var channels []AlertChannel
 	for rows.Next() {
-		var c AlertChannel
-		if err := rows.Scan(&c.ID, &c.Kind, &c.URL); err != nil {
+		c, err := scanAlertChannel(rows)
+		if err != nil {
 			return nil, err
 		}
 		channels = append(channels, c)
@@ -56,6 +98,11 @@ func (s *Store) channels(ctx context.Context, query string, args ...any) ([]Aler
 // AlertChannels lists every channel, oldest first.
 func (s *Store) AlertChannels(ctx context.Context) ([]AlertChannel, error) {
 	return s.channels(ctx, "select id, kind, url from alert_channels order by id")
+}
+
+// AlertChannelsAfter lists the next alert channels in ID order.
+func (s *Store) AlertChannelsAfter(ctx context.Context, after int64, limit int) ([]AlertChannel, error) {
+	return s.channels(ctx, "select id, kind, url from alert_channels where id > ? order by id limit ?", after, limit)
 }
 
 // MonitorChannels lists the channels a monitor alerts, oldest first.
