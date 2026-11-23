@@ -1,17 +1,38 @@
 {{define "main"}}
-<div class="title-row">
-  <h1>status pages</h1>
-  <button class="button" type="button" data-open-dialog="new-project">{{template "icon" "plus"}}new status page</button>
-</div>
-<p class="muted">each status page shows the monitors you put on it, with its own categories, incidents and look. their order here is their order in the sidebar and on the public list.</p>
+<header class="list-intro">
+  <div class="title-row">
+    <h1>status pages</h1>
+    <button class="button" type="button" data-open-dialog="new-project">{{template "icon" "plus"}}new status page</button>
+  </div>
+  <p class="muted">each status page shows the monitors you put on it, with its own categories, incidents and look. their order here is their order in the sidebar and on the public list.</p>
+</header>
 {{if .Rows}}
-<form method="post" action="/admin/projects/order" data-order>
+<div class="table-search" role="search" hidden>
+  {{template "table-query" "search status pages"}}
+  <div class="table-filters">
+    <div class="field">
+      <label for="filter-state">state</label>
+      <select id="filter-state" data-table-filter="state">
+        <option value="">all states</option><option value="ok">all up</option><option value="down">problems</option><option value="none">waiting</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="filter-coverage">monitors</label>
+      <select id="filter-coverage" data-table-filter="coverage">
+        <option value="">any count</option><option value="populated">with monitors</option><option value="empty">without monitors</option>
+      </select>
+    </div>
+    {{template "table-filter-reset"}}
+  </div>
+  <p class="hint" role="status" data-search-status></p>
+</div>
+<form method="post" action="/admin/projects/order" data-order id="searched-table">
   <div class="panel table-scroll">
   <table class="dense">
     <thead><tr><th scope="col" class="grip-cell"><span class="visually-hidden">drag to reorder</span></th><th scope="col">status page</th><th scope="col">state</th><th scope="col" class="number">monitors</th><th scope="col">address</th><th scope="col"><span class="visually-hidden">actions</span></th></tr></thead>
     <tbody>
       {{range .Rows}}
-      <tr draggable="true" data-drag="row">
+      <tr draggable="true" data-drag="row" data-state="{{.State}}" data-coverage="{{if .Monitors}}populated{{else}}empty{{end}}" data-search-text="{{.Name}} {{.Tagline}} /s/{{.Slug}} {{.Domain}} {{.Word}}">
         <td class="grip-cell"><span class="order-grip" aria-hidden="true">{{template "icon" "grip"}}</span></td>
         <th scope="row">
           <input type="hidden" name="item" value="{{.ID}}">
@@ -31,9 +52,10 @@
       {{end}}
     </tbody>
   </table>
+  <p class="empty" data-search-empty hidden>no status pages match.</p>
   </div>
 </form>
-<p class="hint">drag a status page to change the order.</p>
+<p class="hint" data-order-hint>drag a status page to change the order.</p>
 {{else}}
 <p class="panel empty">no status pages yet. create the first one to show your monitors to others.</p>
 {{end}}

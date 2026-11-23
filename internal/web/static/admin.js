@@ -214,7 +214,7 @@ function buildSelect(select, number) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  [...document.querySelectorAll("select")].forEach(buildSelect);
+  [...document.querySelectorAll("select:not([data-table-filter])")].forEach(buildSelect);
 });
 
 document.addEventListener("click", (event) => {
@@ -595,6 +595,70 @@ document.addEventListener("change", async (event) => {
   }
 });
 
+document.addEventListener("DOMContentLoaded", () => {
+  const search = document.getElementById("table-query");
+  if (!search) {
+    return;
+  }
+  const toolbar = search.closest(".table-search");
+  const form = document.getElementById(search.getAttribute("aria-controls"));
+  const rows = [...form.querySelectorAll("[data-search-text]")];
+  const empty = form.querySelector("[data-search-empty]");
+  const status = toolbar.querySelector("[data-search-status]");
+  const clear = toolbar.querySelector("[data-clear-table]");
+  const fields = [...toolbar.querySelectorAll("[data-table-filter]")];
+  const orderHint = document.querySelector("[data-order-hint]");
+
+  const filter = () => {
+    const query = search.value.trim().toLowerCase();
+    const terms = query.split(/\s+/);
+    const selected = fields.filter((field) => field.value !== "");
+    const active = query !== "" || selected.length > 0;
+    let matches = 0;
+    for (const row of rows) {
+      const text = row.dataset.searchText.toLowerCase();
+      const matchesSearch = terms.every((term) => text.includes(term));
+      const matchesFilters = selected.every((field) => {
+        const values = row.dataset[field.dataset.tableFilter].trim().split(/\s+/);
+        return values.includes(field.value);
+      });
+      const visible = matchesSearch && matchesFilters;
+      row.hidden = !visible;
+      row.draggable = !active;
+      if (visible) {
+        matches++;
+      }
+    }
+    form.toggleAttribute("data-filtered", active);
+    empty.hidden = matches !== 0;
+    orderHint.hidden = active;
+    clear.hidden = !active;
+    status.textContent = active ? `${matches} of ${rows.length} shown. clear search and filters to reorder.` : "";
+  };
+
+  search.addEventListener("input", filter);
+  for (const field of fields) {
+    field.addEventListener("change", filter);
+  }
+  clear.addEventListener("click", () => {
+    search.value = "";
+    for (const field of fields) {
+      field.value = "";
+    }
+    filter();
+    search.focus();
+  });
+  search.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !event.isComposing && search.value) {
+      event.preventDefault();
+      search.value = "";
+      filter();
+    }
+  });
+  filter();
+  toolbar.hidden = false;
+});
+
 // Lists arranged by dragging: the list of all monitors, and a status page's
 // monitors and categories in its editor. A row is dragged to another place or
 // into another category, a category is dragged as a whole. Every item carries
@@ -603,6 +667,11 @@ document.addEventListener("change", async (event) => {
 let draggedItem = null;
 document.addEventListener("dragstart", (event) => {
   draggedItem = event.target.closest ? event.target.closest("form[data-order] [data-drag]") : null;
+  if (draggedItem?.closest("[data-filtered]")) {
+    event.preventDefault();
+    draggedItem = null;
+    return;
+  }
   if (draggedItem) {
     event.dataTransfer.effectAllowed = "move";
     draggedItem.classList.add("dragging");

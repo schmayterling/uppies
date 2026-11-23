@@ -332,6 +332,7 @@ func (s *Server) handleDeleteMonitor(w http.ResponseWriter, r *http.Request) {
 type monitorsPage struct {
 	Chrome chrome
 	Rows   []monitorListRow
+	Kinds  []string
 }
 
 type monitorListRow struct {
@@ -342,7 +343,7 @@ type monitorListRow struct {
 
 func (s *Server) handleMonitors(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	page := monitorsPage{Chrome: s.adminChrome(r, "monitors")}
+	page := monitorsPage{Chrome: s.adminChrome(r, "monitors"), Kinds: check.Kinds}
 	monitors, err := s.store.Monitors(ctx)
 	if err != nil {
 		s.fail(w, r, err)

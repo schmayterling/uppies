@@ -1,17 +1,45 @@
 {{define "main"}}
-<div class="title-row">
-  <h1>monitors</h1>
-  <a class="button" href="/admin/monitors/new">{{template "icon" "plus"}}new monitor</a>
-</div>
-<p class="muted">everything uppies checks. a monitor belongs to the install: put it on any status page from that page's editor, where it also gets its category.</p>
+<header class="list-intro">
+  <div class="title-row">
+    <h1>monitors</h1>
+    <a class="button" href="/admin/monitors/new">{{template "icon" "plus"}}new monitor</a>
+  </div>
+  <p class="muted">everything uppies checks. a monitor belongs to the install: put it on any status page from that page's editor, where it also gets its category.</p>
+</header>
 {{if .Rows}}
-<form method="post" action="/admin/monitors/order" data-order>
+<div class="table-search" role="search" hidden>
+  {{template "table-query" "search monitors"}}
+  <div class="table-filters">
+    <div class="field">
+      <label for="filter-state">state</label>
+      <select id="filter-state" data-table-filter="state">
+        <option value="">all states</option><option value="ok">operational</option><option value="down">down</option><option value="paused">paused</option><option value="none">waiting</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="filter-kind">type</label>
+      <select id="filter-kind" data-table-filter="kind">
+        <option value="">all types</option>{{range .Kinds}}<option value="{{.}}">{{.}}</option>{{end}}
+      </select>
+    </div>
+    <div class="field">
+      <label for="filter-page">status page</label>
+      <select id="filter-page" data-table-filter="page">
+        <option value="">all status pages</option><option value="none">on no status page</option>
+        {{range .Chrome.Nav.Projects}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+      </select>
+    </div>
+    {{template "table-filter-reset"}}
+  </div>
+  <p class="hint" role="status" data-search-status></p>
+</div>
+<form method="post" action="/admin/monitors/order" data-order id="searched-table">
   <div class="panel table-scroll">
   <table class="dense">
     <thead><tr><th scope="col" class="grip-cell"><span class="visually-hidden">drag to reorder</span></th><th scope="col">monitor</th><th scope="col">state</th><th scope="col">status pages</th><th scope="col">last check</th><th scope="col" class="number">latency</th></tr></thead>
     <tbody>
       {{range .Rows}}
-      <tr draggable="true" data-drag="row">
+      <tr draggable="true" data-drag="row" data-state="{{if .Paused}}paused{{else}}{{.State}}{{end}}" data-kind="{{.Kind}}" data-page="{{range .Pages}} {{.ID}}{{else}}none{{end}}" data-search-text="{{.Name}}{{if ne .Kind "push"}} {{.Target}}{{end}} {{.Word}}{{range .Pages}} {{.Name}}{{end}}">
         <td class="grip-cell"><span class="order-grip" aria-hidden="true">{{template "icon" "grip"}}</span></td>
         <th scope="row">
           <input type="hidden" name="item" value="m:{{.ID}}">
@@ -29,9 +57,10 @@
       {{end}}
     </tbody>
   </table>
+  <p class="empty" data-search-empty hidden>no monitors match.</p>
   </div>
 </form>
-<p class="hint">drag a monitor to change its place in this list.</p>
+<p class="hint" data-order-hint>drag a monitor to change its place in this list.</p>
 {{else}}
 <p class="panel empty">no monitors yet. <a href="/admin/monitors/new">add the first one</a> to start checking.</p>
 {{end}}
