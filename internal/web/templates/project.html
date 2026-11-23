@@ -3,15 +3,15 @@
 <div class="title-row">
   <h1>{{.Project.Name}}</h1>
   <span class="actions">
-    <a class="button quiet" href="/admin/projects/{{.Project.ID}}/settings">settings</a>
-    <a class="button quiet" href="/s/{{.Project.Slug}}">view status page</a>
+    <a class="button quiet" href="/admin/projects/{{.Project.ID}}/settings">{{template "icon" "settings"}}settings</a>
+    <a class="button quiet" href="/s/{{.Project.Slug}}">{{template "icon" "external-link"}}view status page</a>
   </span>
 </div>
 
 <section aria-labelledby="monitors-heading">
   <div class="title-row">
     <h2 id="monitors-heading">monitors</h2>
-    <a class="button" href="/admin/projects/{{.Project.ID}}/monitors/new">add monitor</a>
+    <a class="button" href="/admin/projects/{{.Project.ID}}/monitors/new">{{template "icon" "plus"}}add monitor</a>
   </div>
   {{if .Monitors}}
   <div class="table-scroll">
@@ -20,7 +20,7 @@
     <tbody>
       {{range .Monitors}}
       <tr>
-        <th scope="row"><a href="/admin/monitors/{{.ID}}">{{.Name}}</a></th>
+        <th scope="row"><a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a></th>
         <td><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>{{if and .LastError (eq .State "down")}}<span class="meta cell-note">{{.LastError}}</span>{{end}}</td>
         <td class="target">{{if eq .Kind "push"}}reports in{{else}}{{.Target}}{{end}}{{if .CertExpiresAtMs}}<span class="meta cell-note">certificate expires in {{daysUntil .CertExpiresAtMs}} days</span>{{end}}</td>
         <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{utc .LastCheckAtMs}}</time>{{else}}<span class="muted">not yet</span>{{end}}</td>
@@ -38,7 +38,7 @@
 <section aria-labelledby="incidents-heading">
   <div class="title-row">
     <h2 id="incidents-heading">incidents</h2>
-    <a class="button" href="/admin/projects/{{.Project.ID}}/incidents/new">new incident</a>
+    <a class="button" href="/admin/projects/{{.Project.ID}}/incidents/new">{{template "icon" "plus"}}new incident</a>
   </div>
   {{if .Incidents}}
   <ul class="rows">
@@ -55,7 +55,10 @@
 </section>
 
 <section aria-labelledby="maintenance-heading">
-  <h2 id="maintenance-heading">planned maintenance</h2>
+  <div class="title-row">
+    <h2 id="maintenance-heading">planned maintenance</h2>
+    <button class="button" type="button" data-open-dialog="plan-maintenance">{{template "icon" "wrench"}}plan maintenance</button>
+  </div>
   <p class="muted">during a window nothing is checked, so nothing alerts or counts as downtime. the status page announces it ahead of time.</p>
   {{if .Maintenance}}
   <ul class="rows">
@@ -67,7 +70,9 @@
     {{end}}
   </ul>
   {{end}}
-  <form class="form narrow" method="post" action="/admin/projects/{{.Project.ID}}/maintenance">
+  <dialog id="plan-maintenance" aria-labelledby="plan-maintenance-heading"{{if .Problems}} data-open-on-load{{end}}>
+  <h2 id="plan-maintenance-heading">plan maintenance</h2>
+  <form class="form" method="post" action="/admin/projects/{{.Project.ID}}/maintenance">
     <div class="field">
       <label for="window-title">what is planned</label>
       <input id="window-title" name="title" value="{{.Window.Title}}" required maxlength="200"{{if index .Problems "title"}} aria-invalid="true" aria-describedby="window-title-problem"{{end}}>
@@ -84,8 +89,9 @@
       <input id="window-ends" name="ends" type="datetime-local" value="{{.Window.Ends}}" required{{if index .Problems "ends"}} aria-invalid="true" aria-describedby="window-ends-problem"{{end}}>
       {{with index .Problems "ends"}}<p class="problem" id="window-ends-problem">{{.}}</p>{{end}}
     </div>
-    <div class="actions"><button class="button" type="submit">plan maintenance</button></div>
+    <div class="actions"><button class="button" type="submit">plan maintenance</button><button class="button quiet" type="button" data-close-dialog>cancel</button></div>
   </form>
+  </dialog>
 </section>
 
 <section aria-labelledby="timeline-heading">
@@ -107,9 +113,15 @@
 
 <section aria-labelledby="danger-heading">
   <h2 id="danger-heading">delete project</h2>
-  <form class="form narrow" method="post" action="/admin/projects/{{.Project.ID}}/delete">
-    <label class="check"><input type="checkbox" required> delete {{.Project.Name}} with its monitors, history and incidents. this cannot be undone.</label>
-    <div class="actions"><button class="button danger" type="submit">delete project</button></div>
-  </form>
+  <p class="muted">removes the project with its monitors, history and incidents.</p>
+  <button class="button danger" type="button" data-open-dialog="delete-project">{{template "icon" "trash"}}delete project</button>
+  <dialog id="delete-project" aria-labelledby="delete-project-heading">
+    <h2 id="delete-project-heading">delete {{.Project.Name}}?</h2>
+    <p>its monitors, history and incidents are deleted with it. this cannot be undone.</p>
+    <form class="actions" method="post" action="/admin/projects/{{.Project.ID}}/delete">
+      <button class="button danger" type="submit">delete project</button>
+      <button class="button quiet" type="button" data-close-dialog>cancel</button>
+    </form>
+  </dialog>
 </section>
 {{end}}

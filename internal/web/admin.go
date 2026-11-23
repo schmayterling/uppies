@@ -443,6 +443,14 @@ var kindLabels = map[string]string{
 	check.KindPush: "push, for scheduled jobs that report in",
 }
 
+// kindIcons and channelIcons name the icon in static/icons.svg for each kind.
+var kindIcons = map[string]string{
+	check.KindHTTP: "globe", check.KindTCP: "plug", check.KindDNS: "network",
+	check.KindPing: "activity", check.KindPush: "timer",
+}
+
+var channelIcons = map[string]string{"webhook": "webhook", "discord": "discord", "slack": "hash", "email": "mail"}
+
 func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 	err := s.store.RecordPush(r.Context(), r.PathValue("token"), s.now().UnixMilli())
 	if errors.Is(err, store.ErrNotFound) {

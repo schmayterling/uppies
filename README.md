@@ -74,6 +74,19 @@ Put a reverse proxy with TLS in front of uppies before you expose it to the
 internet. The proxy must set the `X-Forwarded-Proto` header so that the
 session cookie is marked secure.
 
+## See it with example data
+
+```sh
+./uppies -db demo.db -demo
+```
+
+`-demo` fills an empty database with example projects: every monitor kind,
+monitors that are up, down, paused and not yet checked, 90 days of history,
+incidents, maintenance windows, alert channels and three differently styled
+status pages. It never adds anything to a database that already has projects.
+The example monitors check real public addresses such as `example.com` and
+`1.1.1.1`, and addresses reserved for documentation that never answer.
+
 ## Develop
 
 ```sh

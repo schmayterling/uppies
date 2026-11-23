@@ -72,10 +72,16 @@
 {{if .Editing}}
 <section aria-labelledby="danger-heading">
   <h2 id="danger-heading">delete monitor</h2>
-  <form class="form narrow" method="post" action="/admin/monitors/{{.Monitor.ID}}/delete">
-    <label class="check"><input type="checkbox" required> delete {{.Monitor.Name}} and its history. this cannot be undone.</label>
-    <div class="actions"><button class="button danger" type="submit">delete monitor</button></div>
-  </form>
+  <p class="muted">removes the monitor and its history.</p>
+  <button class="button danger" type="button" data-open-dialog="delete-monitor">{{template "icon" "trash"}}delete monitor</button>
+  <dialog id="delete-monitor" aria-labelledby="delete-monitor-heading">
+    <h2 id="delete-monitor-heading">delete {{.Monitor.Name}}?</h2>
+    <p>its history is deleted with it. this cannot be undone.</p>
+    <form class="actions" method="post" action="/admin/monitors/{{.Monitor.ID}}/delete">
+      <button class="button danger" type="submit">delete monitor</button>
+      <button class="button quiet" type="button" data-close-dialog>cancel</button>
+    </form>
+  </dialog>
 </section>
 {{end}}
 {{end}}

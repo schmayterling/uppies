@@ -38,9 +38,15 @@
 
 <section aria-labelledby="danger-heading">
   <h2 id="danger-heading">delete incident</h2>
-  <form class="form narrow" method="post" action="/admin/incidents/{{.Incident.ID}}/delete">
-    <label class="check"><input type="checkbox" required> delete this incident and its updates. this cannot be undone.</label>
-    <div class="actions"><button class="button danger" type="submit">delete incident</button></div>
-  </form>
+  <p class="muted">removes the incident and its updates.</p>
+  <button class="button danger" type="button" data-open-dialog="delete-incident">{{template "icon" "trash"}}delete incident</button>
+  <dialog id="delete-incident" aria-labelledby="delete-incident-heading">
+    <h2 id="delete-incident-heading">delete this incident?</h2>
+    <p>its updates are deleted with it. this cannot be undone.</p>
+    <form class="actions" method="post" action="/admin/incidents/{{.Incident.ID}}/delete">
+      <button class="button danger" type="submit">delete incident</button>
+      <button class="button quiet" type="button" data-close-dialog>cancel</button>
+    </form>
+  </dialog>
 </section>
 {{end}}

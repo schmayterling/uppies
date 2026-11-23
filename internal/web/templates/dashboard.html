@@ -1,7 +1,7 @@
 {{define "main"}}
 <div class="title-row">
   <h1>overview</h1>
-  <a class="button" href="#new-project">new project</a>
+  <button class="button" type="button" data-open-dialog="new-project">{{template "icon" "plus"}}new project</button>
 </div>
 
 {{if .Rows}}
@@ -37,7 +37,7 @@
     <tbody>
       {{range .Rows}}
       <tr>
-        <th scope="row"><a href="/admin/monitors/{{.ID}}">{{.Name}}</a></th>
+        <th scope="row"><a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a></th>
         <td><a class="quiet-link" href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a></td>
         <td><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span></td>
         <td><div class="strip mini" role="img" aria-label="uptime {{.Uptime}}">{{range .Days}}<span class="day day-{{.State}}" title="{{.Label}}"></span>{{end}}</div></td>
@@ -69,10 +69,10 @@
 </section>
 {{end}}
 
-<section aria-labelledby="new-project-heading" id="new-project">
+<dialog id="new-project" aria-labelledby="new-project-heading"{{if .Problems}} data-open-on-load{{end}}>
   <h2 id="new-project-heading">new project</h2>
   <p class="muted">a project is one status page with its own monitors and incidents.</p>
-  <form class="form narrow" method="post" action="/admin/projects">
+  <form class="form" method="post" action="/admin/projects">
     <div class="field">
       <label for="name">name</label>
       <input id="name" name="name" value="{{.Name}}" required maxlength="120"{{if index .Problems "name"}} aria-invalid="true" aria-describedby="name-problem"{{end}}>
@@ -84,7 +84,7 @@
       <p class="hint" id="slug-hint">the status page will live at /s/&lt;address&gt;.</p>
       {{with index .Problems "slug"}}<p class="problem" id="slug-problem">{{.}}</p>{{end}}
     </div>
-    <div class="actions"><button class="button" type="submit">create project</button></div>
+    <div class="actions"><button class="button" type="submit">create project</button><button class="button quiet" type="button" data-close-dialog>cancel</button></div>
   </form>
-</section>
+</dialog>
 {{end}}

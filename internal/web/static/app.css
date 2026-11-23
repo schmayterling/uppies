@@ -52,7 +52,47 @@ strong { font-weight: var(--weight-semibold); }
   border-inline-end: 1px solid var(--border);
   background: var(--surface);
 }
+.sidebar-head { display: flex; align-items: center; justify-content: space-between; }
 .sidebar .wordmark { display: flex; align-items: center; min-block-size: var(--row-height); padding-inline: var(--space-2); }
+
+/* the sidebar hides as a whole. a button at the top of the content brings it back. */
+.icon-button.sidebar-show { display: none; margin-block-end: var(--space-3); }
+[data-sidebar="hidden"] .shell { grid-template-columns: minmax(0, 1fr); }
+[data-sidebar="hidden"] .sidebar { display: none; }
+[data-sidebar="hidden"] .icon-button.sidebar-show { display: inline-flex; }
+
+/* icons take the size and colour of the text they sit in */
+.icon { flex: none; inline-size: var(--icon-size); block-size: var(--icon-size); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--control-height);
+  block-size: var(--control-height);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.icon-button:hover { background: var(--hover); color: var(--ink); }
+.with-icon, table.dense tbody th a.with-icon { display: inline-flex; align-items: flex-start; gap: var(--space-2); }
+.with-icon .icon { margin-block-start: var(--space-0-5); }
+.with-icon .icon, .nav-item .icon, .channel .icon { color: var(--muted); }
+
+/* dialogs: one raised surface over a dimmed page */
+dialog {
+  inline-size: min(100% - var(--space-6), 440px);
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--elevated);
+  color: var(--ink);
+  box-shadow: var(--shadow-popover);
+}
+dialog::backdrop { background: var(--backdrop); }
+dialog > h2 { margin-block-end: var(--space-2); }
+dialog .form, dialog form.actions { margin-block-start: var(--space-4); }
 .nav-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-0-5); }
 .nav-list > li { min-inline-size: 0; }
 .nav-heading { margin: var(--space-4) 0 var(--space-1); padding-inline: var(--space-2); color: var(--muted); font-size: var(--text-xs); font-weight: var(--weight-regular); }
@@ -81,7 +121,7 @@ strong { font-weight: var(--weight-semibold); }
 .nav-empty { padding: var(--space-1) var(--space-2); font-size: var(--text-sm); }
 .sidebar-foot { margin-block-start: auto; display: grid; gap: var(--space-0-5); }
 .sidebar-foot form { margin: 0; }
-.content { inline-size: 100%; max-inline-size: var(--content-wide); padding: var(--space-5) var(--space-6) var(--space-8); }
+.content { position: relative; inline-size: 100%; max-inline-size: var(--content-wide); margin-inline: auto; padding: var(--space-5) var(--space-6) var(--space-8); }
 .content > section { margin-block-start: var(--space-6); }
 .skip { position: absolute; inset-inline-start: var(--space-2); inset-block-start: var(--space-2); padding: var(--space-1) var(--space-2); background: var(--background); translate: 0 -200%; }
 .skip:focus { translate: 0 0; }
@@ -114,6 +154,8 @@ table.dense tbody th a:hover { text-decoration: underline; }
 .strip.mini { inline-size: calc(var(--space-8) * 2 + var(--space-5)); block-size: var(--space-4); }
 
 @media (max-width: 860px) {
+  .sidebar-head .icon-button, [data-sidebar="hidden"] .icon-button.sidebar-show { display: none; }
+  [data-sidebar="hidden"] .sidebar { display: flex; }
   .shell { grid-template-columns: minmax(0, 1fr); }
   .sidebar { position: static; block-size: auto; border-inline-end: 0; border-block-end: 1px solid var(--border); }
   .content { padding: var(--space-4); }
@@ -139,6 +181,7 @@ table.dense tbody th a:hover { text-decoration: underline; }
   font-size: var(--text-ui);
   font-weight: var(--weight-semibold);
   line-height: 1;
+  gap: var(--space-1-5);
   text-decoration: none;
   cursor: pointer;
   transition: opacity var(--motion-fast) var(--ease-out);
@@ -164,6 +207,16 @@ input:not([type="checkbox"]), select, textarea {
   font-size: var(--text-ui);
 }
 textarea { resize: vertical; }
+/* the browser's own arrow sits too close to the edge, so selects draw a chevron with room around it */
+select {
+  appearance: none;
+  padding-inline-end: var(--space-6);
+  background-image: url("chevron-light.svg");
+  background-repeat: no-repeat;
+  background-position: right var(--space-2) center;
+  background-size: var(--icon-size);
+}
+@media (prefers-color-scheme: dark) { select { background-image: url("chevron-dark.svg"); } }
 #custom_css { font-family: var(--font-mono); }
 input[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--status-danger); }
 fieldset { margin: 0; padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-card); display: grid; gap: var(--space-4); }

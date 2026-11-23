@@ -237,6 +237,12 @@ var templateFuncs = template.FuncMap{
 		return time.UnixMilli(ms).UTC().Format(time.RFC3339)
 	},
 	"contains": slices.Contains[[]int64],
+	"kindIcon": func(kind string) string {
+		return kindIcons[kind]
+	},
+	"channelIcon": func(kind string) string {
+		return channelIcons[kind]
+	},
 	"kindLabel": func(kind string) string {
 		return kindLabels[kind]
 	},

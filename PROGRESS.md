@@ -42,6 +42,8 @@ Each line names how it was verified.
 - Maintenance windows per project: no checks during a window, announced on the status page. Verified by engine and handler tests and by the manual run.
 - Dockerfile: written and not built, because the Docker daemon on this machine was not running. The same static Linux build command it uses was run by hand and produced a 15 MB binary.
 - Admin frame and overview, design round 1 (2026-11-23): every admin page sits in a 256-pixel sidebar that lists the projects with their state, and the home page is an overview with a strip of counts, a "needs attention" list, one table of all monitors with a 30-day bar, and recent activity. Verified by a handler test. Rendered and measured at 1440 wide in light and dark and at 390 wide: no horizontal overflow, no link or button under 24 pixels tall, four type sizes.
+- Demo data (`internal/demo`, flag `-demo`): fills an empty database with every monitor kind and state, history, incidents, maintenance, channels and page settings. Verified by a test and by starting a server on it.
+- Design round 2 (2026-11-23), asked for by the user: content centred next to the sidebar, a sidebar that hides and remembers it, icons from Lucide and Simple Icons served as one sprite, dialogs for the new-project form, planning maintenance and the three delete confirmations, and a drawn chevron on every select. Checked in a browser at 1600 wide: equal space left and right of the content, the dialog opens with focus in its first field, the sidebar hides and comes back, no link or button under 24 pixels tall. The admin pages now load one small script (`static/admin.js`). Status pages still load none.
 - Status page rendered and measured at 1280 and 390 CSS pixels wide in the light theme: no horizontal overflow, 90 day cells on wide screens and 30 on narrow ones. The dark theme was looked at once before the last style fixes and not measured.
 
 ## Done but not verified
@@ -84,11 +86,16 @@ Each line names how it was verified.
 - 2026-11-23: The admin uses a sidebar plus content layout at desktop density (13-pixel text, 28-pixel controls). References looked at: the dashboards of Uptime Kuma, Peekaping and Checkmate. Taken from them: a sidebar for navigation, a strip of counts, a list of what is down, and a small uptime bar on every monitor row. Not taken: coloured pills on every row and a grid of cards.
 - 2026-11-23: An outage and its draft incident are one line in "needs attention", linked to the draft.
 
+- 2026-11-23: The admin pages may use a script. Dialogs and the sidebar toggle need one. Without script, dialogs are shown in place through `static/noscript.css`. Status pages stay free of script.
+- 2026-11-23: The sidebar hides completely and does not shrink to a rail of icons, because it has few destinations.
+- 2026-11-23: Icons are copied into the repository as one SVG sprite, with their licenses in `THIRD_PARTY.md`. Slack has no icon in Simple Icons, so its channel uses a generic one.
+
 ## Do not repeat
 
 - Do not put the raw check error into text that can become public. A test caught this once (`TestStatusPageShowsOnlyWhatIsPublic`).
 - `sqlite3 .lint fkey-indexes` reports `daily_rollups(monitor_id)` and `incident_monitors(incident_id)` as unindexed. Both are the leading column of a WITHOUT ROWID primary key, so the report is a false positive.
 - Do not undo a temporary test edit with `git checkout <file>` while that file has other uncommitted changes. It discarded a new migration once. Copy the file aside and copy it back.
+- In zsh, `rm -f name*` fails when nothing matches and stops a command chain. Name the files.
 - Headless Chrome will not lay a page out narrower than about 500 pixels. For phone widths, use device metrics emulation over the DevTools protocol.
 
 ## Next

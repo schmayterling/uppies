@@ -110,7 +110,7 @@
   <ul class="rows">
     {{range .Channels}}
     <li class="row">
-      <span class="channel"><strong>{{.Kind}}</strong> <span class="target">{{.URL}}</span></span>
+      <span class="channel">{{template "icon" (channelIcon .Kind)}}<strong>{{.Kind}}</strong> <span class="target">{{.URL}}</span></span>
       <span class="actions">
         <form method="post" action="/admin/projects/{{$.Project.ID}}/channels/{{.ID}}/test"><button class="button quiet" type="submit">send test</button></form>
         <form method="post" action="/admin/projects/{{$.Project.ID}}/channels/{{.ID}}/delete"><button class="button quiet" type="submit">remove</button></form>

@@ -6,6 +6,8 @@
 <title>{{.Chrome.Title}}{{if not .Chrome.Unbranded}} · uppies{{end}}</title>
 <link rel="stylesheet" href="/static/tokens.css">
 <link rel="stylesheet" href="/static/app.css">
+{{if .Chrome.Admin}}<script src="/static/admin.js"></script>
+<noscript><link rel="stylesheet" href="/static/noscript.css"></noscript>{{end}}
 {{block "head" .}}{{end}}
 </head>
 {{if .Chrome.Admin}}
@@ -13,10 +15,13 @@
 <a class="skip" href="#content">skip to the content</a>
 <div class="shell">
   <aside class="sidebar">
-    <a class="wordmark" href="/admin">uppies</a>
+    <div class="sidebar-head">
+      <a class="wordmark" href="/admin">uppies</a>
+      <button class="icon-button" type="button" data-toggle-sidebar aria-label="hide the sidebar">{{template "icon" "panel-left"}}</button>
+    </div>
     <nav aria-label="main">
       <ul class="nav-list">
-        <li><a class="nav-item" href="/admin"{{if .Chrome.Nav.OnOverview}} aria-current="page"{{end}}>overview</a></li>
+        <li><a class="nav-item" href="/admin"{{if .Chrome.Nav.OnOverview}} aria-current="page"{{end}}>{{template "icon" "layout-dashboard"}}overview</a></li>
       </ul>
       <h2 class="nav-heading" id="nav-projects">projects</h2>
       <ul class="nav-list" aria-labelledby="nav-projects">
@@ -29,15 +34,16 @@
         {{else}}
         <li class="nav-empty">none yet</li>
         {{end}}
-        <li><a class="nav-item nav-add" href="/admin#new-project">new project</a></li>
+        <li><a class="nav-item nav-add" href="/admin#new-project">{{template "icon" "plus"}}new project</a></li>
       </ul>
     </nav>
     <div class="sidebar-foot">
-      <a class="nav-item" href="/">status pages</a>
-      <form method="post" action="/admin/logout"><button class="nav-item" type="submit">sign out</button></form>
+      <a class="nav-item" href="/">{{template "icon" "external-link"}}status pages</a>
+      <form method="post" action="/admin/logout"><button class="nav-item" type="submit">{{template "icon" "log-out"}}sign out</button></form>
     </div>
   </aside>
   <main class="content" id="content">
+    <button class="icon-button sidebar-show" type="button" data-toggle-sidebar aria-label="show the sidebar">{{template "icon" "panel-left"}}</button>
 {{block "main" .}}{{end}}
   </main>
 </div>
@@ -50,6 +56,8 @@
 </body>
 {{end}}
 </html>
+
+{{define "icon"}}<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#{{.}}"/></svg>{{end}}
 
 {{define "mark"}}<svg class="mark mark-{{.}}" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">{{if eq . "ok"}}<circle cx="6" cy="6" r="5"/>{{else if eq . "warn"}}<path d="M6 1 11.5 11H.5Z"/>{{else if eq . "down"}}<rect x="1" y="1" width="10" height="10" rx="2"/>{{else}}<circle class="hollow" cx="6" cy="6" r="4"/>{{end}}</svg>{{end}}
 
