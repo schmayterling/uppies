@@ -503,7 +503,7 @@ func (s *Server) handleCreateMaintenance(w http.ResponseWriter, r *http.Request)
 		ProjectID: page.Project.ID, Title: form.Title, StartsAtMs: starts.UnixMilli(), EndsAtMs: ends.UnixMilli(),
 		UntilFurtherNotice: form.UntilFurtherNotice, MonitorIDs: selected,
 	}
-	_, err = s.store.CreateMaintenanceWindow(r.Context(), window, now.UnixMilli())
+	windowID, err := s.store.CreateMaintenanceWindow(r.Context(), window, now.UnixMilli())
 	if errors.Is(err, store.ErrUnknownMonitor) {
 		problems["monitor_ids"] = "choose monitors from this status page."
 		page.Window, page.Problems = form, problems
@@ -515,7 +515,7 @@ func (s *Server) handleCreateMaintenance(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	s.monitorsChanged()
-	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d#maintenance-heading", page.Project.ID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d/maintenance/%d", page.Project.ID, windowID), http.StatusSeeOther)
 }
 
 func (s *Server) handleDeleteMaintenance(w http.ResponseWriter, r *http.Request) {
@@ -529,7 +529,7 @@ func (s *Server) handleDeleteMaintenance(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	s.monitorsChanged()
-	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d#maintenance-heading", id), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d/maintenance", id), http.StatusSeeOther)
 }
 
 func (s *Server) projectPage(r *http.Request) (projectPage, error) {

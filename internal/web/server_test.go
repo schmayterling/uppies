@@ -1023,10 +1023,10 @@ func TestScopedMaintenanceNoticeAndEndedHistory(t *testing.T) {
 	collection := fmt.Sprintf("/admin/projects/%d/maintenance", projectID)
 	form := url.Values{"title": {"Open database work"}, "starts": {now.Add(-time.Hour).Format(dateTimeLayout)},
 		"until_further_notice": {"1"}, "monitor": {strconv.FormatInt(selected, 10)}}
-	if response := s.post(t, s.admin, collection, form, nil); response.StatusCode != http.StatusSeeOther {
-		t.Fatalf("scoped open window: got %d, want 303", response.StatusCode)
-	}
 	window := collection + "/1"
+	if response := s.post(t, s.admin, collection, form, nil); response.StatusCode != http.StatusSeeOther || response.Header.Get("Location") != window {
+		t.Fatalf("scoped open window: got %d to %q, want 303 to %s", response.StatusCode, response.Header.Get("Location"), window)
+	}
 	update := url.Values{"body": {"The first task has finished."}}
 	if response := s.post(t, s.admin, window+"/updates", update, nil); response.StatusCode != http.StatusSeeOther {
 		t.Fatalf("add update: got %d, want 303", response.StatusCode)
@@ -1057,6 +1057,12 @@ func TestScopedMaintenanceNoticeAndEndedHistory(t *testing.T) {
 	_, detail := s.get(t, s.admin, window)
 	if !strings.Contains(history, "Open database work") || !strings.Contains(detail, "The first task has finished.") {
 		t.Fatal("ended window and its update are missing from admin history")
+	}
+	if response := s.post(t, s.admin, window+"/delete", nil, nil); response.StatusCode != http.StatusSeeOther || response.Header.Get("Location") != collection {
+		t.Fatalf("delete window: got %d to %q, want 303 to %s", response.StatusCode, response.Header.Get("Location"), collection)
+	}
+	if status, _ := s.get(t, s.admin, window); status != http.StatusNotFound {
+		t.Errorf("removed window returned %d, want 404", status)
 	}
 }
 
