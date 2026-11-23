@@ -109,6 +109,13 @@
       </select></div>
       {{with index .Problems "display"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
+    <div class="srow">
+      <div class="srow-copy" id="graph-fill-label"><span>graph fill</span><small>what is drawn under the line of this monitor's graphs. default follows the status page.</small></div>
+      <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="graph-fill-label">
+        {{range .GraphFills}}<label><input type="radio" name="graph_fill" value="{{.}}"{{if or (eq . $.Monitor.GraphFill) (and (eq . "default") (not $.Monitor.GraphFill))}} checked{{end}}><span>{{.}}</span></label>{{end}}
+      </div></div>
+      {{with index .Problems "graph_fill"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
     <label class="srow">
       <span class="srow-copy"><span>paused</span><small>a paused monitor is not checked.</small></span>
       <span class="srow-control"><input class="switch" type="checkbox" name="paused"{{if .Monitor.Paused}} checked{{end}}></span>

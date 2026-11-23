@@ -44,17 +44,24 @@ type Project struct {
 	Domain string
 	// HideQuietDays leaves the days without incidents out of the page's timelines.
 	HideQuietDays bool
+	// GraphFill is how this page's graphs are filled: one of GraphFills, or
+	// empty to follow the instance setting.
+	GraphFill string
 }
+
+// GraphFills are the ways the area under a graph's line can be drawn:
+// fading out towards the bottom, in one flat tint, or not at all.
+var GraphFills = []string{"gradient", "filled", "none"}
 
 const projectColumns = `id, slug, name, tagline, homepage_url, accent_hue, theme, show_face, lookback_days,
 	custom_css, footer_text, show_powered_by, noindex, timezone, domain, surface, corners, font, backfill,
-	nav_links, hide_quiet_days`
+	nav_links, hide_quiet_days, graph_fill`
 
 func scanProject(row rowScanner) (Project, error) {
 	var p Project
 	err := row.Scan(&p.ID, &p.Slug, &p.Name, &p.Tagline, &p.HomepageURL, &p.AccentHue, &p.Theme,
 		&p.ShowFace, &p.HistoryDays, &p.CustomCSS, &p.FooterText, &p.ShowPoweredBy, &p.NoIndex, &p.Timezone, &p.Domain,
-		&p.Surface, &p.Corners, &p.Font, &p.Backfill, &p.NavLinks, &p.HideQuietDays)
+		&p.Surface, &p.Corners, &p.Font, &p.Backfill, &p.NavLinks, &p.HideQuietDays, &p.GraphFill)
 	return p, err
 }
 
@@ -91,12 +98,15 @@ type Monitor struct {
 	CertExpiresAtMs int64
 	// CertWarnedDays is the last warning threshold already alerted on, 0 for none.
 	CertWarnedDays int
+	// GraphFill is how this monitor's graphs are filled: one of GraphFills, or
+	// empty to follow its status page.
+	GraphFill string
 }
 
 const monitorColumns = `id, project_id, name, kind, target, keyword, interval_s, timeout_ms, retries,
 	retry_interval_s, recovery_checks, paused, public, status, status_since_ms, fail_streak, ok_streak,
 	failing_since_ms, last_check_at_ms, last_latency_ms, last_error, push_token, last_push_at_ms,
-	cert_expires_at_ms, cert_warned_days, display, category`
+	cert_expires_at_ms, cert_warned_days, display, category, graph_fill`
 
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -108,7 +118,7 @@ func scanMonitor(row rowScanner) (Monitor, error) {
 		&m.Retries, &m.RetryIntervalS, &m.RecoveryChecks, &m.Paused, &m.Public, &m.Tracker.Status, &m.StatusSinceMs,
 		&m.Tracker.FailStreak, &m.Tracker.OKStreak, &m.Tracker.FailingSinceMs, &m.LastCheckAtMs,
 		&m.LastLatencyMs, &m.LastError, &m.PushToken, &m.LastPushAtMs, &m.CertExpiresAtMs, &m.CertWarnedDays,
-		&m.Display, &m.Category)
+		&m.Display, &m.Category, &m.GraphFill)
 	return m, err
 }
 
@@ -183,10 +193,10 @@ func (s *Store) UpdateProject(ctx context.Context, p Project) error {
 		update projects set name = ?, tagline = ?, homepage_url = ?, accent_hue = ?, theme = ?,
 			show_face = ?, lookback_days = ?, custom_css = ?, footer_text = ?, show_powered_by = ?,
 			noindex = ?, timezone = ?, domain = ?, surface = ?, corners = ?, font = ?, backfill = ?,
-			nav_links = ?, hide_quiet_days = ?
+			nav_links = ?, hide_quiet_days = ?, graph_fill = ?
 		where id = ?`,
 		p.Name, p.Tagline, p.HomepageURL, p.AccentHue, p.Theme, p.ShowFace, p.HistoryDays, p.CustomCSS,
-		p.FooterText, p.ShowPoweredBy, p.NoIndex, p.Timezone, p.Domain, p.Surface, p.Corners, p.Font, p.Backfill, p.NavLinks, p.HideQuietDays, p.ID)
+		p.FooterText, p.ShowPoweredBy, p.NoIndex, p.Timezone, p.Domain, p.Surface, p.Corners, p.Font, p.Backfill, p.NavLinks, p.HideQuietDays, p.GraphFill, p.ID)
 	var sqliteErr *sqlite.Error
 	if errors.As(err, &sqliteErr) && sqliteErr.Code() == sqliteConstraintUnique {
 		return ErrDomainTaken
@@ -215,10 +225,10 @@ func (s *Store) DeleteProject(ctx context.Context, id int64) error {
 func (s *Store) CreateMonitor(ctx context.Context, m Monitor, nowMs int64) (int64, error) {
 	res, err := s.db.ExecContext(ctx, `
 		insert into monitors (project_id, name, kind, target, keyword, interval_s, timeout_ms, retries,
-			retry_interval_s, recovery_checks, paused, public, push_token, display, category, status_since_ms, created_at_ms)
-		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			retry_interval_s, recovery_checks, paused, public, push_token, display, category, graph_fill, status_since_ms, created_at_ms)
+		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		m.ProjectID, m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries,
-		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.Public, m.PushToken, displayOrDefault(m.Display), m.Category, nowMs, nowMs)
+		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.Public, m.PushToken, displayOrDefault(m.Display), m.Category, m.GraphFill, nowMs, nowMs)
 	if err != nil {
 		return 0, err
 	}
@@ -241,10 +251,10 @@ func (s *Store) UpdateMonitor(ctx context.Context, m Monitor) error {
 	res, err := s.db.ExecContext(ctx, `
 		update monitors set name = ?, kind = ?, target = ?, keyword = ?, interval_s = ?, timeout_ms = ?,
 			retries = ?, retry_interval_s = ?, recovery_checks = ?, paused = ?, public = ?, push_token = ?,
-			display = ?, category = ?
+			display = ?, category = ?, graph_fill = ?
 		where id = ?`,
 		m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries, m.RetryIntervalS,
-		m.RecoveryChecks, m.Paused, m.Public, m.PushToken, displayOrDefault(m.Display), m.Category, m.ID)
+		m.RecoveryChecks, m.Paused, m.Public, m.PushToken, displayOrDefault(m.Display), m.Category, m.GraphFill, m.ID)
 	if err != nil {
 		return err
 	}

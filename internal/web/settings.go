@@ -31,7 +31,9 @@ type settingsPage struct {
 	CustomHue bool
 	Surfaces  []string
 	Corners   []string
-	Fonts     []string
+	// GraphFills are the graph fill choices, the first one meaning "as the instance says".
+	GraphFills []string
+	Fonts      []string
 	// Images maps each image kind the project has to its version.
 	Images map[string]int64
 	// NewChannel holds the add-channel form's values after a failed submit.
@@ -50,6 +52,7 @@ func (s *Server) settingsPage(r *http.Request) (settingsPage, error) {
 		Swatches:     accentSwatches,
 		Surfaces:     surfaces,
 		Corners:      cornerStyles,
+		GraphFills:   scopedGraphFills,
 		Fonts:        fonts,
 		NewChannel:   store.AlertChannel{Kind: "webhook"},
 	}
@@ -148,6 +151,7 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	// A look field that is not sent keeps its value, so older forms still save.
 	p.Surface = choice(form, "surface", surfaces, p.Surface, problems)
 	p.Corners = choice(form, "corners", cornerStyles, p.Corners, problems)
+	p.GraphFill = scopedGraphFill(form, p.GraphFill, problems)
 	p.Font = choice(form, "font", fonts, p.Font, problems)
 	p.HistoryDays = formInt(form, "history_days", 7, 365, problems)
 	p.Backfill = choice(form, "backfill", backfills, p.Backfill, problems)

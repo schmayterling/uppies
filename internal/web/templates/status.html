@@ -54,7 +54,7 @@
       {{else if eq .Display "latency"}}
       {{if .Spark}}
       <div class="spark-box">
-        <svg class="spark" viewBox="0 0 300 32" preserveAspectRatio="none" role="img" aria-label="response time over the last {{$.Project.HistoryDays}} days: {{.Latency}}"><polyline points="{{.Spark}}"/></svg>
+        <svg class="spark" viewBox="0 0 300 32" preserveAspectRatio="none" role="img" aria-label="response time over the last {{$.Project.HistoryDays}} days: {{.Latency}}">{{template "graph-area" .Area}}<polyline points="{{.Spark}}"/></svg>
         <div class="spark-days" aria-hidden="true">{{range .SparkDays}}<span class="day spark-day" data-tip="{{.}}"></span>{{end}}</div>
       </div>
       {{end}}

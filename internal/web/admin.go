@@ -469,6 +469,8 @@ type monitorFormPage struct {
 	Monitor  store.Monitor
 	Kinds    []string
 	Displays []string
+	// GraphFills are the graph fill choices, the first one meaning "as the status page says".
+	GraphFills []string
 	// Categories are the ones already used in the project, offered as suggestions.
 	Categories []string
 	Editing    bool
@@ -589,6 +591,7 @@ func parseMonitorForm(form url.Values, m store.Monitor) (store.Monitor, map[stri
 	if len(m.Category) > 80 {
 		problems["category"] = "keep the category to 80 characters."
 	}
+	m.GraphFill = scopedGraphFill(form, m.GraphFill, problems)
 	if display := form.Get("display"); display != "" {
 		m.Display = display
 		if !slices.Contains(store.MonitorDisplays, display) {
@@ -638,7 +641,7 @@ func (s *Server) handleNewMonitorForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, http.StatusOK, "monitor_form.html", monitorFormPage{
-		Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: defaultMonitor(id), Kinds: check.Kinds, Displays: store.MonitorDisplays, Categories: s.categories(r, project.ID),
+		Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: defaultMonitor(id), Kinds: check.Kinds, Displays: store.MonitorDisplays, GraphFills: scopedGraphFills, Categories: s.categories(r, project.ID),
 	})
 }
 
@@ -660,7 +663,7 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 	m, problems := parseMonitorForm(r.PostForm, defaultMonitor(id))
 	if len(problems) > 0 {
 		s.render(w, r, http.StatusUnprocessableEntity, "monitor_form.html", monitorFormPage{
-			Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, Categories: s.categories(r, project.ID), Problems: problems,
+			Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, GraphFills: scopedGraphFills, Categories: s.categories(r, project.ID), Problems: problems,
 		})
 		return
 	}
@@ -716,7 +719,7 @@ func (s *Server) handleEditMonitorForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page := monitorFormPage{
-		Chrome: s.adminChrome(r, m.Name), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, Categories: s.categories(r, project.ID), Editing: true,
+		Chrome: s.adminChrome(r, m.Name), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, GraphFills: scopedGraphFills, Categories: s.categories(r, project.ID), Editing: true,
 		PushURL: pushURL(r, m),
 	}
 	if err := s.monitorOverview(r, &page); err != nil {
@@ -739,7 +742,7 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	m, problems := parseMonitorForm(r.PostForm, current)
 	if len(problems) > 0 {
 		page := monitorFormPage{
-			Chrome: s.adminChrome(r, current.Name), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, Categories: s.categories(r, project.ID), Editing: true, Problems: problems,
+			Chrome: s.adminChrome(r, current.Name), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, GraphFills: scopedGraphFills, Categories: s.categories(r, project.ID), Editing: true, Problems: problems,
 		}
 		if err := s.monitorOverview(r, &page); err != nil {
 			s.fail(w, r, err)

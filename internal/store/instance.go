@@ -28,6 +28,8 @@ type InstanceSettings struct {
 	// with one row per status page, "cards" a page with a grid of cards, and
 	// "compact" a small card in the middle of the screen.
 	ListLayout string
+	// GraphFill is how graphs are filled unless a status page or a monitor says otherwise: one of GraphFills.
+	GraphFill string
 }
 
 // Sign-in page choices.
@@ -50,7 +52,7 @@ const MaxBackgroundBytes = 2 << 20
 // defaultInstance is what a fresh install uses until something is saved.
 var defaultInstance = InstanceSettings{
 	Name: "uppies", Theme: "auto", AccentHue: 200, PublicList: true,
-	LoginLayout: "split", LoginBackground: "gradient", ListLayout: "rows",
+	LoginLayout: "split", LoginBackground: "gradient", ListLayout: "rows", GraphFill: "gradient",
 }
 
 // Instance returns the instance settings, with defaults for what was never saved.
@@ -84,6 +86,8 @@ func (s *Store) Instance(ctx context.Context) (InstanceSettings, error) {
 			settings.LoginBackground = value
 		case "list_layout":
 			settings.ListLayout = value
+		case "graph_fill":
+			settings.GraphFill = value
 		}
 	}
 	return settings, rows.Err()
@@ -99,7 +103,7 @@ func (s *Store) SaveInstance(ctx context.Context, settings InstanceSettings) err
 		"name": settings.Name, "theme": settings.Theme,
 		"accent_hue": strconv.Itoa(settings.AccentHue), "public_list": publicList,
 		"login_layout": settings.LoginLayout, "login_background": settings.LoginBackground,
-		"list_layout": settings.ListLayout,
+		"list_layout": settings.ListLayout, "graph_fill": settings.GraphFill,
 	}
 	return s.write(ctx, func(tx *sql.Tx) error {
 		for key, value := range values {

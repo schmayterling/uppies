@@ -49,6 +49,8 @@ type monitorDetail struct {
 	Slots []chartSlot
 	// Peak is the highest value on the chart, shown beside it as its scale.
 	Peak int64
+	// Area is the shape under the line, filled the way the settings say.
+	Area graphArea
 	// Days and Uptime are the uptime bars over the project's lookback.
 	Days   []dayCell
 	Uptime string
@@ -106,6 +108,11 @@ func (s *Server) monitorDetail(ctx context.Context, project store.Project, m sto
 	}
 	detail.Figures = append(detail.Figures, figure{Label: "slowest, 24 h", Value: slowest})
 	detail.Line, detail.Slots, detail.Peak = responseChart(buckets, firstSlotMs, zone)
+	instance, err := s.store.Instance(ctx)
+	if err != nil {
+		return monitorDetail{}, err
+	}
+	detail.Area = newGraphArea(graphFill(instance, project, m), detail.Line, chartHeight, "area-chart")
 	return detail, nil
 }
 

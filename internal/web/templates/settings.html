@@ -81,6 +81,13 @@
       </div></div>
     </div>
     <div class="srow">
+      <div class="srow-copy" id="graph-fill-label"><span>graph fill</span><small>what is drawn under the line of this page's graphs. default follows the instance's appearance.</small></div>
+      <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="graph-fill-label">
+        {{range .GraphFills}}<label><input type="radio" name="graph_fill" value="{{.}}"{{if or (eq . $.Project.GraphFill) (and (eq . "default") (not $.Project.GraphFill))}} checked{{end}}><span>{{.}}</span></label>{{end}}
+      </div></div>
+      {{with index .Problems "graph_fill"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
       <div class="srow-copy" id="font-label"><span>typeface</span><small>the visitor's own system fonts in four flavours.</small></div>
       <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="font-label">
         {{range .Fonts}}<label><input type="radio" name="font" value="{{.}}"{{if eq . $.Project.Font}} checked{{end}}><span>{{.}}</span></label>{{end}}

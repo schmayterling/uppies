@@ -136,7 +136,10 @@ strong { font-weight: var(--weight-semibold); }
 /* out of the flow and hidden, so the invisible wordmark cannot sit on top of the toggle and take its clicks */
 [data-sidebar="rail"] .sidebar .wordmark { position: absolute; visibility: hidden; }
 [data-sidebar="rail"] .sidebar-head .icon-button { margin-inline: auto; }
-.nav-divider { margin: var(--space-3) var(--space-2); border: 0; border-block-start: 1px solid var(--border); }
+/* the collapsed sidebar has no room for the section's name, so a line stands where it would be */
+.nav-heading { position: relative; }
+.nav-heading::after { content: ""; position: absolute; inset-inline: var(--space-2); inset-block-start: 50%; border-block-start: 1px solid var(--border); opacity: 0; transition: opacity var(--motion-fast) var(--ease-out); }
+[data-sidebar="rail"] .nav-heading::after { opacity: 1; }
 .nav-logo { flex: none; inline-size: var(--icon-size); block-size: var(--icon-size); border-radius: var(--radius-inner); object-fit: contain; }
 
 /* icons take the size and colour of the text they sit in */
@@ -307,6 +310,7 @@ table.dense tbody th a:hover { text-decoration: underline; }
 @media (max-width: 860px) {
   .sidebar-head .icon-button { display: none; }
   [data-sidebar="rail"] .nav-label { opacity: 1; pointer-events: auto; }
+  [data-sidebar="rail"] .nav-heading::after { opacity: 0; }
   [data-sidebar="rail"] .sidebar .wordmark { position: static; visibility: visible; }
   .shell { grid-template-columns: minmax(0, 1fr); }
   .sidebar { position: static; block-size: auto; border-inline-end: 0; border-block-end: 1px solid var(--border); }
@@ -578,6 +582,11 @@ code { font-family: var(--font-mono); font-size: var(--text-sm); }
 .spark-days { position: absolute; inset: 0; display: flex; }
 .spark-day { block-size: 100%; }
 .spark-day:hover { background: color-mix(in oklab, var(--accent) 18%, transparent); }
+/* the area under a graph's line: one flat tint, or a fade from the tint to nothing */
+.area { stroke: none; }
+.area-flat { fill: color-mix(in oklab, var(--accent) 20%, transparent); }
+.area-top { stop-color: var(--accent); stop-opacity: 0.35; }
+.area-bottom { stop-color: var(--accent); stop-opacity: 0; }
 /* the detail view of a monitor */
 .stats-wide { grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }
 @media (max-width: 520px) { .stats-wide { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

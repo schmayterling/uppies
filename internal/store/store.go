@@ -294,6 +294,12 @@ insert into instance_images_new select kind, content_type, data, updated_at_ms f
 drop table instance_images;
 alter table instance_images_new rename to instance_images;
 `,
+	// Step 14: how the area under a graph's line is filled. A status page and
+	// a monitor can each set it, and an empty value means the next wider setting decides.
+	`
+alter table projects add column graph_fill text not null default '' check (graph_fill in ('', 'gradient', 'filled', 'none'));
+alter table monitors add column graph_fill text not null default '' check (graph_fill in ('', 'gradient', 'filled', 'none'));
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

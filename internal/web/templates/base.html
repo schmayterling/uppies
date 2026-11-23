@@ -28,8 +28,7 @@
         <li><a class="nav-item" href="/admin/instance" title="instance"{{if eq .Chrome.Nav.Section "instance"}} aria-current="page"{{end}}>{{template "icon" "server"}}<span class="nav-label">instance</span></a></li>
         <li><a class="nav-item" href="/admin/users" title="users"{{if eq .Chrome.Nav.Section "users"}} aria-current="page"{{end}}>{{template "icon" "users"}}<span class="nav-label">users</span></a></li>
       </ul>
-      <hr class="nav-divider">
-      <h2 class="nav-heading nav-label" id="nav-projects">status pages</h2>
+      <h2 class="nav-heading" id="nav-projects"><span class="nav-label">status pages</span></h2>
       <ul class="nav-list" aria-labelledby="nav-projects">
         {{range .Chrome.Nav.Projects}}
         <li><a class="nav-item" href="/admin/projects/{{.ID}}" title="{{.Name}}"{{if .Current}} aria-current="true"{{end}}>
@@ -122,7 +121,7 @@
   <div class="title-row"><h2 id="chart-heading">response time, last 24 hours</h2><span class="meta">{{if .Line}}top of the chart: {{.Peak}} ms{{end}}</span></div>
   {{if .Line}}
   <div class="chart-box">
-    <svg class="chart" viewBox="0 0 480 96" preserveAspectRatio="none" role="img" aria-label="average response time per half hour over the last 24 hours, from {{.Samples}} successful checks"><polyline points="{{.Line}}"/></svg>
+    <svg class="chart" viewBox="0 0 480 96" preserveAspectRatio="none" role="img" aria-label="average response time per half hour over the last 24 hours, from {{.Samples}} successful checks">{{template "graph-area" .Area}}<polyline points="{{.Line}}"/></svg>
     <div class="spark-days" aria-hidden="true">{{range .Slots}}<span class="day spark-day{{if .Failed}} chart-failed{{end}}" data-tip="{{.Tip}}"></span>{{end}}</div>
   </div>
   <div class="strip-legend meta"><span>24 hours ago</span><span>one point per half hour</span><span>now</span></div>
@@ -138,6 +137,9 @@
   <div class="strip-legend meta"><span class="wide-only">{{$.Second}} days ago</span><span class="narrow-only">30 days ago</span><span>today</span></div>
 </section>
 {{end}}{{end}}
+
+{{/* the area under a graph's line. it takes a graphArea and goes inside the svg, before the line. */}}
+{{define "graph-area"}}{{if eq .Fill "gradient"}}<defs><linearGradient id="{{.ID}}" x1="0" y1="0" x2="0" y2="1"><stop class="area-top" offset="0"/><stop class="area-bottom" offset="1"/></linearGradient></defs><polygon class="area" points="{{.Points}}" fill="url(#{{.ID}})"/>{{else if eq .Fill "filled"}}<polygon class="area area-flat" points="{{.Points}}"/>{{end}}{{end}}
 
 {{define "updates"}}<ol class="updates">
   {{range .First}}<li class="update-{{.Status}}"><p class="update-head"><strong>{{.Status}}</strong> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Second .AtMs}}</time></p><p class="update-body">{{.Body}}</p></li>{{end}}

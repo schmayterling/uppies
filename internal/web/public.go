@@ -57,6 +57,8 @@ type componentView struct {
 	Latency string
 	// SparkDays has one label per day under the line, oldest first, for the tooltips.
 	SparkDays []string
+	// Area is the shape under the line, filled the way the settings say.
+	Area graphArea
 }
 
 // figure is one labelled number.
@@ -366,6 +368,10 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 	if err != nil {
 		return statusPage{}, err
 	}
+	instance, err := s.store.Instance(ctx)
+	if err != nil {
+		return statusPage{}, err
+	}
 	zone, zoneName := pageZone(project, askedZone)
 
 	page := statusPage{
@@ -405,6 +411,7 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 			}
 		case "latency":
 			view.Spark, view.SparkDays, view.Latency = latencyLine(rollups[m.ID], todayStartMs, project.HistoryDays)
+			view.Area = newGraphArea(graphFill(instance, project, m), view.Spark, sparkHeight, fmt.Sprintf("area-%d", m.ID))
 		}
 		page.Components = append(page.Components, view)
 	}

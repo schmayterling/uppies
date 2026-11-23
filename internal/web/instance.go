@@ -25,6 +25,8 @@ type instancePage struct {
 	Backgrounds []string
 	// ListLayouts are the layouts of the public list of status pages.
 	ListLayouts []string
+	// GraphFills are the ways a graph can be filled.
+	GraphFills []string
 	// BackgroundVersion is set when a sign-in background image is uploaded,
 	// and FaviconVersion when the install has a favicon.
 	BackgroundVersion int64
@@ -35,6 +37,7 @@ func (s *Server) instancePage(r *http.Request, title string) (instancePage, erro
 	page := instancePage{Chrome: s.adminChrome(r, title), Themes: themes, Swatches: accentSwatches}
 	var err error
 	page.Layouts, page.Backgrounds, page.ListLayouts = store.LoginLayouts, store.LoginBackgrounds, store.ListLayouts
+	page.GraphFills = store.GraphFills
 	page.Saved = r.URL.Query().Get("saved") == "1"
 	page.Instance, err = s.store.Instance(r.Context())
 	if err != nil {
@@ -217,6 +220,7 @@ func (s *Server) handleSaveAppearance(w http.ResponseWriter, r *http.Request) {
 	page.Instance.Theme = choice(r.PostForm, "theme", themes, page.Instance.Theme, problems)
 	page.Instance.AccentHue = formInt(r.PostForm, "accent_hue", 0, 360, problems)
 	page.Instance.ListLayout = choice(r.PostForm, "list_layout", store.ListLayouts, page.Instance.ListLayout, problems)
+	page.Instance.GraphFill = choice(r.PostForm, "graph_fill", store.GraphFills, page.Instance.GraphFill, problems)
 	if len(problems) > 0 {
 		page.Problems = problems
 		s.render(w, r, http.StatusUnprocessableEntity, "appearance.html", page)
