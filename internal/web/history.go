@@ -304,7 +304,7 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page := historyPage{
-		Chrome:   chrome{Title: project.Name + " incident history", Unbranded: !project.ShowPoweredBy},
+		Chrome:   chrome{Title: project.Name + " incident history", Unbranded: !project.ShowPoweredBy, Favicon: s.faviconAddress(ctx)},
 		Project:  project,
 		Zone:     zone,
 		Images:   images,

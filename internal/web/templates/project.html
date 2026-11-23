@@ -103,7 +103,7 @@
     <div class="field">
       <label for="window-starts">starts</label>
       <input id="window-starts" name="starts" type="datetime-local" value="{{.Window.Starts}}" required aria-describedby="window-starts-hint{{if index .Problems "starts"}} window-starts-problem{{end}}"{{if index .Problems "starts"}} aria-invalid="true"{{end}}>
-      <p class="hint" id="window-starts-hint">in the project's timezone, {{.Project.Timezone}}.</p>
+      <p class="hint" id="window-starts-hint">in this status page's timezone, {{.Project.Timezone}}.</p>
       {{with index .Problems "starts"}}<p class="problem" id="window-starts-problem">{{.}}</p>{{end}}
     </div>
     <div class="field">
@@ -138,16 +138,16 @@
 
 <div class="pane" id="pane-delete" data-pane="delete">
 <section aria-labelledby="danger-heading">
-  <h2 id="danger-heading">delete project</h2>
+  <h2 id="danger-heading">delete this status page</h2>
   <div class="panel list-row">
-    <span class="muted">removes the project with its monitors, history and incidents.</span>
-    <button class="button danger" type="button" data-open-dialog="delete-project">{{template "icon" "trash"}}delete project</button>
+    <span class="muted">removes this status page with its incidents and maintenance windows. its monitors stay.</span>
+    <button class="button danger" type="button" data-open-dialog="delete-project">{{template "icon" "trash"}}delete status page</button>
   </div>
   <dialog id="delete-project" aria-labelledby="delete-project-heading">
     <h2 id="delete-project-heading">delete {{.Project.Name}}?</h2>
     <p>its incidents, maintenance windows and settings are deleted with it. its monitors stay under monitors. this cannot be undone.</p>
     <form class="actions" method="post" action="/admin/projects/{{.Project.ID}}/delete">
-      <button class="button danger" type="submit">delete project</button>
+      <button class="button danger" type="submit">delete status page</button>
       <button class="button quiet" type="button" data-close-dialog>cancel</button>
     </form>
   </dialog>

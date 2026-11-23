@@ -133,7 +133,7 @@
       {{with index .Problems "accent_hue_custom"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
     <div class="srow" data-stack>
-      <label class="srow-copy" for="custom_css"><span>custom css</span><small>loaded last on this project's status page, so it can change any colour, size or spacing.</small></label>
+      <label class="srow-copy" for="custom_css"><span>custom css</span><small>loaded last on this status page, so it can change any colour, size or spacing.</small></label>
       <textarea id="custom_css" name="custom_css" rows="6" maxlength="20000" spellcheck="false"{{if index .Problems "custom_css"}} aria-invalid="true"{{end}}>{{.Project.CustomCSS}}</textarea>
       {{with index .Problems "custom_css"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>

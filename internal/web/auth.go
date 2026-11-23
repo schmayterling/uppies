@@ -138,7 +138,7 @@ func (s *Server) startSession(ctx context.Context, w http.ResponseWriter, r *htt
 // the instance settings say. When the settings cannot be read the page still
 // has to open, so it falls back to the plain centred card.
 func (s *Server) signInChrome(r *http.Request, title string) chrome {
-	c := chrome{Title: title, Auth: true, AuthLayout: "centered", AuthBackground: "plain", Favicon: s.faviconAddress(r)}
+	c := chrome{Title: title, Auth: true, AuthLayout: "centered", AuthBackground: "plain", Favicon: s.faviconAddress(r.Context())}
 	instance, err := s.store.Instance(r.Context())
 	if err != nil {
 		s.log.Error("read instance settings", "path", r.URL.Path, "error", err)

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -230,7 +231,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page := indexPage{
-		Chrome: chrome{Title: "status", Auth: instance.ListLayout == "compact", SignInLink: true, Brand: instance.Name, Favicon: s.faviconAddress(r)},
+		Chrome: chrome{Title: "status", Auth: instance.ListLayout == "compact", SignInLink: true, Brand: instance.Name, Favicon: s.faviconAddress(r.Context())},
 		Listed: instance.PublicList, Layout: instance.ListLayout, StateIcons: listIcons,
 	}
 	if !instance.PublicList {
@@ -398,7 +399,10 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 	zone, zoneName := pageZone(project, askedZone)
 
 	page := statusPage{
-		Chrome:  chrome{Title: project.Name + " status", Unbranded: !project.ShowPoweredBy},
+		Chrome: chrome{
+			Title: project.Name + " status", Unbranded: !project.ShowPoweredBy, Favicon: s.faviconAddress(ctx),
+			Description: cmp.Or(project.Tagline, "the current status of "+project.Name+"."),
+		},
 		Project: project,
 		Zone:    zone,
 		Images:  images,

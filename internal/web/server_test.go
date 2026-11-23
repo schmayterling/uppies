@@ -594,8 +594,8 @@ func TestTheInstallHasAFaviconOfItsOwn(t *testing.T) {
 	if status, _ := s.get(t, s.anonymous, "/favicon.ico"); status != http.StatusNotFound {
 		t.Fatalf("favicon before an upload: got %d, want 404", status)
 	}
-	if _, page := s.get(t, s.admin, "/admin/appearance"); !strings.Contains(page, `name="favicon"`) || strings.Contains(page, `rel="icon"`) {
-		t.Error("appearance must offer a favicon field, and no page links a favicon before one is uploaded")
+	if _, page := s.get(t, s.admin, "/admin/appearance"); !strings.Contains(page, `name="favicon"`) || !strings.Contains(page, `<link rel="icon" href="/static/favicon.svg">`) {
+		t.Error("appearance must offer a favicon field, and a page links the built-in favicon before one is uploaded")
 	}
 	if resp := s.upload(t, s.anonymous, save, map[string][]byte{"favicon": png}, nil); resp.Header.Get("Location") != "/admin/login" {
 		t.Fatalf("anonymous upload: got %d to %q, want a redirect to /admin/login", resp.StatusCode, resp.Header.Get("Location"))
@@ -615,9 +615,9 @@ func TestTheInstallHasAFaviconOfItsOwn(t *testing.T) {
 			t.Errorf("%s does not link the favicon", path)
 		}
 	}
-	// A status page links only a favicon of its own.
-	if _, page := s.get(t, s.anonymous, "/s/acme"); strings.Contains(page, `href="/favicon.ico`) {
-		t.Error("a status page links the install's favicon")
+	// A status page without a favicon of its own uses the install's.
+	if _, page := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(page, `<link rel="icon" href="/favicon.ico?v=`) {
+		t.Error("a status page without its own favicon does not link the install's")
 	}
 	if resp := s.upload(t, s.admin, save, nil, map[string]string{"remove_favicon": "on"}); resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("remove: got %d, want 303", resp.StatusCode)

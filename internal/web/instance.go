@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -54,10 +55,10 @@ func (s *Server) instancePage(r *http.Request, title string) (instancePage, erro
 // faviconAddress returns where the install's favicon is served, with its
 // version so that a new upload shows at once, or "" when there is none. A
 // page still has to open when this cannot be read, so a failure is logged.
-func (s *Server) faviconAddress(r *http.Request) string {
-	version, err := s.store.InstanceImageVersion(r.Context(), store.ImageInstanceFavicon)
+func (s *Server) faviconAddress(ctx context.Context) string {
+	version, err := s.store.InstanceImageVersion(ctx, store.ImageInstanceFavicon)
 	if err != nil {
-		s.log.Error("read instance favicon", "path", r.URL.Path, "error", err)
+		s.log.Error("read instance favicon", "error", err)
 	}
 	if version == 0 {
 		return ""

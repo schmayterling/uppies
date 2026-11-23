@@ -139,7 +139,7 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	p.Backfill = choice(form, "backfill", backfills, p.Backfill, problems)
 
 	if p.Name == "" || len(p.Name) > 120 {
-		problems["name"] = "give the project a name of 1 to 120 characters."
+		problems["name"] = "give the status page a name of 1 to 120 characters."
 	}
 	if len(p.Tagline) > 200 {
 		problems["tagline"] = "keep the tagline to 200 characters."
@@ -170,7 +170,7 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	if len(problems) == 0 {
 		err := s.store.UpdateProject(r.Context(), p)
 		if errors.Is(err, store.ErrDomainTaken) {
-			problems["domain"] = "another project already uses this domain."
+			problems["domain"] = "another status page already uses this domain."
 		} else if err != nil {
 			s.fail(w, r, err)
 			return

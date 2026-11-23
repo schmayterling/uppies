@@ -9,7 +9,8 @@
 {{if or .Chrome.Admin .Chrome.Auth}}<link rel="stylesheet" href="/theme.css">{{end}}
 {{if .Chrome.Admin}}<script src="/static/admin.js"></script>
 <noscript><link rel="stylesheet" href="/static/noscript.css"></noscript>{{end}}
-{{with .Chrome.Favicon}}<link rel="icon" href="{{.}}">{{end}}
+<meta name="description" content="{{if .Chrome.Description}}{{.Chrome.Description}}{{else if .Chrome.Admin}}the admin pages of this uppies install: monitors, alerts and status pages.{{else}}{{.Chrome.Title}}, served by uppies, a self-hosted uptime monitor.{{end}}">
+<link rel="icon" href="{{or .Chrome.Favicon "/static/favicon.svg"}}">
 {{block "head" .}}{{end}}
 </head>
 {{if .Chrome.Admin}}

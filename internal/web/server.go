@@ -249,8 +249,12 @@ type chrome struct {
 	// AuthImage is the version of the uploaded background, or 0 when there is none.
 	AuthImage int64
 	// Favicon is the address of the install's own favicon, empty when it has
-	// none. Status pages leave it empty and link their own.
+	// none, in which case the built-in one is linked. A status page with a
+	// favicon of its own links that one after it, and the later link wins.
 	Favicon string
+	// Description is the page's description for search engines and link
+	// previews. Empty means the title is used.
+	Description string
 }
 
 // nav is the admin sidebar: where you are, and every project with its state.

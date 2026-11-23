@@ -244,7 +244,7 @@ func (s *Server) handleMonitorPage(w http.ResponseWriter, r *http.Request) {
 		scheme = "https"
 	}
 	page := monitorPage{
-		Chrome:  chrome{Title: m.Name + " · " + project.Name, Unbranded: !project.ShowPoweredBy},
+		Chrome:  chrome{Title: m.Name + " · " + project.Name, Unbranded: !project.ShowPoweredBy, Favicon: s.faviconAddress(r.Context())},
 		Project: project, Monitor: m, Category: placed.Category, Images: images, Zone: zone, ZoneName: zoneName, Detail: detail,
 		Badges: []string{"p90", "p95", "p99"}, Origin: scheme + "://" + r.Host,
 	}

@@ -77,7 +77,7 @@ func (s *Server) adminChrome(r *http.Request, title string) chrome {
 	sections := map[string]string{
 		"/admin": "overview", "/admin/monitors": "monitors", "/admin/alerts": "alerts", "/admin/appearance": "appearance", "/admin/instance": "instance", "/admin/users": "users",
 	}
-	c := chrome{Title: title, Admin: true, Nav: nav{Section: sections[r.URL.Path]}, Favicon: s.faviconAddress(r)}
+	c := chrome{Title: title, Admin: true, Nav: nav{Section: sections[r.URL.Path]}, Favicon: s.faviconAddress(r.Context())}
 	if instance, err := s.store.Instance(r.Context()); err != nil {
 		s.log.Error("load instance settings", "path", r.URL.Path, "error", err)
 	} else {
@@ -277,10 +277,10 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 	slug := strings.TrimSpace(r.PostForm.Get("slug"))
 	problems := make(map[string]string)
 	if name == "" || len(name) > 120 {
-		problems["name"] = "give the project a name of 1 to 120 characters."
+		problems["name"] = "give the status page a name of 1 to 120 characters."
 	}
 	if !slugPattern.MatchString(slug) {
-		problems["slug"] = "use lowercase letters, digits and hyphens, for example my-project."
+		problems["slug"] = "use lowercase letters, digits and hyphens, for example my-product."
 	}
 
 	var id int64
@@ -288,7 +288,7 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		var err error
 		id, err = s.store.CreateProject(r.Context(), slug, name, s.now().UnixMilli())
 		if errors.Is(err, store.ErrSlugTaken) {
-			problems["slug"] = "another project already uses this address."
+			problems["slug"] = "another status page already uses this address."
 		} else if err != nil {
 			s.fail(w, r, err)
 			return
