@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/net/icmp"
 )
 
 func TestRunHTTP(t *testing.T) {
@@ -85,6 +87,11 @@ func TestValidateTarget(t *testing.T) {
 		{"host and port", KindTCP, "db.example.com:5432", true},
 		{"host without a port", KindTCP, "db.example.com", false},
 		{"unknown kind", "icmp", "example.com", false},
+		{"dns name", KindDNS, "example.com", true},
+		{"dns name with a scheme", KindDNS, "https://example.com", false},
+		{"ping address", KindPing, "192.0.2.1", true},
+		{"ping target with a path", KindPing, "example.com/health", false},
+		{"push needs no target", KindPush, "", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -93,5 +100,48 @@ func TestValidateTarget(t *testing.T) {
 				t.Fatalf("got err=%v, want ok=%v", err, tt.wantOK)
 			}
 		})
+	}
+}
+
+func TestRunDNS(t *testing.T) {
+	if got := Run(context.Background(), KindDNS, "localhost", "", 2*time.Second); !got.OK {
+		t.Fatalf("localhost: got error %q, want ok", got.Error)
+	}
+	// The .invalid top-level domain is reserved and never resolves (RFC 2606).
+	got := Run(context.Background(), KindDNS, "uppies-test.invalid", "", 2*time.Second)
+	if got.OK || got.Error != "the name does not resolve" {
+		t.Fatalf("reserved name: got ok=%v error=%q, want the does-not-resolve failure", got.OK, got.Error)
+	}
+}
+
+func TestRunPing(t *testing.T) {
+	probe, err := icmp.ListenPacket("udp4", "0.0.0.0")
+	if err != nil {
+		t.Skipf("this system does not allow unprivileged ping sockets: %v", err)
+	}
+	if err := probe.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if got := Run(context.Background(), KindPing, "127.0.0.1", "", 2*time.Second); !got.OK {
+		t.Fatalf("loopback: got error %q, want ok", got.Error)
+	}
+	// 192.0.2.0/24 is reserved for documentation and answers nothing (RFC 5737).
+	got := Run(context.Background(), KindPing, "192.0.2.1", "", 300*time.Millisecond)
+	if got.OK || got.Error != "no answer within 300ms" {
+		t.Fatalf("unreachable address: got ok=%v error=%q, want a timeout", got.OK, got.Error)
+	}
+}
+
+func TestRunHTTPReportsTheCertificateExpiry(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer server.Close()
+	original := httpClient
+	httpClient = server.Client()
+	defer func() { httpClient = original }()
+
+	got := Run(context.Background(), KindHTTP, server.URL, "", 2*time.Second)
+	want := server.Certificate().NotAfter
+	if !got.OK || !got.CertExpiresAt.Equal(want) {
+		t.Fatalf("got ok=%v error=%q expiry=%v, want ok with expiry %v", got.OK, got.Error, got.CertExpiresAt, want)
 	}
 }
