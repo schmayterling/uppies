@@ -67,13 +67,8 @@ func insertIncident(ctx context.Context, tx *sql.Tx, in Incident, firstUpdate st
 		id, in.Status, firstUpdate, nowMs); err != nil {
 		return 0, err
 	}
-	for _, monitorID := range in.MonitorIDs {
-		// The join on monitors keeps a monitor of another project from being linked.
-		if _, err := tx.ExecContext(ctx, `
-			insert into incident_monitors (incident_id, monitor_id)
-			select ?, monitor_id from page_monitors where monitor_id = ? and project_id = ?`, id, monitorID, in.ProjectID); err != nil {
-			return 0, err
-		}
+	if err := insertIncidentMonitors(ctx, tx, id, in.ProjectID, in.MonitorIDs); err != nil {
+		return 0, err
 	}
 	if !in.Published {
 		return id, nil
@@ -82,6 +77,19 @@ func insertIncident(ctx context.Context, tx *sql.Tx, in Incident, firstUpdate st
 		insert into events (project_id, kind, at_ms, incident_id, title, detail)
 		values (?, 'incident_published', ?, ?, ?, ?)`, in.ProjectID, nowMs, id, in.Title, firstUpdate)
 	return id, err
+}
+
+func insertIncidentMonitors(ctx context.Context, tx *sql.Tx, incidentID, projectID int64, monitorIDs []int64) error {
+	for _, monitorID := range monitorIDs {
+		// Only link monitors the page shows.
+		if _, err := tx.ExecContext(ctx, `
+			insert into incident_monitors (incident_id, monitor_id)
+			select ?, monitor_id from page_monitors where monitor_id = ? and project_id = ?`,
+			incidentID, monitorID, projectID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // AddIncidentUpdate appends an update and moves the incident to its status.
@@ -126,22 +134,26 @@ func addIncidentUpdate(ctx context.Context, tx *sql.Tx, incidentID int64, status
 // incident that is already public changes nothing.
 func (s *Store) PublishIncident(ctx context.Context, incidentID, nowMs int64) error {
 	return s.write(ctx, func(tx *sql.Tx) error {
-		var projectID int64
-		var title string
-		err := tx.QueryRowContext(ctx,
-			"update incidents set published = 1 where id = ? and published = 0 returning project_id, title",
-			incidentID).Scan(&projectID, &title)
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, `
-			insert into events (project_id, kind, at_ms, incident_id, title)
-			values (?, 'incident_published', ?, ?, ?)`, projectID, nowMs, incidentID, title)
-		return err
+		return publishIncident(ctx, tx, incidentID, nowMs)
 	})
+}
+
+func publishIncident(ctx context.Context, tx *sql.Tx, incidentID, nowMs int64) error {
+	var projectID int64
+	var title string
+	err := tx.QueryRowContext(ctx,
+		"update incidents set published = 1 where id = ? and published = 0 returning project_id, title",
+		incidentID).Scan(&projectID, &title)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `
+		insert into events (project_id, kind, at_ms, incident_id, title)
+		values (?, 'incident_published', ?, ?, ?)`, projectID, nowMs, incidentID, title)
+	return err
 }
 
 // DeleteIncident removes an incident and its updates.
@@ -187,6 +199,13 @@ func (s *Store) OpenIncidents(ctx context.Context) ([]Incident, error) {
 	return s.incidents(ctx, "i.resolved_at_ms is null", maxIncidentsPerPage)
 }
 
+const incidentSummaryColumns = `i.id, i.project_id, i.title, i.impact, i.status, i.published, i.started_at_ms, i.resolved_at_ms`
+
+func scanIncident(row rowScanner, in *Incident, extra ...any) error {
+	columns := []any{&in.ID, &in.ProjectID, &in.Title, &in.Impact, &in.Status, &in.Published, &in.StartedAtMs, &in.ResolvedAtMs}
+	return row.Scan(append(columns, extra...)...)
+}
+
 // incidents loads the newest incidents matching the condition, then their
 // updates and monitors with one query each. args holds the condition's
 // values followed by the row limit.
@@ -195,8 +214,7 @@ func (s *Store) incidents(ctx context.Context, condition string, args ...any) ([
 	selected := "select i.id from incidents i where " + condition + newestFirst + " limit ?"
 
 	rows, err := s.db.QueryContext(ctx, `
-		select i.id, i.project_id, i.title, i.impact, i.status, i.published, i.started_at_ms, i.resolved_at_ms
-		from incidents i where i.id in (`+selected+`)`+newestFirst, args...)
+		select `+incidentSummaryColumns+` from incidents i where i.id in (`+selected+`)`+newestFirst, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -205,8 +223,7 @@ func (s *Store) incidents(ctx context.Context, condition string, args ...any) ([
 	position := make(map[int64]int)
 	for rows.Next() {
 		var in Incident
-		if err := rows.Scan(&in.ID, &in.ProjectID, &in.Title, &in.Impact, &in.Status, &in.Published,
-			&in.StartedAtMs, &in.ResolvedAtMs); err != nil {
+		if err := scanIncident(rows, &in); err != nil {
 			return nil, err
 		}
 		position[in.ID] = len(incidents)

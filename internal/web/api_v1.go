@@ -54,6 +54,14 @@ func (s *Server) registerAPI(mux *http.ServeMux) {
 		{"GET /api/v1/status-pages/{id}/maintenance/{window}", maintenanceRead, s.apiReadMaintenance},
 		{"PATCH /api/v1/status-pages/{id}/maintenance/{window}", maintenanceUpdate, s.apiUpdateMaintenance},
 		{"DELETE /api/v1/status-pages/{id}/maintenance/{window}", maintenanceDelete, s.apiDeleteMaintenance},
+		{"GET /api/v1/status-pages/{id}/incidents", incidentsRead, s.apiListIncidents},
+		{"POST /api/v1/status-pages/{id}/incidents", incidentsCreate, s.apiCreateIncident},
+		{"GET /api/v1/status-pages/{id}/incidents/{incident}", incidentsRead, s.apiReadIncident},
+		{"PATCH /api/v1/status-pages/{id}/incidents/{incident}", incidentsUpdate, s.apiUpdateIncident},
+		{"DELETE /api/v1/status-pages/{id}/incidents/{incident}", incidentsDelete, s.apiDeleteIncident},
+		{"GET /api/v1/status-pages/{id}/incidents/{incident}/updates", incidentsRead, s.apiListIncidentUpdates},
+		{"POST /api/v1/status-pages/{id}/incidents/{incident}/updates", incidentsUpdate, s.apiAddIncidentUpdate},
+		{"POST /api/v1/status-pages/{id}/incidents/{incident}/publish", incidentsPublish, s.apiPublishIncident},
 	}
 	allowed := make(map[string][]string)
 	for _, route := range routes {
@@ -263,6 +271,15 @@ func apiPathID(r *http.Request, name string) (int64, error) {
 		return 0, store.ErrNotFound
 	}
 	return id, nil
+}
+
+func apiPageResourceIDs(r *http.Request, resource string) (int64, int64, error) {
+	pageID, err := apiPathID(r, "id")
+	if err != nil {
+		return 0, 0, err
+	}
+	id, err := apiPathID(r, resource)
+	return pageID, id, err
 }
 
 func (s *Server) apiCreated(w http.ResponseWriter, r *http.Request, location string, id int64) {

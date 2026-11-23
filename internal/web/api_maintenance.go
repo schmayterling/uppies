@@ -67,15 +67,6 @@ func (input maintenancePatch) apply(m *store.MaintenanceWindow, nowMs int64) err
 	return nil
 }
 
-func apiPageResourceIDs(r *http.Request, resource string) (int64, int64, error) {
-	pageID, err := apiPathID(r, "id")
-	if err != nil {
-		return 0, 0, err
-	}
-	id, err := apiPathID(r, resource)
-	return pageID, id, err
-}
-
 func (s *Server) apiListMaintenance(w http.ResponseWriter, r *http.Request) {
 	pageID, err := apiPathID(r, "id")
 	if err != nil {
