@@ -327,9 +327,16 @@ type eventRow struct {
 }
 
 type projectPage struct {
-	Chrome    chrome
-	Project   store.Project
-	Monitors  []overviewRow
+	Chrome  chrome
+	Project store.Project
+	// Monitors are the monitors the status page shows, in its order. Others
+	// are the ones it could add.
+	Monitors []editorRow
+	Others   []store.Monitor
+	Choices  editorChoices
+	// CustomHue is true when the accent is not one of the swatches.
+	CustomHue bool
+	Saved     bool
 	Incidents []store.Incident
 	Events    []eventRow
 	// Maintenance holds the running and upcoming windows.
@@ -469,15 +476,29 @@ func (s *Server) projectPage(r *http.Request) (projectPage, error) {
 	if err != nil {
 		return projectPage{}, err
 	}
-	var rows []overviewRow
-	for _, row := range monitorRows(plainMonitors(monitors)) {
-		rows = append(rows, newOverviewRow(row, []store.Project{project}, rollups[row.ID], todayStartMs))
+	var rows []editorRow
+	shown := make(map[int64]bool, len(monitors))
+	for i, row := range monitorRows(plainMonitors(monitors)) {
+		shown[row.ID] = true
+		rows = append(rows, editorRow{
+			overviewRow: newOverviewRow(row, []store.Project{project}, rollups[row.ID], todayStartMs),
+			Display:     monitors[i].Display, GraphFill: monitors[i].GraphFill,
+		})
 	}
+	all, err := s.store.Monitors(ctx)
+	if err != nil {
+		return projectPage{}, err
+	}
+	others := slices.DeleteFunc(all, func(m store.Monitor) bool { return shown[m.ID] })
 
 	page := projectPage{
 		Chrome:      s.adminChrome(r, project.Name),
 		Project:     project,
 		Monitors:    rows,
+		Others:      others,
+		Choices:     editorOptions,
+		CustomHue:   !slices.Contains(accentSwatches, project.AccentHue),
+		Saved:       r.URL.Query().Get("saved") == "1",
 		Incidents:   incidents,
 		Maintenance: windows,
 		Zone:        zone,

@@ -3,7 +3,7 @@
 <h1>appearance</h1>
 <p class="muted">how the admin pages and the sign-in page look. each status page has its own look in its settings.</p>
 {{if .Saved}}{{template "success" "saved."}}{{end}}
-<form method="post" action="/admin/appearance">
+<form method="post" action="/admin/appearance" data-autosave>
   <h2 class="group-title">admin</h2>
   <div class="group">
     <div class="srow">
@@ -43,7 +43,7 @@
   </div>
   <div class="savebar"><button class="button" type="submit">save appearance</button><a class="button quiet" href="/">preview the list</a></div>
 </form>
-<form method="post" action="/admin/appearance/favicon" enctype="multipart/form-data">
+<form method="post" action="/admin/appearance/favicon" enctype="multipart/form-data" data-autosave>
   <h2 class="group-title">favicon</h2>
   <div class="group">
     <div class="srow">
@@ -58,7 +58,7 @@
   </div>
   <div class="savebar"><button class="button" type="submit">save favicon</button></div>
 </form>
-<form method="post" action="/admin/appearance/sign-in" enctype="multipart/form-data">
+<form method="post" action="/admin/appearance/sign-in" enctype="multipart/form-data" data-autosave>
   <h2 class="group-title">sign-in page</h2>
   <div class="group">
     <div class="srow">

@@ -7,7 +7,7 @@
 </nav>
 {{if .Problems}}{{template "error" "some settings were not saved. the fields with a problem are marked below."}}{{end}}
 
-<form method="post" action="/admin/projects/{{.Project.ID}}/settings">
+<form method="post" action="/admin/projects/{{.Project.ID}}/settings" data-autosave>
   <div class="pane" id="pane-general" data-pane="general">
   <h2 class="group-title">general</h2>
   <div class="group">
@@ -144,7 +144,7 @@
 
 <div class="pane" id="pane-images" data-pane="images">
 <h2 class="group-title">logo and favicon</h2>
-<form method="post" action="/admin/projects/{{.Project.ID}}/images" enctype="multipart/form-data">
+<form method="post" action="/admin/projects/{{.Project.ID}}/images" enctype="multipart/form-data" data-autosave>
   <div class="group">
     <div class="srow">
       <label class="srow-copy" for="logo"><span>logo</span><small>shown next to the name. png, jpeg, webp, gif or svg, up to 512 KB.</small></label>

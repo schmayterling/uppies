@@ -535,3 +535,124 @@ document.addEventListener("keydown", (event) => {
 });
 
 window.addEventListener("resize", () => [...document.querySelectorAll(".datetime")].forEach(closeDatetime));
+
+// Saving without a button: a form marked data-autosave is sent as soon as one
+// of its fields changes, which for a text field is when the focus leaves it.
+// The server answers a form it refuses with a page that marks the problems,
+// so such a form is then sent again the ordinary way to show that page.
+let toastTimer;
+function toast(text, failed) {
+  let note = document.querySelector(".toast");
+  if (!note) {
+    note = document.createElement("p");
+    note.className = "toast";
+    note.setAttribute("role", "status");
+    document.body.append(note);
+  }
+  note.textContent = text;
+  note.classList.toggle("toast-failed", Boolean(failed));
+  note.classList.add("toast-shown");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => note.classList.remove("toast-shown"), 1600);
+}
+
+async function saveForm(form) {
+  const data = new FormData(form);
+  // A form without files is sent the way the browser itself would send it.
+  const body = form.enctype === "multipart/form-data" ? data : new URLSearchParams(data);
+  let response;
+  try {
+    response = await fetch(form.action, { method: "POST", body });
+  } catch {
+    toast("not saved. the server did not answer.", true);
+    return false;
+  }
+  if (!response.ok) {
+    HTMLFormElement.prototype.submit.call(form);
+    return false;
+  }
+  toast("saved");
+  for (const frame of document.querySelectorAll("iframe[data-preview]")) {
+    frame.contentWindow.location.reload();
+  }
+  return true;
+}
+
+document.addEventListener("change", async (event) => {
+  const form = event.target.closest("form[data-autosave]");
+  if (!form) {
+    return;
+  }
+  const saved = await saveForm(form);
+  // A new file, or a monitor added to a list, changes what the page has to show.
+  if (saved && (event.target.type === "file" || event.target.name === "add" || event.target.name.startsWith("remove_"))) {
+    location.reload();
+  }
+});
+
+// The list of monitors in a status page's editor: arrows and dragging move a
+// row, the cross takes it off the page, and each change is saved at once.
+// Without script the same buttons send the form, and the server does the move.
+document.addEventListener("click", async (event) => {
+  const form = event.target.closest("form[data-editor-list]");
+  const row = event.target.closest("[data-row]");
+  if (!form || !row) {
+    return;
+  }
+  const move = event.target.closest("[data-move]");
+  if (move) {
+    event.preventDefault();
+    const up = move.dataset.move === "up";
+    const neighbour = up ? row.previousElementSibling : row.nextElementSibling;
+    if (!neighbour) {
+      return;
+    }
+    if (up) {
+      neighbour.before(row);
+    } else {
+      neighbour.after(row);
+    }
+    move.focus();
+    saveForm(form);
+  } else if (event.target.closest("[data-remove]")) {
+    event.preventDefault();
+    row.remove();
+    if (await saveForm(form)) {
+      // The monitor goes back into the list of those that can be added.
+      location.reload();
+    }
+  }
+});
+
+let draggedRow = null;
+document.addEventListener("dragstart", (event) => {
+  draggedRow = event.target.closest ? event.target.closest("form[data-editor-list] [data-row]") : null;
+  if (draggedRow) {
+    event.dataTransfer.effectAllowed = "move";
+    draggedRow.classList.add("dragging");
+  }
+});
+document.addEventListener("dragover", (event) => {
+  const over = draggedRow && event.target.closest("[data-row]");
+  if (!over || over.parentElement !== draggedRow.parentElement) {
+    return;
+  }
+  event.preventDefault();
+  if (over === draggedRow) {
+    return;
+  }
+  const box = over.getBoundingClientRect();
+  if (event.clientY < box.top + box.height / 2) {
+    over.before(draggedRow);
+  } else {
+    over.after(draggedRow);
+  }
+});
+document.addEventListener("dragend", () => {
+  if (!draggedRow) {
+    return;
+  }
+  draggedRow.classList.remove("dragging");
+  saveForm(draggedRow.closest("form"));
+  draggedRow = null;
+});

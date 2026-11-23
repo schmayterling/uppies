@@ -116,6 +116,9 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("POST /admin/projects", s.handleCreateProject)
 	admin("GET /admin/projects/{id}", s.handleProject)
 	admin("POST /admin/projects/{id}/delete", s.handleDeleteProject)
+	admin("POST /admin/projects/{id}/placements", s.handleSavePlacements)
+	admin("POST /admin/projects/{id}/look", s.handleSaveLook)
+	admin("POST /admin/projects/{id}/move", s.handleMoveProject)
 	admin("POST /admin/projects/{id}/maintenance", s.handleCreateMaintenance)
 	admin("POST /admin/projects/{id}/maintenance/{window}/delete", s.handleDeleteMaintenance)
 	admin("GET /admin/projects/{id}/settings", s.handleSettings)
@@ -150,7 +153,7 @@ func (s *Server) Handler() (http.Handler, error) {
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
-		h.Set("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+		h.Set("Content-Security-Policy", "default-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "same-origin")
 		next.ServeHTTP(w, r)

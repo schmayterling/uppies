@@ -3,7 +3,7 @@
 <h1>instance</h1>
 <p class="muted">settings for this whole install.</p>
 {{if .Saved}}{{template "success" "saved."}}{{end}}
-<form method="post" action="/admin/instance">
+<form method="post" action="/admin/instance" data-autosave>
   <h2 class="group-title">general</h2>
   <div class="group">
     <div class="srow">

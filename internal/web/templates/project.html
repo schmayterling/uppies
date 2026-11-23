@@ -3,44 +3,141 @@
 <div class="title-row">
   <h1>{{.Project.Name}}</h1>
   <span class="actions">
+    <form class="actions" method="post" action="/admin/projects/{{.Project.ID}}/move">
+      <button class="icon-button" type="submit" name="direction" value="up" aria-label="move this status page up in the list" title="move up in the list">{{template "icon" "chevron-up"}}</button>
+      <button class="icon-button" type="submit" name="direction" value="down" aria-label="move this status page down in the list" title="move down in the list">{{template "icon" "chevron-down"}}</button>
+    </form>
     <a class="button quiet" href="/s/{{.Project.Slug}}">{{template "icon" "external-link"}}status page</a>
     <a class="button quiet" href="/admin/projects/{{.Project.ID}}/settings">{{template "icon" "settings"}}settings</a>
-    <a class="button" href="/admin/projects/{{.Project.ID}}/monitors/new">{{template "icon" "plus"}}add monitor</a>
   </span>
 </div>
+<nav class="tabs" aria-label="sections of this status page">
+  <a href="#pane-editor" data-tab="editor">editor</a><a href="#pane-incidents" data-tab="incidents">incidents</a><a href="#pane-timeline" data-tab="timeline">timeline</a><a href="#pane-delete" data-tab="delete">delete</a>
+</nav>
+{{if .Problems}}{{template "error" "that was not saved. the fields with a problem are marked below."}}{{end}}
 
-<section aria-labelledby="monitors-heading">
-  <h2 id="monitors-heading">monitors</h2>
-  {{if .Monitors}}
-  <div class="panel table-scroll">
-  <table class="dense">
-    <thead><tr><th scope="col">monitor</th><th scope="col">state</th><th scope="col">last {{len (index .Monitors 0).Days}} days</th><th scope="col" class="number">uptime</th><th scope="col">last check</th><th scope="col" class="number">latency</th></tr></thead>
-    <tbody>
-      {{range .Monitors}}
-      <tr>
-        <th scope="row">
-          <a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
-          <span class="meta cell-note target">{{with .Category}}{{.}} · {{end}}{{if eq .Kind "push"}}waits for the job to report in{{else}}{{.Target}}{{end}}</span>
-        </th>
-        <td>
-          <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
-          {{if and .LastError (eq .State "down")}}<span class="meta cell-note">{{.LastError}}</span>{{end}}
-          {{if .CertExpiresAtMs}}<span class="meta cell-note">certificate expires in {{daysUntil .CertExpiresAtMs}} days</span>{{end}}
-        </td>
-        <td><div class="strip mini" role="img" aria-label="uptime {{.Uptime}}">{{range .Days}}<span class="day day-{{.State}}" data-tip="{{.Label}}"></span>{{end}}</div></td>
-        <td class="number">{{.Uptime}}</td>
-        <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{local $.Zone .LastCheckAtMs}}</time>{{else}}<span class="muted">not yet</span>{{end}}</td>
-        <td class="number">{{if and .LastCheckAtMs (eq .State "ok") (ne .Kind "push")}}{{.LastLatencyMs}} ms{{end}}</td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
+<div class="pane" id="pane-editor" data-pane="editor">
+<div class="editor">
+  <div class="editor-controls">
+    <section aria-labelledby="monitors-heading">
+      <div class="title-row">
+        <h2 id="monitors-heading">monitors on this page</h2>
+        <a class="button quiet" href="/admin/monitors/new?page={{.Project.ID}}">{{template "icon" "plus"}}new monitor</a>
+      </div>
+      <form method="post" action="/admin/projects/{{.Project.ID}}/placements" data-autosave data-editor-list>
+        {{if .Monitors}}
+        <ol class="editor-list">
+          {{range .Monitors}}{{$row := .}}
+          <li class="editor-row" draggable="true" data-row>
+            <input type="hidden" name="monitor" value="{{.ID}}">
+            <span class="editor-grip" aria-hidden="true">{{template "icon" "grip"}}</span>
+            <span class="editor-name">
+              <a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
+              <span class="meta">{{with .Category}}{{.}} · {{end}}<span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span> · {{.Uptime}}</span>
+            </span>
+            <span class="editor-look">
+              <select name="display-{{.ID}}" aria-label="how {{.Name}} is shown">
+                {{range $.Choices.Displays}}<option value="{{.}}"{{if eq . $row.Display}} selected{{end}}>{{displayLabel .}}</option>{{end}}
+              </select>
+              <select name="fill-{{.ID}}" aria-label="graph fill of {{.Name}}">
+                {{range $.Choices.GraphFills}}<option value="{{.}}"{{if or (eq . $row.GraphFill) (and (eq . "default") (not $row.GraphFill))}} selected{{end}}>{{if eq . "default"}}fill: default{{else}}fill: {{.}}{{end}}</option>{{end}}
+              </select>
+            </span>
+            <span class="editor-moves">
+              <button class="icon-button" type="submit" name="move" value="{{.ID}}-up" data-move="up" aria-label="move {{.Name}} up">{{template "icon" "chevron-up"}}</button>
+              <button class="icon-button" type="submit" name="move" value="{{.ID}}-down" data-move="down" aria-label="move {{.Name}} down">{{template "icon" "chevron-down"}}</button>
+              <button class="icon-button" type="submit" name="remove" value="{{.ID}}" data-remove aria-label="take {{.Name}} off this page" title="take off this page">{{template "icon" "x"}}</button>
+            </span>
+          </li>
+          {{end}}
+        </ol>
+        {{else}}
+        <p class="panel empty">this page shows no monitors yet. add one below.</p>
+        {{end}}
+        {{if .Others}}
+        <div class="editor-add">
+          <label class="visually-hidden" for="add-monitor">add an existing monitor</label>
+          <select id="add-monitor" name="add">
+            <option value="">add an existing monitor…</option>
+            {{range .Others}}<option value="{{.ID}}">{{.Name}}{{with .Category}} ({{.}}){{end}}</option>{{end}}
+          </select>
+          <button class="button quiet" type="submit" data-keep>add</button>
+        </div>
+        {{end}}
+        <div class="savebar"><button class="button" type="submit">save the list</button></div>
+      </form>
+      <p class="hint">drag a row, or use its arrows, to change the order. taking a monitor off the page does not delete it. monitors of one category are shown together.</p>
+    </section>
+
+    <section aria-labelledby="look-heading">
+      <h2 id="look-heading">look</h2>
+      <form method="post" action="/admin/projects/{{.Project.ID}}/look" data-autosave>
+        <div class="group">
+          <div class="srow">
+            <div class="srow-copy" id="theme-label"><span>theme</span></div>
+            <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="theme-label">
+              {{range .Choices.Themes}}<label><input type="radio" name="theme" value="{{.}}"{{if eq . $.Project.Theme}} checked{{end}}><span>{{.}}</span></label>{{end}}
+            </div></div>
+          </div>
+          <div class="srow">
+            <div class="srow-copy" id="accent-label"><span>accent</span></div>
+            <div class="srow-control"><div class="swatches" role="radiogroup" aria-labelledby="accent-label">
+              {{range .Choices.Swatches}}<label class="swatch swatch-{{.}}"><input type="radio" name="accent_hue" value="{{.}}"{{if eq . $.Project.AccentHue}} checked{{end}}><span class="visually-hidden">hue {{.}}</span></label>{{end}}
+              {{if .CustomHue}}<label class="swatch swatch-custom"><input type="radio" name="accent_hue" value="{{.Project.AccentHue}}" checked><span class="visually-hidden">the custom hue {{.Project.AccentHue}}</span></label>{{end}}
+            </div></div>
+            {{with index .Problems "accent_hue"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+          </div>
+          <div class="srow">
+            <div class="srow-copy" id="surface-label"><span>background</span></div>
+            <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="surface-label">
+              {{range .Choices.Surfaces}}<label><input type="radio" name="surface" value="{{.}}"{{if eq . $.Project.Surface}} checked{{end}}><span>{{.}}</span></label>{{end}}
+            </div></div>
+          </div>
+          <div class="srow">
+            <div class="srow-copy" id="corners-label"><span>corners</span></div>
+            <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="corners-label">
+              {{range .Choices.Corners}}<label><input type="radio" name="corners" value="{{.}}"{{if eq . $.Project.Corners}} checked{{end}}><span>{{.}}</span></label>{{end}}
+            </div></div>
+          </div>
+          <div class="srow" data-stack>
+            <div class="srow-copy" id="font-label"><span>typeface</span></div>
+            <div class="segmented" role="radiogroup" aria-labelledby="font-label">
+              {{range .Choices.Fonts}}<label><input type="radio" name="font" value="{{.}}"{{if eq . $.Project.Font}} checked{{end}}><span>{{.}}</span></label>{{end}}
+            </div>
+          </div>
+          <div class="srow" data-stack>
+            <div class="srow-copy" id="page-fill-label"><span>graph fill</span></div>
+            <div class="segmented" role="radiogroup" aria-labelledby="page-fill-label">
+              {{range .Choices.GraphFills}}<label><input type="radio" name="graph_fill" value="{{.}}"{{if or (eq . $.Project.GraphFill) (and (eq . "default") (not $.Project.GraphFill))}} checked{{end}}><span>{{.}}</span></label>{{end}}
+            </div>
+          </div>
+          <label class="srow">
+            <span class="srow-copy"><span>status icon</span></span>
+            <span class="srow-control"><input class="switch" type="checkbox" name="show_face"{{if .Project.ShowFace}} checked{{end}}></span>
+          </label>
+          <label class="srow">
+            <span class="srow-copy"><span>hide quiet days</span></span>
+            <span class="srow-control"><input class="switch" type="checkbox" name="hide_quiet_days"{{if .Project.HideQuietDays}} checked{{end}}></span>
+          </label>
+          <div class="srow" data-stack>
+            <label class="srow-copy" for="custom_css"><span>custom css</span><small>added after the page's own styles.</small></label>
+            <textarea id="custom_css" name="custom_css" rows="6" maxlength="20000" spellcheck="false"{{if index .Problems "custom_css"}} aria-invalid="true"{{end}}>{{.Project.CustomCSS}}</textarea>
+            {{with index .Problems "custom_css"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+          </div>
+        </div>
+        <div class="savebar"><button class="button" type="submit">save the look</button></div>
+      </form>
+      <p class="hint">the name, links, timezone, logo and the rest are under <a href="/admin/projects/{{.Project.ID}}/settings">settings</a>.</p>
+    </section>
   </div>
-  {{else}}
-  <p class="panel empty">no monitors yet. <a href="/admin/projects/{{.Project.ID}}/monitors/new">add the first one</a> to start checking.</p>
-  {{end}}
-</section>
+  <div class="editor-preview">
+    <div class="title-row"><h2 id="preview-heading">preview</h2><a class="meta" href="/s/{{.Project.Slug}}">open the page</a></div>
+    <iframe class="preview" data-preview src="/s/{{.Project.Slug}}" title="preview of the status page" aria-labelledby="preview-heading"></iframe>
+  </div>
+</div>
+</div>
 
+<div class="pane" id="pane-incidents" data-pane="incidents">
 <section aria-labelledby="incidents-heading">
   <div class="title-row">
     <h2 id="incidents-heading">incidents</h2>
@@ -101,7 +198,9 @@
   </form>
   </dialog>
 </section>
+</div>
 
+<div class="pane" id="pane-timeline" data-pane="timeline">
 <section aria-labelledby="timeline-heading">
   <h2 id="timeline-heading">timeline</h2>
   {{if .Events}}
@@ -113,12 +212,14 @@
     </li>
     {{end}}
   </ol>
-  {{if .OlderID}}<p><a href="/admin/projects/{{.Project.ID}}?before={{.OlderID}}#timeline-heading">older events</a></p>{{end}}
+  {{if .OlderID}}<p><a href="/admin/projects/{{.Project.ID}}?before={{.OlderID}}#pane-timeline">older events</a></p>{{end}}
   {{else}}
   <p class="panel empty">nothing has happened yet.</p>
   {{end}}
 </section>
+</div>
 
+<div class="pane" id="pane-delete" data-pane="delete">
 <section aria-labelledby="danger-heading">
   <h2 id="danger-heading">delete project</h2>
   <div class="panel list-row">
@@ -134,4 +235,5 @@
     </form>
   </dialog>
 </section>
+</div>
 {{end}}

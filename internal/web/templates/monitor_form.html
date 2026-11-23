@@ -37,7 +37,7 @@
   <p class="hint">for example: curl -fsS {{.}}</p>
 </div></div>
 {{end}}
-<form method="post" action="{{if .Editing}}/admin/monitors/{{.Monitor.ID}}{{else}}/admin/monitors{{end}}">
+<form method="post" action="{{if .Editing}}/admin/monitors/{{.Monitor.ID}}{{else}}/admin/monitors{{end}}"{{if .Editing}} data-autosave{{end}}>
   {{if .PlaceOn}}<input type="hidden" name="page" value="{{.PlaceOn}}">{{end}}
   <h2 class="group-title">what to check</h2>
   <div class="group">

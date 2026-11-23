@@ -240,6 +240,32 @@ label.srow { cursor: pointer; }
 .facts strong { color: var(--ink); }
 .update-row { display: grid; gap: var(--space-1); padding: var(--space-3); }
 .update-row .update-body { font-size: var(--text-ui); }
+/* the editor of a status page: its controls on the left, the page itself on the right */
+.content:has(.editor) { max-inline-size: calc(var(--content-wide) * 1.5); }
+.editor { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--space-5); align-items: start; }
+.editor-preview { position: sticky; inset-block-start: var(--space-4); }
+.preview { display: block; inline-size: 100%; block-size: calc(100vh - var(--space-8) * 3); border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--background); }
+.editor-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; }
+.editor-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-3); background: var(--background); }
+.editor-row + .editor-row { border-block-start: 1px solid var(--border); }
+.editor-row.dragging { opacity: 0.5; }
+.editor-grip { display: grid; place-items: center; color: var(--muted); cursor: grab; }
+.editor-name { display: grid; gap: var(--space-0-5); min-inline-size: 0; }
+.editor-name > a { color: var(--ink); font-weight: var(--weight-semibold); text-decoration: none; overflow-wrap: anywhere; }
+.editor-moves { display: flex; gap: var(--space-0-5); }
+.editor-look { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.editor-look > .select, .editor-look > select { inline-size: calc(var(--space-8) * 3); max-inline-size: 100%; }
+.editor-add { display: flex; gap: var(--space-2); margin-block-start: var(--space-3); }
+.editor-add > .select, .editor-add > select { flex: 1; min-inline-size: 0; }
+@media (max-width: 1100px) {
+  .editor { grid-template-columns: minmax(0, 1fr); }
+  .editor-preview { position: static; }
+}
+/* with script a form marked data-autosave saves itself, so its save button goes */
+.has-script form[data-autosave] .savebar > button[type="submit"] { display: none; }
+.toast { position: fixed; inset-block-end: var(--space-4); inset-inline-end: var(--space-4); z-index: 10; margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-round); background: var(--elevated); box-shadow: var(--shadow-popover); color: var(--ink); font-size: var(--text-ui); opacity: 0; translate: 0 var(--space-2); pointer-events: none; transition: opacity var(--motion-fast) var(--ease-out), translate var(--motion-fast) var(--ease-out); }
+.toast-shown { opacity: 1; translate: 0 0; }
+.toast-failed { border-color: var(--status-danger); color: var(--status-danger); }
 .checks { display: grid; gap: var(--space-1); }
 
 /* a checkbox drawn as a switch */
