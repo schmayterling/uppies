@@ -2,6 +2,9 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* no rubber-band bounce past the ends of the page, the sidebar or a scrolling table */
+html, body, .sidebar, .table-scroll, .heat-scroll, dialog { overscroll-behavior: none; }
+
 body {
   margin: 0;
   background: var(--background);
