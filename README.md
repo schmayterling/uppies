@@ -68,11 +68,31 @@ supported.
 Ping uses an unprivileged socket. On Linux the user running uppies must be
 inside the range of the `net.ipv4.ping_group_range` setting.
 
-To run it in a container:
+### Run with Docker Compose
+
+Put `compose.yaml` on the deployment host and run:
 
 ```sh
-docker build -t uppies .
-docker run -p 8080:8080 -v uppies-data:/data uppies
+docker compose pull
+docker compose up -d
+```
+
+Open `http://localhost:8080` on the host to set up the first admin account.
+Compose pulls `ghcr.io/schmayterling/uppies:latest` on Linux amd64 and arm64
+and keeps SQLite and its backups in the `uppies-data` volume. The port
+binds to loopback by default. Set `UPPIES_PORT` or `UPPIES_BIND` to
+change the host port or bind address.
+
+The [container workflow](.github/workflows/container.yml) publishes
+`latest` and `sha-<commit>` tags from `main`. Set `UPPIES_IMAGE` to
+a specific tag or digest to pin a deployment. For a private package,
+sign in to `ghcr.io` with a token that has `read:packages` before pulling.
+
+To build and run an image from a checkout, use:
+
+```sh
+docker build -t uppies:local .
+UPPIES_IMAGE=uppies:local docker compose up -d
 ```
 
 To serve a status page on its own domain, enter the hostname in the project's
