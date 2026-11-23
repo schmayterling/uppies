@@ -597,36 +597,42 @@ const (
 
 // latencyLine turns daily average response times into the points of a line
 // across the last historyDays days, and a caption with the overall average.
-// Days without checks leave a gap in time but not in the line. The labels
-// name every day's average, oldest first.
+// The labels name every day's average, oldest first. A single measured day
+// is drawn across its own interval so it is visible without a second sample.
 func latencyLine(rollups []store.DayRollup, todayStartMs int64, historyDays int) (points string, labels []string, caption string) {
 	firstDayMs := todayStartMs - int64(historyDays-1)*dayMs
 	var peak, sum, days int64
 	for _, d := range rollups {
-		if d.DayStartMs >= firstDayMs && d.Checks > 0 {
+		if d.DayStartMs >= firstDayMs && d.DayStartMs <= todayStartMs && d.Checks > 0 {
 			peak = max(peak, d.LatencyAvgMs)
 			sum += d.LatencyAvgMs
 			days++
 		}
-	}
-	if days == 0 {
-		return "", nil, "no response times yet"
 	}
 	labels = make([]string, historyDays)
 	for i := range labels {
 		date := time.UnixMilli(firstDayMs + int64(i)*dayMs).UTC().Format("2006-01-02")
 		labels[i] = date + ": no data"
 	}
-	peak = max(peak, 1)
+	if days == 0 {
+		return "", labels, "no response times yet"
+	}
+	scale := max(peak, 1)
 	var b strings.Builder
 	for _, d := range rollups {
-		if d.DayStartMs < firstDayMs || d.Checks == 0 {
+		if d.DayStartMs < firstDayMs || d.DayStartMs > todayStartMs || d.Checks == 0 {
 			continue
 		}
 		x := float64(d.DayStartMs-firstDayMs) / float64(dayMs) / float64(max(historyDays-1, 1)) * sparkWidth
 		// The line keeps 2 units clear of the top and bottom edges.
-		y := float64(sparkHeight-2) - float64(d.LatencyAvgMs)/float64(peak)*float64(sparkHeight-4)
-		fmt.Fprintf(&b, "%.1f,%.1f ", x, y)
+		y := float64(sparkHeight-2) - float64(d.LatencyAvgMs)/float64(scale)*float64(sparkHeight-4)
+		if days == 1 {
+			width := float64(sparkWidth) / float64(historyDays)
+			left := min(max(x-width/2, 0), sparkWidth-width)
+			fmt.Fprintf(&b, "%.1f,%.1f %.1f,%.1f ", left, y, left+width, y)
+		} else {
+			fmt.Fprintf(&b, "%.1f,%.1f ", x, y)
+		}
 		date := time.UnixMilli(d.DayStartMs).UTC().Format("2006-01-02")
 		labels[(d.DayStartMs-firstDayMs)/dayMs] = fmt.Sprintf("%s: %d ms on average", date, d.LatencyAvgMs)
 	}

@@ -137,7 +137,11 @@ func TestLatencyLine(t *testing.T) {
 	if !slices.Equal(labels, wantLabels) {
 		t.Fatalf("got labels %q, want %q", labels, wantLabels)
 	}
-	if points, _, caption := latencyLine(nil, today, 3); points != "" || caption != "no response times yet" {
-		t.Fatalf("no data: got points %q caption %q", points, caption)
+	if points, labels, caption := latencyLine(nil, today, 3); points != "" || len(labels) != 3 || caption != "no response times yet" {
+		t.Fatalf("no data: got points %q, labels %q, caption %q", points, labels, caption)
+	}
+	points, _, caption = latencyLine(rollups[2:], today, 3)
+	if points != "200.0,2.0 300.0,2.0" || caption != "50 ms on average, 50 ms at most" {
+		t.Fatalf("one data point: got points %q, caption %q", points, caption)
 	}
 }
