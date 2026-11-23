@@ -210,7 +210,11 @@ func (s *Server) statusPage(ctx context.Context, project store.Project) (statusP
 		zone = time.UTC
 	}
 
-	page := statusPage{Chrome: chrome{Title: project.Name + " status"}, Project: project, Zone: zone}
+	page := statusPage{
+		Chrome:  chrome{Title: project.Name + " status", Unbranded: !project.ShowPoweredBy},
+		Project: project,
+		Zone:    zone,
+	}
 	names := make(map[int64]string, len(monitors))
 	var shown []store.Monitor
 	for _, m := range monitors {

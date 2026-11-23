@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{.Chrome.Title}} · uppies</title>
+<title>{{.Chrome.Title}}{{if not .Chrome.Unbranded}} · uppies{{end}}</title>
 <link rel="stylesheet" href="/static/tokens.css">
 <link rel="stylesheet" href="/static/app.css">
 {{block "head" .}}{{end}}

@@ -406,8 +406,8 @@ func TestStatusPageFooterTimezoneDomainAndBadge(t *testing.T) {
 			t.Errorf("status page is missing %q", want)
 		}
 	}
-	if strings.Contains(page, "powered by uppies") {
-		t.Error("status page still says powered by uppies")
+	if strings.Contains(page, "uppies") {
+		t.Error("status page still mentions uppies with the powered-by line switched off")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, s.server.URL+"/", nil)

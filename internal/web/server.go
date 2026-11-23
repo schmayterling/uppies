@@ -183,6 +183,8 @@ func pathID(r *http.Request) (int64, error) {
 type chrome struct {
 	Title string
 	Admin bool // show the admin navigation
+	// Unbranded drops the "uppies" suffix from the browser title.
+	Unbranded bool
 }
 
 var templateFuncs = template.FuncMap{
