@@ -57,8 +57,16 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 		"index.html", "status.html", "error.html", "setup.html", "login.html", "dashboard.html",
 		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "monitor.html", "alerts.html", "monitors.html", "editor.html", "projects.html", "appearance.html", "instance.html", "users.html", "api_tokens.html",
 	}
+	icons, err := staticFiles.ReadFile("static/icons.svg")
+	if err != nil {
+		return nil, err
+	}
+	// The sidebar can paint its icons before the external sprite loads.
+	sidebarSymbols := template.HTML(strings.Replace(string(icons), "<svg ",
+		`<svg class="sidebar-symbols" width="0" height="0" aria-hidden="true" `, 1))
+	sidebarFuncs := template.FuncMap{"sidebarSymbols": func() template.HTML { return sidebarSymbols }}
 	for _, name := range names {
-		page, err := template.New("base.html").Funcs(templateFuncs).
+		page, err := template.New("base.html").Funcs(templateFuncs).Funcs(sidebarFuncs).
 			ParseFS(templateFiles, "templates/base.html", "templates/"+name)
 		if err != nil {
 			return nil, err

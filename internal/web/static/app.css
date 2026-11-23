@@ -150,6 +150,7 @@ p.hint, p.muted { max-inline-size: 75ch; }
 .nav-logo { flex: none; inline-size: var(--icon-size); block-size: var(--icon-size); border-radius: var(--radius-inner); object-fit: contain; }
 
 /* icons take the size and colour of the text they sit in */
+.sidebar-symbols { position: absolute; }
 .icon { flex: none; inline-size: var(--icon-size); block-size: var(--icon-size); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .icon-button {
   font: inherit;
