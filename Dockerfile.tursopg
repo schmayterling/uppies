@@ -1,6 +1,7 @@
 FROM rust:1.99.1-bookworm@sha256:e6f2cff35d0f309acf8433b4f05878ed77092602c5065cc81801177da0bb3a9c AS build
+# pg_query's protoc detection treats exit status 127 under amd64 emulation as an available command.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends cmake libclang-dev \
+    && apt-get install -y --no-install-recommends cmake libclang-dev protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
