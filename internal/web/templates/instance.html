@@ -11,6 +11,11 @@
       <div class="srow-control"><input id="name" name="name" value="{{.Instance.Name}}" required maxlength="60"{{if index .Problems "name"}} aria-invalid="true"{{end}}></div>
       {{with index .Problems "name"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
+    <div class="srow">
+      <label class="srow-copy" for="public_url"><span>public site url</span><small>the preferred address for search results and link previews.</small></label>
+      <div class="srow-control"><input type="url" id="public_url" name="public_url" value="{{.Instance.PublicURL}}" maxlength="2048" placeholder="https://status.example.com" spellcheck="false"{{if index .Problems "public_url"}} aria-invalid="true" aria-describedby="public-url-problem"{{end}}></div>
+      {{with index .Problems "public_url"}}<p class="problem srow-problem" id="public-url-problem">{{.}}</p>{{end}}
+    </div>
     <div class="srow" data-stack>
       <label class="srow-copy" for="nav_links"><span>navbar links</span><small>one link per line. use label | https://example.com.</small></label>
       <textarea id="nav_links" name="nav_links" rows="3" maxlength="2000" spellcheck="false" placeholder="docs | https://docs.example.com"{{if index .Problems "nav_links"}} aria-invalid="true" aria-describedby="nav-links-problem"{{end}}>{{.Instance.NavLinks}}</textarea>

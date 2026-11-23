@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -326,6 +327,23 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	if year < now.Year() {
 		page.NextYear = year + 1
 	}
+	instance, err := s.store.Instance(ctx)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	query := make(url.Values)
+	if year != now.Year() {
+		query.Set("year", strconv.Itoa(year))
+		page.Chrome.Title += " " + strconv.Itoa(year)
+	}
+	if page.Page > 1 {
+		query.Set("page", strconv.Itoa(page.Page))
+		page.Chrome.Title += " · page " + strconv.Itoa(page.Page)
+	}
+	page.Chrome.Description = "Incident history and service updates for " + project.Name + "."
+	origin := publicOrigin(r, instance.PublicURL)
+	page.Chrome.setPublicMetadata(projectURL(origin, project, "/history", query), project.Name, project.NoIndex)
 	s.render(w, r, http.StatusOK, "history.html", page)
 }
 

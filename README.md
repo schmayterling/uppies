@@ -133,6 +133,13 @@ Put a reverse proxy with TLS in front of uppies before you expose it to the
 internet. The proxy must set the `X-Forwarded-Proto` header so that the
 session cookie is marked secure.
 
+Set **public site url** under **instance** to the preferred origin, such as
+`https://status.example.com`. Uppies uses it for canonical URLs, link
+previews, and `/robots.txt` and `/sitemap.xml`. A status page with a custom
+domain uses that domain, with a separate sitemap at its root. Pages set to
+noindex are omitted. Turning off the public list omits it and its entries
+from the instance sitemap.
+
 ## See it with example data
 
 ```sh

@@ -104,6 +104,8 @@ func (s *Server) Handler() (http.Handler, error) {
 	})
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
 	mux.HandleFunc("GET /{$}", s.handleIndex)
+	mux.HandleFunc("GET /robots.txt", s.handleRobots)
+	mux.HandleFunc("GET /sitemap.xml", s.handleSitemap)
 	mux.HandleFunc("GET /theme.css", s.handleInstanceTheme)
 	mux.HandleFunc("GET /sign-in-background", s.handleSignInBackground)
 	mux.HandleFunc("GET /favicon.ico", s.handleInstanceFavicon)
@@ -196,6 +198,9 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("Content-Security-Policy", "default-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "same-origin")
+		if r.URL.Path == "/admin" || strings.HasPrefix(r.URL.Path, "/admin/") {
+			h.Set("X-Robots-Tag", "noindex")
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -294,7 +299,18 @@ type chrome struct {
 	Favicon string
 	// Description is the page's description for search engines and link
 	// previews. Empty means the title is used.
-	Description string
+	Description  string
+	CanonicalURL string
+	SocialImage  string
+	SiteName     string
+	NoIndex      bool
+}
+
+func (c chrome) DocumentTitle() string {
+	if c.Unbranded {
+		return c.Title
+	}
+	return c.Title + " · uppies"
 }
 
 // nav is the admin sidebar: where you are, and every project with its state.

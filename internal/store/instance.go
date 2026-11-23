@@ -14,6 +14,8 @@ type InstanceSettings struct {
 	Name string
 	// NavLinks holds the links shown on the public list.
 	NavLinks string
+	// PublicURL is the preferred origin for public links and search metadata.
+	PublicURL string
 	// Theme and AccentHue style the admin pages: "auto", "light" or "dark", and a hue from 0 to 360.
 	Theme     string
 	AccentHue int
@@ -88,6 +90,8 @@ func (s *Store) Instance(ctx context.Context) (InstanceSettings, error) {
 			settings.Name = value
 		case "nav_links":
 			settings.NavLinks = value
+		case "public_url":
+			settings.PublicURL = value
 		case "theme":
 			settings.Theme = value
 		case "accent_hue":
@@ -117,7 +121,8 @@ func (s *Store) SaveInstance(ctx context.Context, settings InstanceSettings) err
 		publicList = "1"
 	}
 	values := map[string]string{
-		"name": settings.Name, "nav_links": settings.NavLinks, "theme": settings.Theme,
+		"name": settings.Name, "nav_links": settings.NavLinks, "public_url": settings.PublicURL,
+		"theme":      settings.Theme,
 		"accent_hue": strconv.Itoa(settings.AccentHue), "public_list": publicList,
 		"login_layout": settings.LoginLayout, "login_background": settings.LoginBackground,
 		"list_layout": settings.ListLayout, "graph_fill": settings.GraphFill,

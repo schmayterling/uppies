@@ -248,6 +248,15 @@ func (s *Server) handleMonitorPage(w http.ResponseWriter, r *http.Request) {
 	}
 	// Saved links were checked when they were saved, so a problem here is not expected and shows none.
 	page.NavLinks, _ = parseNavLinks(project.NavLinks)
+	instance, err := s.store.Instance(r.Context())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	page.Chrome.Description = "Current status, uptime, and response times for " + m.Name + " on " + project.Name + "."
+	origin := publicOrigin(r, instance.PublicURL)
+	path := "/monitors/" + strconv.FormatInt(m.ID, 10)
+	page.Chrome.setPublicMetadata(projectURL(origin, project, path, nil), project.Name, project.NoIndex)
 	s.render(w, r, http.StatusOK, "monitor.html", page)
 }
 

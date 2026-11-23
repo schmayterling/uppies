@@ -1,5 +1,4 @@
-{{define "head"}}<link rel="stylesheet" href="/s/{{.Project.Slug}}/theme.css">
-{{if .Project.NoIndex}}<meta name="robots" content="noindex">{{end}}{{end}}
+{{define "head"}}<link rel="stylesheet" href="/s/{{.Project.Slug}}/theme.css">{{end}}
 {{define "main"}}
 {{template "site-bar" (pair . "incidents")}}
 <header class="page-head">

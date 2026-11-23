@@ -1,5 +1,4 @@
 {{define "head"}}<meta http-equiv="refresh" content="60">
-{{if .Project.NoIndex}}<meta name="robots" content="noindex">{{end}}
 <link rel="stylesheet" href="/s/{{.Project.Slug}}/theme.css">{{end}}
 {{define "main"}}
 {{template "site-bar" (pair . "monitor")}}

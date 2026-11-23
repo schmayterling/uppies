@@ -214,7 +214,9 @@ func TestTheEditorOrdersAddsRemovesAndStylesMonitors(t *testing.T) {
 	}
 	s.post(t, s.admin, save, url.Values{"item": {item(api), "m:999", item(api)}}, nil)
 	want("a list with a missing and a repeated monitor", "/api:bars: | ")
-	if _, public := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(public, "api") || strings.Contains(public, "website") {
+	status, public := s.get(t, s.anonymous, "/s/acme")
+	apiLink := fmt.Sprintf("href=\"/s/acme/monitors/%s\"", api)
+	if status != http.StatusOK || strings.Count(public, `class="component-name"`) != 1 || !strings.Contains(public, apiLink) {
 		t.Error("the status page must show exactly the monitors the editor left on it")
 	}
 }

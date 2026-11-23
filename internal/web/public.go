@@ -74,8 +74,9 @@ type incidentView struct {
 }
 
 type statusPage struct {
-	Chrome  chrome
-	Project store.Project
+	Chrome   chrome
+	Project  store.Project
+	instance store.InstanceSettings
 	// Zone is the timezone that incident times are shown in.
 	Zone *time.Location
 	// Images maps each image kind the project has to its version.
@@ -238,6 +239,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		Chrome: chrome{
 			Title: instance.Name + " status", Unbranded: true, Auth: instance.ListLayout == "compact",
 			SignInLink: true, Brand: instance.Name, Favicon: s.faviconAddress(r.Context()),
+			Description: "Service status and incident history for " + instance.Name + ".",
 		},
 		Listed: instance.PublicList, Layout: instance.ListLayout, StateIcons: listIcons,
 	}
@@ -253,6 +255,9 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	page.State, page.Summary = indexSummary(page.Projects)
+	canonical := publicOrigin(r, instance.PublicURL)
+	canonical.Path = "/"
+	page.Chrome.setPublicMetadata(canonical, instance.Name, !instance.PublicList)
 	s.render(w, r, http.StatusOK, "index.html", page)
 }
 
@@ -317,6 +322,8 @@ func (s *Server) renderStatusPage(w http.ResponseWriter, r *http.Request, projec
 		s.fail(w, r, err)
 		return
 	}
+	origin := publicOrigin(r, page.instance.PublicURL)
+	page.Chrome.setPublicMetadata(projectURL(origin, project, "", nil), project.Name, project.NoIndex)
 	s.render(w, r, http.StatusOK, "status.html", page)
 }
 
@@ -412,9 +419,10 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 			Title: project.Name + " status", Unbranded: !project.ShowPoweredBy, Favicon: s.projectFaviconAddress(ctx, project.Slug, images),
 			Description: cmp.Or(project.Tagline, "the current status of "+project.Name+"."),
 		},
-		Project: project,
-		Zone:    zone,
-		Images:  images,
+		Project:  project,
+		instance: instance,
+		Zone:     zone,
+		Images:   images,
 	}
 	page.ZoneName, page.Zones = zoneName, zoneChoices(project, zoneName)
 	// TZ carries a visitor's own choice into links. It is empty when the page shows the project's zone.

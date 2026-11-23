@@ -294,6 +294,17 @@ func (s *Server) handleSaveInstance(w http.ResponseWriter, r *http.Request) {
 	if page.Instance.Name == "" || len(page.Instance.Name) > 60 {
 		page.Problems["name"] = "give the site a name of 1 to 60 characters."
 	}
+	if r.PostForm.Has("public_url") {
+		page.Instance.PublicURL = strings.TrimSpace(r.PostForm.Get("public_url"))
+		if page.Instance.PublicURL != "" {
+			origin, ok := parsePublicOrigin(page.Instance.PublicURL)
+			if !ok || len(page.Instance.PublicURL) > 2048 {
+				page.Problems["public_url"] = "enter an http or https origin without a path, such as https://status.example.com."
+			} else {
+				page.Instance.PublicURL = origin.String()
+			}
+		}
+	}
 	if r.PostForm.Has("nav_links") {
 		page.Instance.NavLinks = strings.TrimSpace(r.PostForm.Get("nav_links"))
 		if len(page.Instance.NavLinks) > 2000 {

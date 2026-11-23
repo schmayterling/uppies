@@ -1,15 +1,30 @@
 <!doctype html>
-<html lang="en"{{if .Chrome.Admin}} data-density="tool"{{end}}>
+<html lang="en"{{if .Chrome.Admin}} data-density="tool"{{end}}{{if .Chrome.CanonicalURL}} prefix="og: https://ogp.me/ns#"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{.Chrome.Title}}{{if not .Chrome.Unbranded}} · uppies{{end}}</title>
+<title>{{.Chrome.DocumentTitle}}</title>
 <link rel="stylesheet" href="{{assetURL "tokens.css"}}">
 <link rel="stylesheet" href="{{assetURL "app.css"}}">
 {{if or .Chrome.Admin .Chrome.Auth}}<link rel="stylesheet" href="/theme.css">{{end}}
 {{if .Chrome.Admin}}<script src="{{assetURL "admin.js"}}"></script>
 <noscript><link rel="stylesheet" href="{{assetURL "noscript.css"}}"></noscript>{{end}}
 <meta name="description" content="{{if .Chrome.Description}}{{.Chrome.Description}}{{else if .Chrome.Admin}}the admin pages of this uppies install: monitors, alerts and status pages.{{else}}{{.Chrome.Title}}, served by uppies, a self-hosted uptime monitor.{{end}}">
+{{if .Chrome.NoIndex}}<meta name="robots" content="noindex">{{end}}
+{{if .Chrome.CanonicalURL}}
+<link rel="canonical" href="{{.Chrome.CanonicalURL}}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{.Chrome.CanonicalURL}}">
+<meta property="og:site_name" content="{{.Chrome.SiteName}}">
+<meta property="og:title" content="{{.Chrome.DocumentTitle}}">
+<meta property="og:description" content="{{.Chrome.Description}}">
+<meta property="og:image" content="{{.Chrome.SocialImage}}">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="checkmark logo">
+<meta name="twitter:card" content="summary_large_image">
+{{end}}
 <link rel="icon" href="{{or .Chrome.Favicon "/static/favicon.svg"}}">
 {{block "head" .}}{{end}}
 </head>
