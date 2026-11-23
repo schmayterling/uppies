@@ -1,6 +1,7 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -163,6 +164,10 @@ var ErrDomainTaken = errors.New("domain already in use")
 // UpdateProject changes a project's name and status page settings. The slug
 // stays. It returns ErrDomainTaken when the domain belongs to another project.
 func (s *Store) UpdateProject(ctx context.Context, p Project) error {
+	// Callers that do not set a look get the default one.
+	p.Surface = cmp.Or(p.Surface, "neutral")
+	p.Corners = cmp.Or(p.Corners, "soft")
+	p.Font = cmp.Or(p.Font, "system")
 	res, err := s.db.ExecContext(ctx, `
 		update projects set name = ?, tagline = ?, homepage_url = ?, accent_hue = ?, theme = ?,
 			show_face = ?, history_days = ?, custom_css = ?, footer_text = ?, show_powered_by = ?,

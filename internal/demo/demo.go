@@ -99,6 +99,7 @@ func Seed(ctx context.Context, st *store.Store, now time.Time) error {
 	if _, _, err := seedProject(ctx, st, now, store.Project{
 		Slug: "internal-tools", Name: "internal tools for the team with a long project name",
 		AccentHue: 200, Theme: "dark", ShowFace: false, HistoryDays: 30, ShowPoweredBy: false, NoIndex: true, Timezone: "UTC",
+		Corners: "sharp", Font: "mono",
 	}, toolsMonitors); err != nil {
 		return err
 	}
@@ -106,6 +107,7 @@ func Seed(ctx context.Context, st *store.Store, now time.Time) error {
 	billing, _, err := seedProject(ctx, st, now, store.Project{
 		Slug: "billing", Name: "billing", Tagline: "payments and invoices.",
 		AccentHue: 150, Theme: "light", ShowFace: true, HistoryDays: 60, ShowPoweredBy: true, Timezone: "Europe/Berlin",
+		Surface: "paper", Corners: "round", Font: "rounded",
 	}, billingMonitors)
 	if err != nil {
 		return err
