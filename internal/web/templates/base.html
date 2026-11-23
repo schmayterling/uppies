@@ -54,7 +54,7 @@
   <p class="auth-brand">{{template "face" "ok"}}<span class="wordmark">uppies</span></p>
 {{template "main" .}}
 </main>
-<p class="auth-foot meta"><a href="/">view the status pages</a></p>
+<p class="auth-foot meta">{{if .Chrome.SignInLink}}<a href="/admin">sign in</a>{{else}}<a href="/">view the status pages</a>{{end}}</p>
 </body>
 {{else}}
 <body>

@@ -170,20 +170,20 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		s.render(w, r, http.StatusNotFound, "error.html", errorPage{
-			Chrome:  chrome{Title: "not found"},
+			Chrome:  chrome{Title: "not found", Auth: true},
 			Heading: "nothing here.",
 			Message: "this page does not exist, or it was removed.",
 		})
 	case errors.As(err, &tooLarge):
 		s.render(w, r, http.StatusRequestEntityTooLarge, "error.html", errorPage{
-			Chrome:  chrome{Title: "too large"},
+			Chrome:  chrome{Title: "too large", Auth: true},
 			Heading: "that form is too large.",
 			Message: "shorten the text and send it again.",
 		})
 	default:
 		s.log.Error("request failed", "method", r.Method, "path", r.URL.Path, "error", err)
 		s.render(w, r, http.StatusInternalServerError, "error.html", errorPage{
-			Chrome:  chrome{Title: "error"},
+			Chrome:  chrome{Title: "error", Auth: true},
 			Heading: "something broke on our side.",
 			Message: "the error was logged. try again in a moment.",
 		})
@@ -203,8 +203,11 @@ func pathID(r *http.Request) (int64, error) {
 type chrome struct {
 	Title string
 	Admin bool // show the admin navigation
-	// Auth marks the sign-in and setup pages, which centre one card on the screen.
+	// Auth marks the pages that centre one card on the screen: sign-in, setup,
+	// the public list and errors.
 	Auth bool
+	// SignInLink puts a sign-in link under the card in place of the link to the status pages.
+	SignInLink bool
 	// Unbranded drops the "uppies" suffix from the browser title.
 	Unbranded bool
 	// Nav is the sidebar of the admin pages.

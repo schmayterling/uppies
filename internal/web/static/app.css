@@ -46,6 +46,10 @@ strong { font-weight: var(--weight-semibold); }
 .auth-card input { min-block-size: calc(var(--control-height) + var(--space-1)); }
 .button.wide { inline-size: 100%; block-size: calc(var(--control-height) + var(--space-1)); }
 .auth-foot { margin: 0; }
+.auth-card h1 { margin-block-end: var(--space-1); }
+.index-list { margin-block-start: var(--space-4); }
+.index-list .row-link { align-items: center; padding-block: var(--space-3); }
+.index-list .row-link:hover { color: var(--accent); }
 
 /* admin shell: a fixed sidebar and a wide content column.
    256px and 1088px follow measured dashboards and have no token yet. */

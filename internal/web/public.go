@@ -91,8 +91,18 @@ type maintenanceView struct {
 
 type indexPage struct {
 	Chrome   chrome
-	Projects []store.Project
+	Projects []indexProject
 }
+
+// indexProject is one status page in the public list, with its state in one word.
+type indexProject struct {
+	store.Project
+	State string
+	Word  string
+}
+
+// indexWords names a status page's state in the public list.
+var indexWords = map[string]string{stateOK: "all up", stateDown: "problems", stateWarn: "incident", stateNone: "waiting"}
 
 // requestHost returns the hostname a request was sent to, lowercase and without a port.
 func requestHost(r *http.Request) string {
@@ -127,7 +137,24 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "index.html", indexPage{Chrome: chrome{Title: "status"}, Projects: projects})
+	monitors, err := s.store.Monitors(r.Context())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	// Only what the public may see counts: hidden monitors are left out.
+	visible := make(map[int64][]store.Monitor)
+	for _, m := range monitors {
+		if m.Public {
+			visible[m.ProjectID] = append(visible[m.ProjectID], m)
+		}
+	}
+	page := indexPage{Chrome: chrome{Title: "status", Auth: true, SignInLink: true}}
+	for _, p := range projects {
+		state, _ := banner(visible[p.ID], 0)
+		page.Projects = append(page.Projects, indexProject{Project: p, State: state, Word: indexWords[state]})
+	}
+	s.render(w, r, http.StatusOK, "index.html", page)
 }
 
 // handleTheme serves a project's look as a stylesheet. A separate file keeps
