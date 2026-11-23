@@ -132,6 +132,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("GET /admin/monitors", s.handleMonitors)
 	admin("GET /admin/monitors/new", s.handleNewMonitorForm)
 	admin("POST /admin/monitors", s.handleCreateMonitor)
+	admin("POST /admin/monitors/order", s.handleOrderMonitors)
 	admin("POST /admin/categories", s.handleCreateCategory)
 	admin("POST /admin/categories/delete", s.handleDeleteCategory)
 	admin("GET /admin/monitors/{id}", s.handleEditMonitorForm)

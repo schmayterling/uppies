@@ -115,6 +115,10 @@ Each line names how it was verified.
   - The face is gone. A round icon says the state: check, warning, cross, dash, wrench, or a slash when everything is paused.
   - The migration was tried on a copy of the dev database before the real one was opened with it. Counts matched.
   - Checked in Chromium and WebKit with real clicks: reorder by arrow and by drag, style through the custom select, accent and custom css reaching the preview, take off and add back, autosave on blur in settings, the monitors and alerts pages, no overflow at 1440 and 390 wide.
+- Round 12 (2026-11-23). Schema version 16.
+  - The list of all monitors is arranged by dragging: a monitor to another place or into another category, a category as a whole by its name. Monitors have a `position` inside their category. `POST /admin/monitors/order` takes the arrangement as ordered `item` fields, `c:<category>` then `m:<id>` for each monitor in it.
+  - The monitors table uses the same markup as the other tables. Round status icons are as tall as the text beside them.
+  - Checked in Chromium and WebKit: a drag inside a category, into another category and of a whole category, each saved and still there after a reload.
 - Checks run on 2026-11-23 on the admin overview:
   - Contrast, computed from the rendered colours. Dark theme: every text pairing measured is 7.4:1 or higher. Light theme: the lowest is 5.68:1 (muted headings on the sidebar). The requirement for body text is 4.5:1.
   - Script switched off: an admin page shows each dialog's form in place and hides the buttons that would open it. This needed a fix, because the dialog animation left dialogs invisible without script.
@@ -125,6 +129,7 @@ Each line names how it was verified.
 
 - Round 11 in a browser covered the editor, autosave on one settings field, and that the monitors and alerts pages open. Not driven in a browser: making a category, the alert channel boxes on the monitor form, moving status pages, autosave on the appearance, instance and monitor forms.
 - The editor's drag reorder has no touch support. The arrows work everywhere.
+- The monitors page can only be rearranged by dragging with a mouse: there are no arrows there and no touch support. A monitor's category can still be set in its settings.
 - Firefox was not checked. The Firefox build that Playwright 1.65.1 downloads does not start on this machine ("Could not find profile folder"), with a temporary profile and with a fixed one.
 - No screen reader was run. The role tree of the custom select was read in Chromium and WebKit, which is what a screen reader is given, but nobody listened to it.
 - Safari itself was not driven, only Playwright's WebKit build.
@@ -201,7 +206,7 @@ Each line names how it was verified.
 ## Next
 
 `ROADMAP.md` holds the planned order. The basics are done. The user wants a
-design pass on the status page and admin pages before any new feature. Eleven rounds are done (see above). Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
+design pass on the status page and admin pages before any new feature. Twelve rounds are done (see above). Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
 
 ## Open risks
 

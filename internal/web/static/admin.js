@@ -656,3 +656,44 @@ document.addEventListener("dragend", () => {
   saveForm(draggedRow.closest("form"));
   draggedRow = null;
 });
+
+// The list of all monitors: a row is dragged to another place or into another
+// category, a category is dragged as a whole. Every item carries a hidden
+// field, so the order of the fields is the arrangement, and it is saved on drop.
+let draggedItem = null;
+document.addEventListener("dragstart", (event) => {
+  draggedItem = event.target.closest ? event.target.closest("form[data-order] [data-drag]") : null;
+  if (draggedItem) {
+    event.dataTransfer.effectAllowed = "move";
+    draggedItem.classList.add("dragging");
+  }
+});
+document.addEventListener("dragover", (event) => {
+  if (!draggedItem) {
+    return;
+  }
+  const kind = draggedItem.dataset.drag;
+  const over = event.target.closest(kind === "monitor" ? "[data-drag=monitor], .empty-row" : "[data-drag=category]");
+  if (!over || !over.closest("form[data-order]")) {
+    return;
+  }
+  event.preventDefault();
+  if (over === draggedItem) {
+    return;
+  }
+  const box = over.getBoundingClientRect();
+  // The note of an empty category stays last, so a row always goes above it.
+  if (over.classList.contains("empty-row") || event.clientY < box.top + box.height / 2) {
+    over.before(draggedItem);
+  } else {
+    over.after(draggedItem);
+  }
+});
+document.addEventListener("dragend", () => {
+  if (!draggedItem) {
+    return;
+  }
+  draggedItem.classList.remove("dragging");
+  saveForm(draggedItem.closest("form"));
+  draggedItem = null;
+});

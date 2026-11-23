@@ -399,6 +399,27 @@ func TestAStatusPageListsMonitorsInItsOwnOrderAndStyle(t *testing.T) {
 	if names, err := s.PageNames(ctx, ids[0]); err != nil || !slices.Equal(names, []string{"One", "Two"}) {
 		t.Fatalf("pages that show the first monitor: got %v err=%v, want One and Two", names, err)
 	}
+	// The list of all monitors is arranged by hand: categories in the order of
+	// the groups, monitors moved to their group and ordered inside it.
+	order := []MonitorGroup{{Category: "", MonitorIDs: []int64{ids[2]}}, {Category: "late", MonitorIDs: []int64{ids[1], ids[0]}}, {Category: "web"}}
+	if err := s.SetMonitorOrder(ctx, order); err != nil {
+		t.Fatal(err)
+	}
+	arranged, err := s.Monitors(ctx)
+	if err != nil || len(arranged) != 3 {
+		t.Fatalf("monitors: got %d err=%v, want 3", len(arranged), err)
+	}
+	for i, want := range []struct {
+		id       int64
+		category string
+	}{{ids[2], ""}, {ids[1], "late"}, {ids[0], "late"}} {
+		if arranged[i].ID != want.id || arranged[i].Category != want.category {
+			t.Errorf("monitor %d in the list: got id %d in %q, want id %d in %q", i, arranged[i].ID, arranged[i].Category, want.id, want.category)
+		}
+	}
+	if names, err := s.Categories(ctx); err != nil || !slices.Equal(names, []string{"late", "web"}) {
+		t.Fatalf("categories after arranging: got %v err=%v, want late then web", names, err)
+	}
 	// Status pages keep the order they are given.
 	if err := s.SetProjectOrder(ctx, []int64{two, one}); err != nil {
 		t.Fatal(err)

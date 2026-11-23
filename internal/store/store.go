@@ -410,6 +410,16 @@ create index events_incident on events(incident_id);
 alter table projects add column position integer not null default 0;
 update projects set position = id;
 `,
+	// Step 16 gives monitors an order of their own inside their category, so
+	// that the list of all monitors can be arranged by hand.
+	`
+alter table monitors add column position integer not null default 0;
+update monitors set position = (
+	select count(*) from monitors earlier
+	where earlier.category = monitors.category
+		and (earlier.name < monitors.name or (earlier.name = monitors.name and earlier.id <= monitors.id))
+);
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

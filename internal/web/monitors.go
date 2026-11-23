@@ -344,9 +344,6 @@ func (s *Server) monitorsPage(r *http.Request) (monitorsPage, error) {
 		}
 		page.Groups[at].Rows = append(page.Groups[at].Rows, monitorListRow{monitorRow: row, Pages: pages[row.ID]})
 	}
-	if len(page.Groups[0].Rows) == 0 {
-		page.Groups = page.Groups[1:]
-	}
 	return page, nil
 }
 
@@ -357,6 +354,34 @@ func (s *Server) handleMonitors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, http.StatusOK, "monitors.html", page)
+}
+
+// handleOrderMonitors stores the arrangement of the list of all monitors. The
+// form sends one item per category and per monitor, in the order they stand
+// in: "c:" and a category's name, then "m:" and the id of each monitor in it.
+func (s *Server) handleOrderMonitors(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	var groups []store.MonitorGroup
+	for _, item := range r.PostForm["item"] {
+		kind, value, _ := strings.Cut(item, ":")
+		switch {
+		case kind == "c" && len(value) <= 80:
+			groups = append(groups, store.MonitorGroup{Category: value})
+		case kind == "m" && len(groups) > 0:
+			if id, err := strconv.ParseInt(value, 10, 64); err == nil {
+				last := &groups[len(groups)-1]
+				last.MonitorIDs = append(last.MonitorIDs, id)
+			}
+		}
+	}
+	if err := s.store.SetMonitorOrder(r.Context(), groups); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/admin/monitors", http.StatusSeeOther)
 }
 
 func (s *Server) handleCreateCategory(w http.ResponseWriter, r *http.Request) {

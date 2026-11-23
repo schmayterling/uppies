@@ -238,6 +238,12 @@ label.srow { cursor: pointer; }
 .facts strong { color: var(--ink); }
 .update-row { display: grid; gap: var(--space-1); padding: var(--space-3); }
 .update-row .update-body { font-size: var(--text-ui); }
+/* the list of all monitors is arranged by dragging: a row inside or between
+   categories, a category by its name. a category with no rows shows its note. */
+[data-order] [data-drag="monitor"] { cursor: grab; }
+[data-order] .dragging { opacity: 0.5; }
+.order-grip { display: inline-grid; place-items: center; margin-inline-end: var(--space-1); color: var(--muted); cursor: grab; vertical-align: middle; }
+tbody:has(> [data-drag]) > .empty-row { display: none; }
 /* the editor of a status page: its controls on the left, the page itself on the right */
 .content:has(.editor) { max-inline-size: calc(var(--content-wide) * 1.5); }
 .editor { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--space-5); align-items: start; }

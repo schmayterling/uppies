@@ -729,7 +729,7 @@ func TestMonitorsBelongToTheInstallAndAreListedByCategory(t *testing.T) {
 	}
 	_, page := s.get(t, s.admin, "/admin/monitors")
 	// Uncategorised first, then the categories in the order they were made, the empty one included.
-	order := []string{"no category", "website", "Acme", "<h2>core</h2>", "no monitors in this category yet", "<h2>storage</h2>", "database", "on none"}
+	order := []string{"no category", "website", "Acme", "core</h2>", "no monitors in this category yet", "storage</h2>", "database", "on none"}
 	at := 0
 	for _, want := range order {
 		next := strings.Index(page[at:], want)
@@ -738,6 +738,32 @@ func TestMonitorsBelongToTheInstallAndAreListedByCategory(t *testing.T) {
 		}
 		at += next + len(want)
 	}
+	// The arrangement is saved as the fields stand: the database moves into "core"
+	// ahead of nothing, and "storage" goes before "core".
+	monitorsNow, err := s.store.Monitors(ctx)
+	if err != nil || len(monitorsNow) != 2 {
+		t.Fatalf("monitors: got %d err=%v, want 2", len(monitorsNow), err)
+	}
+	byName := map[string]string{}
+	for _, m := range monitorsNow {
+		byName[m.Name] = strconv.FormatInt(m.ID, 10)
+	}
+	arrange := url.Values{"item": {"c:", "c:storage", "m:" + byName["website"], "c:core", "m:" + byName["database"], "m:not-a-number"}}
+	if resp := s.post(t, s.admin, "/admin/monitors/order", arrange, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("arrange: got %d, want 303", resp.StatusCode)
+	}
+	_, page = s.get(t, s.admin, "/admin/monitors")
+	order = []string{"no category", "every monitor has a category", "storage</h2>", "website", "core</h2>", "database"}
+	at = 0
+	for _, want := range order {
+		next := strings.Index(page[at:], want)
+		if next < 0 {
+			t.Fatalf("monitors page after arranging: %q is missing or out of order, wanted the order %v", want, order)
+		}
+		at += next + len(want)
+	}
+	arrange = url.Values{"item": {"c:", "m:" + byName["website"], "c:core", "c:storage", "m:" + byName["database"]}}
+	s.post(t, s.admin, "/admin/monitors/order", arrange, nil)
 	// Only the monitor that was put on the page is public there.
 	if _, status := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(status, "website") || strings.Contains(status, "database") {
 		t.Error("the status page must show the monitor placed on it and not the other one")
@@ -750,7 +776,7 @@ func TestMonitorsBelongToTheInstallAndAreListedByCategory(t *testing.T) {
 		t.Fatalf("delete the status page: got %d, want 303", resp.StatusCode)
 	}
 	_, page = s.get(t, s.admin, "/admin/monitors")
-	if strings.Contains(page, "<h2>storage</h2>") || !strings.Contains(page, "database") || !strings.Contains(page, "website") {
+	if strings.Contains(page, "storage</h2>") || !strings.Contains(page, "database") || !strings.Contains(page, "website") {
 		t.Error("after deleting a category and a status page, both monitors must remain and the category be gone")
 	}
 }

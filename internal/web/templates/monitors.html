@@ -7,42 +7,43 @@
   </span>
 </div>
 <p class="muted">everything uppies checks. a monitor belongs to the install: put it on any status page from that page's editor.</p>
+<p class="hint">drag a monitor to change its place or its category. drag a category by its name to move the whole group.</p>
+<form id="delete-category" method="post" action="/admin/categories/delete"></form>
+<form method="post" action="/admin/monitors/order" data-order>
 {{range .Groups}}
-<section aria-label="{{or .Category "no category"}}">
+<section class="order-group" aria-label="{{or .Category "no category"}}"{{if .Category}} draggable="true" data-drag="category"{{end}}>
+  <input type="hidden" name="item" value="c:{{.Category}}">
   <div class="title-row group-title">
-    <h2>{{or .Category "no category"}}</h2>
-    {{if .Category}}<form method="post" action="/admin/categories/delete"><input type="hidden" name="name" value="{{.Category}}"><button class="button quiet" type="submit">delete category</button></form>{{end}}
+    <h2>{{if .Category}}<span class="order-grip" aria-hidden="true">{{template "icon" "grip"}}</span>{{.Category}}{{else}}no category{{end}}</h2>
+    {{if .Category}}<button class="button quiet" type="submit" form="delete-category" name="name" value="{{.Category}}">delete category</button>{{end}}
   </div>
-  {{if .Rows}}
   <div class="panel table-scroll">
   <table class="dense">
     <thead><tr><th scope="col">monitor</th><th scope="col">state</th><th scope="col">status pages</th><th scope="col">last check</th><th scope="col" class="number">latency</th></tr></thead>
     <tbody>
       {{range .Rows}}
-      <tr>
+      <tr draggable="true" data-drag="monitor">
         <th scope="row">
-          <a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
+          <input type="hidden" name="item" value="m:{{.ID}}">
+          <a class="with-icon" href="/admin/monitors/{{.ID}}" draggable="false">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
           <span class="meta cell-note target">{{if eq .Kind "push"}}waits for the job to report in{{else}}{{.Target}}{{end}}</span>
         </th>
         <td>
           <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
           {{if and .LastError (eq .State "down")}}<span class="meta cell-note">{{.LastError}}</span>{{end}}
         </td>
-        <td>{{range $i, $page := .Pages}}{{if $i}}, {{end}}<a class="quiet-link" href="/admin/projects/{{$page.ID}}">{{$page.Name}}</a>{{else}}<span class="muted">on none</span>{{end}}</td>
+        <td>{{range $i, $page := .Pages}}{{if $i}}, {{end}}<a class="quiet-link" href="/admin/projects/{{$page.ID}}" draggable="false">{{$page.Name}}</a>{{else}}<span class="muted">on none</span>{{end}}</td>
         <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{utc .LastCheckAtMs}}</time>{{else}}<span class="muted">not yet</span>{{end}}</td>
         <td class="number">{{if and .LastCheckAtMs (eq .State "ok") (ne .Kind "push")}}{{.LastLatencyMs}} ms{{end}}</td>
       </tr>
       {{end}}
+      <tr class="empty-row"><td colspan="5" class="muted">{{if .Category}}no monitors in this category yet. drag one here, or choose the category in a monitor's settings.{{else}}every monitor has a category.{{end}}</td></tr>
     </tbody>
   </table>
   </div>
-  {{else}}
-  <p class="empty">no monitors in this category yet. choose it in a monitor's settings.</p>
-  {{end}}
 </section>
-{{else}}
-<p class="empty">no monitors yet.</p>
 {{end}}
+</form>
 <dialog id="add-category" aria-labelledby="add-category-heading"{{if index .Problems "name"}} data-open-on-load{{end}}>
   <h2 id="add-category-heading">new category</h2>
   <p>categories group monitors here and on every status page that shows them.</p>
