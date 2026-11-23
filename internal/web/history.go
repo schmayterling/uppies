@@ -89,8 +89,10 @@ func yearDayGroups(incidents []incidentView, year int, now time.Time, zone *time
 type heatCell struct {
 	Level int
 	Tip   string
-	// Blank marks a cell outside the year or in the future. It keeps the grid's shape.
+	// Blank marks a cell outside the year. It keeps the grid's shape.
 	Blank bool
+	// Future marks a day of the year that has not happened yet. It is drawn as an outline.
+	Future bool
 }
 
 type historyPage struct {
@@ -109,6 +111,9 @@ type historyPage struct {
 	Days   []dayGroup
 	// HideQuiet leaves days without incidents out of the timeline.
 	HideQuiet bool
+	// Page is the page of the timeline shown, from 1. Older and Newer are the
+	// neighbouring pages, 0 when there is none.
+	Page, Older, Newer int
 }
 
 var impactLevels = map[string]int{"minor": 1, "major": 2, "critical": 3}
@@ -158,8 +163,8 @@ func incidentMap(incidents []store.Incident, year int, now time.Time, zone *time
 	for !day.After(last) {
 		week := make([]heatCell, 0, 7)
 		for range 7 {
-			cell := heatCell{Blank: day.Year() != year || day.After(endOfToday)}
-			if !cell.Blank {
+			cell := heatCell{Blank: day.Year() != year, Future: day.Year() == year && day.After(endOfToday)}
+			if !cell.Blank && !cell.Future {
 				t := totals[day.Format(time.DateOnly)]
 				cell.Level = t.level
 				switch t.count {
@@ -177,6 +182,29 @@ func incidentMap(incidents []store.Incident, year int, now time.Time, zone *time
 		weeks = append(weeks, week)
 	}
 	return weeks
+}
+
+// timelinePerPage is how many entries of the history timeline one page shows.
+const timelinePerPage = 20
+
+// paginate cuts a list into pages of perPage and returns the requested page
+// with the numbers of its neighbours, 0 for none. A page number outside the
+// list gives the first page.
+func paginate(groups []dayGroup, requested, perPage int) (shown []dayGroup, page, older, newer int) {
+	pages := max((len(groups)+perPage-1)/perPage, 1)
+	page = requested
+	if page < 1 || page > pages {
+		page = 1
+	}
+	start := (page - 1) * perPage
+	shown = groups[min(start, len(groups)):min(start+perPage, len(groups))]
+	if page < pages {
+		older = page + 1
+	}
+	if page > 1 {
+		newer = page - 1
+	}
+	return shown, page, older, newer
 }
 
 // monthLabels names the months above the year's grid, one entry per week
@@ -254,7 +282,10 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 		Total:     len(incidents),
 		HideQuiet: r.URL.Query().Get("quiet") == "hide",
 	}
-	page.Days = yearDayGroups(views, year, now, zone, page.HideQuiet)
+	groups := yearDayGroups(views, year, now, zone, page.HideQuiet)
+	// A missing or impossible page number means the first page.
+	requested, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	page.Days, page.Page, page.Older, page.Newer = paginate(groups, requested, timelinePerPage)
 	if year < now.Year() {
 		page.NextYear = year + 1
 	}

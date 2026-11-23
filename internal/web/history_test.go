@@ -69,8 +69,8 @@ func TestIncidentMap(t *testing.T) {
 	if cell := weeks[10][2]; cell.Level != 2 || cell.Tip != "mar 10, 2026: 1 incident" {
 		t.Errorf("mar 10: got %+v, want level 2 with 1 incident", cell)
 	}
-	if cell := weeks[10][3]; !cell.Blank {
-		t.Errorf("mar 11 is after today: got %+v, want blank", cell)
+	if cell := weeks[10][3]; !cell.Future || cell.Blank || cell.Tip != "" {
+		t.Errorf("mar 11 is after today: got %+v, want a future day with no tooltip", cell)
 	}
 	if cell := weeks[1][0]; cell.Blank || cell.Level != 0 || cell.Tip != "jan 4, 2026: no incidents" {
 		t.Errorf("jan 4: got %+v, want a quiet day", cell)
@@ -113,5 +113,36 @@ func TestMonthLabels(t *testing.T) {
 	}
 	if named != 12 {
 		t.Fatalf("got %d month names, want 12", named)
+	}
+}
+
+func TestPaginate(t *testing.T) {
+	groups := make([]dayGroup, 45)
+	for i := range groups {
+		groups[i].Date = string(rune('a' + i%26))
+	}
+	tests := []struct {
+		name                   string
+		requested              int
+		wantLen                int
+		wantPage, older, newer int
+	}{
+		{"the first page", 1, 20, 1, 2, 0},
+		{"a middle page", 2, 20, 2, 3, 1},
+		{"the last page holds the rest", 3, 5, 3, 0, 2},
+		{"a page past the end gives the first", 9, 20, 1, 2, 0},
+		{"no page given gives the first", 0, 20, 1, 2, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			shown, page, older, newer := paginate(groups, tt.requested, 20)
+			if len(shown) != tt.wantLen || page != tt.wantPage || older != tt.older || newer != tt.newer {
+				t.Fatalf("got %d entries on page %d (older %d, newer %d), want %d on page %d (older %d, newer %d)",
+					len(shown), page, older, newer, tt.wantLen, tt.wantPage, tt.older, tt.newer)
+			}
+		})
+	}
+	if shown, page, older, newer := paginate(nil, 1, 20); len(shown) != 0 || page != 1 || older != 0 || newer != 0 {
+		t.Fatalf("an empty list: got %d entries, page %d, older %d, newer %d", len(shown), page, older, newer)
 	}
 }
