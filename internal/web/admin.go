@@ -482,7 +482,12 @@ type monitorFormPage struct {
 	Detail monitorDetail
 	Checks []store.Check
 	Zone   *time.Location
+	// StateIcons names the icon of the notice for each state.
+	StateIcons map[string]string
 }
+
+// stateIcons are the icons of the state notice on the monitor overview.
+var stateIcons = map[string]string{stateOK: "circle-check", stateDown: "circle-x", stateWarn: "info", stateNone: "info"}
 
 // latestChecks is how many checks the monitor overview lists.
 const latestChecks = 20
@@ -492,6 +497,7 @@ func (s *Server) monitorOverview(r *http.Request, page *monitorFormPage) error {
 	var err error
 	page.Zone, _ = pageZone(page.Project, "")
 	page.State, page.Word = componentState(page.Monitor)
+	page.StateIcons = stateIcons
 	page.Detail, err = s.monitorDetail(r.Context(), page.Project, page.Monitor, page.Zone)
 	if err != nil {
 		return err

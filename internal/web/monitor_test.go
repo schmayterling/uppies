@@ -169,7 +169,7 @@ func TestMonitorDetailPagesAndBadges(t *testing.T) {
 
 	// The admin page of a monitor opens on an overview, with the errors the public page leaves out.
 	_, admin := s.get(t, s.admin, fmt.Sprintf("/admin/monitors/%d", apiID))
-	for _, want := range []string{`data-pane="overview"`, `data-pane="settings"`, "latest checks", "dial tcp 10.0.0.7:443: refused", "p95, 24 h", "public page"} {
+	for _, want := range []string{`data-pane="overview"`, `data-pane="settings"`, "latest checks", "dial tcp 10.0.0.7:443: refused", "p95, 24 h", "open its public page", `class="admonition admonition-success"`} {
 		if !strings.Contains(admin, want) {
 			t.Errorf("admin monitor page is missing %q", want)
 		}

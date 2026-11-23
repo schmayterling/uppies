@@ -7,7 +7,10 @@
   <a href="#pane-overview" data-tab="overview">overview</a><a href="#pane-settings" data-tab="settings">settings</a>
 </nav>
 <div class="pane" id="pane-overview" data-pane="overview">
-  <p class="meta"><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>{{if .Monitor.Public}} · <a href="/s/{{.Project.Slug}}/monitors/{{.Monitor.ID}}">public page</a>{{else}} · hidden from the status page{{end}}</p>
+  <div class="admonition admonition-{{if eq .State "down"}}danger{{else if eq .State "ok"}}success{{else}}info{{end}}"{{if eq .State "down"}} role="alert"{{end}}>{{template "icon" (index .StateIcons .State)}}<div>
+    <p><strong>{{.Word}}</strong>{{if and (eq .State "down") .Monitor.LastError}}: {{.Monitor.LastError}}{{end}}</p>
+    <p>{{if .Monitor.Public}}shown on the status page. <a href="/s/{{.Project.Slug}}/monitors/{{.Monitor.ID}}">open its public page</a>{{else}}hidden from the status page.{{end}}</p>
+  </div></div>
   {{template "monitor-detail" (pair .Detail .Project.HistoryDays)}}
   <section aria-labelledby="checks-heading">
     <h2 id="checks-heading">latest checks</h2>
