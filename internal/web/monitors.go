@@ -49,8 +49,7 @@ type monitorFormPage struct {
 type badgeBuilder struct {
 	Kinds    []string
 	Swatches []int
-	// The choices: the status page whose address the badge lives under, what
-	// it shows, its ground, the colour of its block, its label and its days.
+	// The choices are the status page, metric, theme, accent, label and window.
 	Slug, Show, Theme, Color, Label, Days string
 	// Path is the badge's address with its options, and URL the same with this server's origin.
 	Path, URL string

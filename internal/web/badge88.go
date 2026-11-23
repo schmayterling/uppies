@@ -3,6 +3,7 @@ package web
 import (
 	"cmp"
 	"fmt"
+	"html"
 	"net/url"
 	"strconv"
 	"strings"
@@ -10,9 +11,8 @@ import (
 	"uppies/internal/store"
 )
 
-// An 88 by 31 badge is drawn from rectangles only, glyphs included. With no
-// font to look up, the same numbers give the same image byte for byte, in
-// every browser and on every machine.
+// An 88 by 31 badge uses SVG paths and a built-in pixel font. The same
+// values and options produce the same SVG bytes.
 
 // badgeGlyphs is a 5 by 7 pixel font with the characters a badge needs.
 var badgeGlyphs = map[rune][7]string{
@@ -92,7 +92,7 @@ func badgeText(text string, x, y, scale int) string {
 	return d.String()
 }
 
-// badgeValue writes a response time in at most four characters, with its unit.
+// badgeValue formats a response time in milliseconds or tenths of a second.
 func badgeValue(ms int64, known bool) (value, unit string) {
 	switch {
 	case !known:
@@ -105,36 +105,27 @@ func badgeValue(ms int64, known bool) (value, unit string) {
 	}
 }
 
-// badgeSpec is everything an 88 by 31 badge shows. The same spec always
-// draws the same image.
+// badgeSpec holds the two text overlays and the optional chart behind them.
 type badgeSpec struct {
-	// Label and Sub are the two short lines on the coloured block, such as "p99" and "24h".
-	Label, Sub string
-	// Value is the large text, at most four characters, and Unit the small line under it.
-	Value, Unit string
-	// State picks the colour of the block.
-	State string
-	// Light draws dark text on a white ground. The default is light text on a dark one.
-	Light bool
-	// Title is the image's accessible name.
-	Title string
-	// Graph replaces the large text with a small chart: one column per entry,
-	// each up to graphHeight pixels tall. Gap leaves a pixel between columns.
-	Graph []graphColumn
-	Gap   bool
-	// Hue colours the block with a hue of the colour wheel, 0 to 360,
-	// in place of the state's colour. Negative keeps the state's colour.
+	Label, Window, Value string
+	State                string
+	Light                bool
+	Title                string
+	Bars, Line           string
+	// Hue overrides the state's accent when it is non-negative.
 	Hue int
 }
 
-// graphColumn is one column of a badge's chart. An empty colour means the badge's own ink.
-type graphColumn struct {
-	Height int
-	Colour string
-}
+const (
+	badgeWidth  = 88
+	badgeHeight = 31
+	badgeInset  = 5
+)
 
-// graphHeight is the height of a badge's chart in pixels.
-const graphHeight = 16
+// The same state colours as the public pages, lifted for dark badge charts.
+var badgeDarkAccents = map[string]string{
+	stateOK: "#b4e6a4", stateWarn: "#edcf8f", stateDown: "#ffb0b0", stateNone: "#b6bcc2",
+}
 
 // badgeWord cuts text down to what the pixel font can draw and a line can
 // hold: lowercase letters, digits and a few signs, at most max characters.
@@ -151,148 +142,190 @@ func badgeWord(text string, max int) string {
 	return strings.TrimSpace(word.String())
 }
 
-// drawBadge draws an 88 by 31 badge: the label on a block in the state's
-// colour, and the value with its unit beside it.
+// drawBadge layers a subdued chart behind a small label and a prominent value.
 func drawBadge(spec badgeSpec) string {
-	const (
-		width, height = 88, 31
-		blockWidth    = 30
-		// The value has the space right of the block, inside the border.
-		valueLeft  = 1 + blockWidth
-		valueSpace = width - 1 - valueLeft
-	)
-	border, ground, ink, quiet := "#5b6166", "#16181a", "#fff", "#b6bcc2"
+	edge := badgeColours[spec.State]
+	ground, ink, quiet := "#16181a", "#fff", "#d0d5d9"
+	accent := badgeDarkAccents[spec.State]
 	if spec.Light {
-		border, ground, ink, quiet = "#b6bcc2", "#fff", "#16181a", "#5b6166"
+		ground, ink, quiet = "#fff", "#16181a", "#36424c"
+		accent = edge
 	}
-	centred := func(text string, left, space, scale int) int { return left + (space-badgeTextWidth(text, scale))/2 }
+	if spec.Hue >= 0 {
+		edge = fmt.Sprintf("hsl(%d 45%% 32%%)", spec.Hue)
+		accent = edge
+		if !spec.Light {
+			accent = fmt.Sprintf("hsl(%d 45%% 66%%)", spec.Hue)
+		}
+	}
+
+	title := html.EscapeString(spec.Title)
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" shape-rendering="crispEdges" role="img" aria-label="%s"><title>%s</title>`,
-		width, height, width, height, spec.Title, spec.Title)
-	fmt.Fprintf(&b, `<path fill="%s" d="M0 0h%dv%dh-%dz"/><path fill="%s" d="M1 1h%dv%dh-%dz"/>`,
-		border, width, height, width, ground, width-2, height-2, width-2)
-	block := badgeColours[spec.State]
-	if spec.Hue >= 0 {
-		block = fmt.Sprintf("hsl(%d 45%% 32%%)", spec.Hue)
+		badgeWidth, badgeHeight, badgeWidth, badgeHeight, title, title)
+	fmt.Fprintf(&b, `<rect width="%d" height="%d" fill="%s"/><rect x="1" y="1" width="%d" height="%d" fill="%s"/>`,
+		badgeWidth, badgeHeight, edge, badgeWidth-2, badgeHeight-2, ground)
+	if spec.Bars != "" {
+		fmt.Fprintf(&b, `<path fill="%s" fill-opacity=".23" d="%s"/>`, accent, spec.Bars)
 	}
-	fmt.Fprintf(&b, `<path fill="%s" d="M1 1h%dv%dh-%dz"/>`, block, blockWidth, height-2, blockWidth)
-	// One line on the block sits in its middle. Two lines share it.
-	labelTop := 12
-	if spec.Sub != "" {
-		labelTop = 6
+	if spec.Line != "" {
+		fmt.Fprintf(&b, `<path fill="none" stroke="%s" stroke-opacity=".4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision" d="%s"/>`, accent, spec.Line)
 	}
-	fmt.Fprintf(&b, `<path fill="#fff" d="%s%s"/>`,
-		badgeText(spec.Label, centred(spec.Label, 1, blockWidth, 1), labelTop, 1),
-		badgeText(spec.Sub, centred(spec.Sub, 1, blockWidth, 1), 18, 1))
-	if len(spec.Graph) > 0 {
-		// The chart stands on a line 4 pixels under the top of the value's place, centred like the value.
-		step := 1
-		if spec.Gap {
-			step = 2
-		}
-		left := valueLeft + (valueSpace-(len(spec.Graph)*step-step+1))/2
-		for i, column := range spec.Graph {
-			if column.Height > 0 {
-				fmt.Fprintf(&b, `<path fill="%s" d="M%d %dh1v%dh-1z"/>`, cmp.Or(column.Colour, ink), left+i*step, 3+graphHeight-column.Height, column.Height)
-			}
-		}
-	} else {
-		fmt.Fprintf(&b, `<path fill="%s" d="%s"/>`, ink, badgeText(spec.Value, centred(spec.Value, valueLeft, valueSpace, 2), 4, 2))
+	label := strings.TrimSpace(spec.Label + " " + spec.Window)
+	fmt.Fprintf(&b, `<path fill="%s" d="%s"/>`, quiet, badgeText(label, badgeInset, 4, 1))
+	scale := 2
+	if badgeTextWidth(spec.Value, scale) > badgeWidth-2*badgeInset {
+		scale = 1
 	}
-	fmt.Fprintf(&b, `<path fill="%s" d="%s"/></svg>`, quiet, badgeText(spec.Unit, centred(spec.Unit, valueLeft, valueSpace, 1), 21, 1))
+	x := badgeWidth - badgeInset - badgeTextWidth(spec.Value, scale)
+	y := badgeHeight - 4 - 7*scale
+	fmt.Fprintf(&b, `<path fill="%s" d="%s"/></svg>`, ink, badgeText(spec.Value, x, y, scale))
 	return b.String()
 }
 
-// percentileBadge draws the 88 by 31 badge of one percentile: the percentile
-// and its window on a block in the monitor's state colour, and the value beside it.
+// percentileBadge draws the 88 by 31 badge of one percentile.
 func percentileBadge(p int, sortedLatencies []int64, state string) string {
 	return drawBadge(percentileSpec(p, sortedLatencies, state))
 }
 
 func percentileSpec(p int, sortedLatencies []int64, state string) badgeSpec {
-	value, unit := badgeValue(percentile(sortedLatencies, p), len(sortedLatencies) > 0)
 	name := fmt.Sprintf("p%d", p)
-	title := fmt.Sprintf("%s response time over 24 hours: %s %s", name, value, unit)
+	spec := badgeSpec{Label: name, Window: "24h", Value: "--", State: state, Hue: -1}
 	if len(sortedLatencies) == 0 {
-		title = name + " response time over 24 hours: no data"
+		spec.Title = name + " response time over 24 hours: no data"
+		return spec
 	}
-	return badgeSpec{Label: name, Sub: "24h", Value: value, Unit: unit, State: state, Title: title, Hue: -1}
+	value, unit := badgeValue(percentile(sortedLatencies, p), true)
+	spec.Value = value + unit
+	spec.Title = fmt.Sprintf("%s response time over 24 hours: %s %s", name, value, unit)
+	// The line is a distribution of the same successful checks, from fastest to slowest.
+	samples := sortedLatencies
+	if len(samples) > int(detailBuckets) {
+		samples = make([]int64, detailBuckets)
+		for i := range samples {
+			samples[i] = sortedLatencies[i*(len(sortedLatencies)-1)/(len(samples)-1)]
+		}
+	}
+	spec.Line = badgeLine(samples, sortedLatencies[len(sortedLatencies)-1])
+	return spec
 }
 
-// badgeStateWords says a state in at most four characters, the width of the large text.
 var badgeStateWords = map[string]string{stateOK: "up", stateDown: "down", stateWarn: "warn", stateNone: "wait"}
 
 // statusSpec is the badge of a current state. name is whose state it is.
 func statusSpec(name, state, word string) badgeSpec {
+	value := cmp.Or(word, badgeStateWords[state])
 	return badgeSpec{
-		Label: "now", Value: cmp.Or(word, badgeStateWords[state]), Unit: badgeWord(name, 9), State: state, Hue: -1,
-		Title: fmt.Sprintf("%s is %s", name, cmp.Or(word, badgeStateWords[state])),
+		Label: cmp.Or(badgeWord(name, 13), "status"), Value: value, State: state, Hue: -1,
+		Title: fmt.Sprintf("%s is %s", name, value),
 	}
 }
 
-// uptimeSpec is the badge of an uptime figure over a number of days. uptime
-// is the text uptimePercent gives, such as "99.94% uptime" or "no data yet".
-func uptimeSpec(name, uptime string, days int, state string) badgeSpec {
-	spec := badgeSpec{Label: "up", Sub: fmt.Sprintf("%dd", days), Value: "--", Unit: "% uptime", State: state, Hue: -1}
-	spec.Title = fmt.Sprintf("uptime of %s over %d days: no data", name, days)
+// uptimeSpec is the badge of an uptime figure and its daily history.
+func uptimeSpec(name, uptime string, days []dayCell, state string) badgeSpec {
+	spec := badgeSpec{
+		Label: "uptime", Window: fmt.Sprintf("%dd", len(days)), Value: "--",
+		State: state, Hue: -1, Bars: badgeBars(days),
+	}
+	spec.Title = fmt.Sprintf("uptime of %s over %d days: no data", name, len(days))
 	if number, _, measured := strings.Cut(uptime, "%"); measured {
-		// Four characters hold "100" and "99.9". The figure is cut, never rounded up.
-		spec.Value = strings.TrimSuffix(number[:min(len(number), 4)], ".")
-		spec.Title = fmt.Sprintf("uptime of %s over %d days: %s%%", name, days, number)
+		spec.Value = number + "%"
+		spec.Title = fmt.Sprintf("uptime of %s over %d days: %s", name, len(days), spec.Value)
 	}
 	return spec
 }
 
-// badgeBarDays is how many days a badge's uptime chart shows: one column and one gap per day.
+// badgeBarDays is the window of the fixed daily history badge.
 const badgeBarDays = 27
 
-// barsSpec is the badge with a small uptime chart: one column per day, the
-// newest on the right, shorter and coloured on a day with downtime.
-func barsSpec(name string, days []dayCell, state string) badgeSpec {
-	heights := map[string]int{stateOK: graphHeight, stateWarn: 11, stateDown: 6, stateNone: graphHeight}
-	spec := badgeSpec{Label: "up", Sub: fmt.Sprintf("%dd", len(days)), Unit: "per day", State: state, Gap: true, Hue: -1}
-	spec.Title = fmt.Sprintf("uptime of %s per day over %d days", name, len(days))
-	for _, day := range days {
-		colour := badgeColours[day.State]
-		if day.State == stateOK {
-			colour = "#2f9e5b"
+// badgeBars leaves gaps for days without data. Long windows share one bar
+// across adjacent days, sized by the worst day with data in that group.
+func badgeBars(days []dayCell) string {
+	const plotWidth = badgeWidth - 2
+	count := min(len(days), badgeBarDays)
+	var path strings.Builder
+	for i := range count {
+		start, end := i*len(days)/count, (i+1)*len(days)/count
+		height := 0
+		for _, day := range days[start:end] {
+			var dayHeight int
+			switch day.State {
+			case stateOK:
+				dayHeight = 22
+			case stateWarn:
+				dayHeight = 14
+			case stateDown:
+				dayHeight = 7
+			default:
+				continue
+			}
+			if height == 0 || dayHeight < height {
+				height = dayHeight
+			}
 		}
-		spec.Graph = append(spec.Graph, graphColumn{Height: heights[day.State], Colour: colour})
+		if height > 0 {
+			left, right := 1+i*plotWidth/count, 1+(i+1)*plotWidth/count
+			// Leave a one-pixel gap at the right of each slot.
+			width := right - left - 1
+			fmt.Fprintf(&path, "M%d %dh%dv%dh-%dz", left, badgeHeight-1-height, width, height, width)
+		}
 	}
-	return spec
+	return path.String()
 }
 
-// lineSpec is the badge with a small response time chart: one column per
-// half hour of the last day, as tall as that half hour's average against the slowest one.
+// badgeLine draws a line across a series with gaps wherever samples are negative.
+func badgeLine(samples []int64, peak int64) string {
+	const plotInset, plotTop, plotBottom = 2, 4, badgeHeight - 3
+	var path strings.Builder
+	connected := false
+	for i, ms := range samples {
+		if ms < 0 {
+			connected = false
+			continue
+		}
+		x := plotInset + i*(badgeWidth-2*plotInset)/max(1, len(samples)-1)
+		if len(samples) == 1 {
+			x = badgeWidth / 2
+		}
+		y := plotBottom - int(float64(ms)/float64(max(1, peak))*(plotBottom-plotTop))
+		if connected {
+			fmt.Fprintf(&path, "L%d %d", x, y)
+		} else {
+			// A rounded zero-length line is a dot when the sample has no neighbours.
+			fmt.Fprintf(&path, "M%d %dh0", x, y)
+		}
+		connected = true
+	}
+	return path.String()
+}
+
+// lineSpec shows half-hour averages and the highest one over the last day.
 func lineSpec(name string, buckets []store.CheckBucket, firstSlotMs int64, state string) badgeSpec {
-	spec := badgeSpec{Label: "ms", Sub: "24h", Unit: "no data", State: state, Hue: -1}
+	spec := badgeSpec{Label: "peak", Window: "24h", Value: "--", State: state, Hue: -1}
 	spec.Title = "response time of " + name + " over 24 hours: no data"
-	var peak int64
-	byStart := make(map[int64]int64, len(buckets))
+	var samples [detailBuckets]int64
+	for i := range samples {
+		samples[i] = -1
+	}
+	peak := int64(-1)
 	for _, b := range buckets {
-		byStart[b.StartMs] = b.LatencyAvgMs
+		slot := (b.StartMs - firstSlotMs) / detailBucketMs
+		if b.StartMs < firstSlotMs || slot >= detailBuckets || b.Checks <= b.Failures {
+			continue
+		}
+		samples[slot] = b.LatencyAvgMs
 		peak = max(peak, b.LatencyAvgMs)
 	}
-	if peak == 0 {
+	if peak < 0 {
 		return spec
 	}
-	for i := range int(detailBuckets) {
-		average := byStart[firstSlotMs+int64(i)*detailBucketMs]
-		column := graphColumn{}
-		if average > 0 {
-			column.Height = max(1, int(average*graphHeight/peak))
-		}
-		spec.Graph = append(spec.Graph, column)
-	}
 	value, unit := badgeValue(peak, true)
-	spec.Unit = "top " + value + unit
+	spec.Value, spec.Line = value+unit, badgeLine(samples[:], peak)
 	spec.Title = fmt.Sprintf("response time of %s over 24 hours, at most %s %s per half hour", name, value, unit)
 	return spec
 }
 
-// badgeOptions applies what the address asks for to a badge: "theme=light"
-// for a white ground, "label=" for other words on the block, and "color="
-// with a hue from 0 to 360 for a block in that colour.
+// badgeOptions applies the theme, label and accent requested in the address.
 func badgeOptions(spec badgeSpec, query url.Values) badgeSpec {
 	spec.Light = query.Get("theme") == "light"
 	if hue, err := strconv.Atoi(query.Get("color")); err == nil && hue >= 0 && hue <= 360 {

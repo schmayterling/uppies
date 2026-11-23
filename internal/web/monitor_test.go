@@ -63,7 +63,7 @@ func TestPercentileBadgeIsDeterministicAnd88By31(t *testing.T) {
 	if second := percentileBadge(99, latencies, stateOK); first != second {
 		t.Fatal("the same input gave two different images")
 	}
-	for _, want := range []string{`width="88" height="31"`, `aria-label="p99 response time over 24 hours: 142 ms"`, badgeColours[stateOK]} {
+	for _, want := range []string{`width="88" height="31"`, `aria-label="p99 response time over 24 hours: 142 ms"`, badgeColours[stateOK], `stroke="` + badgeDarkAccents[stateOK] + `"`} {
 		if !strings.Contains(first, want) {
 			t.Errorf("badge is missing %q", want)
 		}
@@ -87,7 +87,12 @@ func TestStateAndUptimeBadgesAndTheirOptions(t *testing.T) {
 	if !strings.Contains(up, `aria-label="Acme Payments API is up"`) || !strings.Contains(up, badgeColours[stateOK]) {
 		t.Errorf("state badge: %q", up)
 	}
-	// A name is cut to what fits under the value, in the letters the font has.
+	// The SVG preserves names that contain punctuation in its accessible text.
+	named := drawBadge(statusSpec("Acme & Sons", stateOK, "up"))
+	if !strings.Contains(named, `aria-label="Acme &amp; Sons is up"`) {
+		t.Errorf("status badge name was not escaped: %s", named)
+	}
+	// A name is cut to what fits the label, in the letters the font has.
 	if got := badgeWord("Acme Payments API", 9); got != "acme paym" {
 		t.Errorf("name on a badge: got %q, want %q", got, "acme paym")
 	}
@@ -95,18 +100,19 @@ func TestStateAndUptimeBadgesAndTheirOptions(t *testing.T) {
 		t.Errorf("a label keeps only what can be drawn: got %q, want %q", got, "bok")
 	}
 	cases := []struct{ uptime, value, title string }{
-		{"99.94% uptime", "99.9", "uptime of api over 30 days: 99.94%"},
-		{"100% uptime", "100", "uptime of api over 30 days: 100%"},
+		{"99.94% uptime", "99.94%", "uptime of api over 30 days: 99.94%"},
+		{"100% uptime", "100%", "uptime of api over 30 days: 100%"},
 		{"no data yet", "--", "uptime of api over 30 days: no data"},
 	}
+	history := make([]dayCell, 30)
 	for _, c := range cases {
-		spec := uptimeSpec("api", c.uptime, 30, stateOK)
-		if spec.Value != c.value || spec.Title != c.title || spec.Sub != "30d" {
-			t.Errorf("%q: got value %q sub %q title %q, want %q, 30d and %q", c.uptime, spec.Value, spec.Sub, spec.Title, c.value, c.title)
+		spec := uptimeSpec("api", c.uptime, history, stateOK)
+		if spec.Value != c.value || spec.Title != c.title || spec.Window != "30d" {
+			t.Errorf("%q: got value %q window %q title %q, want %q, 30d and %q", c.uptime, spec.Value, spec.Window, spec.Title, c.value, c.title)
 		}
 	}
 	// Options change the look and never the numbers. The same options give the same image.
-	spec := uptimeSpec("api", "99.94% uptime", 30, stateOK)
+	spec := uptimeSpec("api", "99.94% uptime", history, stateOK)
 	light := badgeOptions(spec, url.Values{"theme": {"light"}, "label": {"Live!!"}})
 	if !light.Light || light.Label != "live" || light.Value != spec.Value {
 		t.Errorf("options: got %+v", light)
@@ -119,6 +125,34 @@ func TestStateAndUptimeBadgesAndTheirOptions(t *testing.T) {
 		if got := badgeDays(values, 90); got != want {
 			t.Errorf("days from %q: got %d, want %d", query, got, want)
 		}
+	}
+}
+
+func TestBadgeGraphsKeepGapsAndOlderOutages(t *testing.T) {
+	history := make([]dayCell, 365)
+	history[0] = dayCell{State: stateDown}
+	history[1] = dayCell{State: stateOK}
+	history[364] = dayCell{State: stateOK}
+	bars := badgeBars(history)
+	if strings.Count(bars, "M") != 2 || !strings.Contains(bars, "M1 23h2v7") || !strings.Contains(bars, "M83 8h3v22") {
+		t.Errorf("badge bars should keep the early outage and leave missing periods empty: %s", bars)
+	}
+
+	buckets := []store.CheckBucket{
+		{StartMs: 0, Checks: 1, LatencyAvgMs: 0},
+		{StartMs: detailBucketMs, Checks: 1, LatencyAvgMs: 75},
+		{StartMs: 2 * detailBucketMs, Checks: 1, Failures: 1},
+		{StartMs: 3 * detailBucketMs, Checks: 1, LatencyAvgMs: 25},
+	}
+	spec := lineSpec("api", buckets, 0, stateOK)
+	if spec.Value != "75ms" || strings.Count(spec.Line, "M") != 2 || strings.Count(spec.Line, "L") != 1 {
+		t.Errorf("badge line should include zero latency and break at failed buckets: %+v", spec)
+	}
+	if zero := lineSpec("api", buckets[:1], 0, stateOK); zero.Value != "0ms" || zero.Line == "" {
+		t.Errorf("a zero-latency check still has a value and a dot: %+v", zero)
+	}
+	if empty := lineSpec("api", buckets[2:3], 0, stateDown); empty.Value != "--" || empty.Line != "" {
+		t.Errorf("a failed check cannot produce a latency value or a line: %+v", empty)
 	}
 }
 
@@ -225,7 +259,7 @@ func TestMonitorDetailPagesAndBadges(t *testing.T) {
 		t.Errorf("p90 of four values is the largest: %q", p90)
 	}
 
-	// A badge can be a small chart, and can take its block colour from the address.
+	// The chart choices retain their windows, and the address can set the accent.
 	for path, want := range map[string]string{
 		public + "/88x31.svg?show=bars":          "uptime of api per day over 27 days",
 		public + "/88x31.svg?show=line":          "response time of api over 24 hours, at most",

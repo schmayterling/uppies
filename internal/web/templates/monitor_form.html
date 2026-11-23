@@ -119,11 +119,11 @@
   <form method="get" action="/admin/monitors/{{.Monitor.ID}}#pane-badges" data-autosubmit>
     <div class="group">
       <div class="srow">
-        <span class="srow-copy"><span>preview</span><small class="target">{{.Badge.Path}}</small></span>
+        <span class="srow-copy"><span>preview</span></span>
         <span class="srow-control badge-row"><img class="badge88 badge88-large" src="{{.Badge.Path}}" width="176" height="62" alt="the badge with these choices"><img class="badge88" src="{{.Badge.Path}}" width="88" height="31" alt=""></span>
       </div>
       <div class="srow">
-        <label class="srow-copy" for="b_show"><span>shows</span><small>status is the current state. bars is the uptime per day. line is the response time over a day.</small></label>
+        <label class="srow-copy" for="b_show"><span>shows</span><small>bars show daily uptime. line shows half-hour response times.</small></label>
         <div class="srow-control"><select id="b_show" name="b_show">{{range .Badge.Kinds}}<option value="{{.}}"{{if eq . $.Badge.Show}} selected{{end}}>{{.}}</option>{{end}}</select></div>
       </div>
       {{if gt (len .Pages) 1}}
@@ -133,20 +133,20 @@
       </div>
       {{end}}
       <div class="srow">
-        <div class="srow-copy" id="b-theme-label"><span>ground</span></div>
+        <div class="srow-copy" id="b-theme-label"><span>background</span></div>
         <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="b-theme-label">
           <label><input type="radio" name="b_theme" value="dark"{{if ne .Badge.Theme "light"}} checked{{end}}><span>dark</span></label><label><input type="radio" name="b_theme" value="light"{{if eq .Badge.Theme "light"}} checked{{end}}><span>light</span></label>
         </div></div>
       </div>
       <div class="srow">
-        <div class="srow-copy" id="b-color-label"><span>block colour</span><small>the first one follows the monitor's state: green, red or grey.</small></div>
+        <div class="srow-copy" id="b-color-label"><span>accent colour</span><small>the first swatch follows the monitor’s state.</small></div>
         <div class="srow-control"><div class="swatches" role="radiogroup" aria-labelledby="b-color-label">
           <label class="swatch swatch-state" title="follow the monitor's state"><input type="radio" name="b_color" value=""{{if not .Badge.Color}} checked{{end}}><span class="visually-hidden">follow the monitor's state</span></label>
           {{range .Badge.Swatches}}<label class="swatch swatch-{{.}}"><input type="radio" name="b_color" value="{{.}}"{{if eq (print .) $.Badge.Color}} checked{{end}}><span class="visually-hidden">hue {{.}}</span></label>{{end}}
         </div></div>
       </div>
       <div class="srow">
-        <label class="srow-copy" for="b_label"><span>label</span><small>up to four letters or digits on the block. leave empty for the usual one.</small></label>
+        <label class="srow-copy" for="b_label"><span>label</span><small>up to four letters or digits. leave empty for the default label.</small></label>
         <div class="srow-control"><input id="b_label" name="b_label" value="{{.Badge.Label}}" maxlength="4" autocapitalize="none" spellcheck="false"></div>
       </div>
       <div class="srow">

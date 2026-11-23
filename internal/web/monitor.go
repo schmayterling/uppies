@@ -291,25 +291,22 @@ func (s *Server) handleMonitorBadge(w http.ResponseWriter, r *http.Request) {
 		if word == "paused" {
 			spec = statusSpec(m.Name, state, "off")
 		}
-	case "uptime":
+	case "uptime", "bars":
 		days := badgeDays(query, project.HistoryDays)
+		if show == "bars" {
+			days = badgeBarDays
+		}
 		todayStartMs := store.DayStartMs(nowMs)
 		rollups, err := s.store.MonitorRollups(r.Context(), m.ID, todayStartMs-int64(days-1)*dayMs)
 		if err != nil {
 			s.fail(w, r, err)
 			return
 		}
-		_, uptime := uptimeStrip(rollups, todayStartMs, days)
-		spec = uptimeSpec(m.Name, uptime, days, state)
-	case "bars":
-		todayStartMs := store.DayStartMs(nowMs)
-		rollups, err := s.store.MonitorRollups(r.Context(), m.ID, todayStartMs-int64(badgeBarDays-1)*dayMs)
-		if err != nil {
-			s.fail(w, r, err)
-			return
+		history, uptime := uptimeStrip(rollups, todayStartMs, days)
+		spec = uptimeSpec(m.Name, uptime, history, state)
+		if show == "bars" {
+			spec.Title = fmt.Sprintf("uptime of %s per day over %d days: %s", m.Name, days, uptime)
 		}
-		days, _ := uptimeStrip(rollups, todayStartMs, badgeBarDays)
-		spec = barsSpec(m.Name, days, state)
 	case "line":
 		firstSlotMs := (nowMs/detailBucketMs - (detailBuckets - 1)) * detailBucketMs
 		buckets, err := s.store.CheckBuckets(r.Context(), m.ID, firstSlotMs, detailBucketMs)
@@ -359,14 +356,22 @@ func (s *Server) handlePageBadge(w http.ResponseWriter, r *http.Request) {
 			s.fail(w, r, err)
 			return
 		}
-		var coveredMs, downMs int64
+		combined := make(map[int64]store.DayRollup, days)
 		for _, monitorDays := range rollups {
 			for _, d := range monitorDays {
-				coveredMs += d.CoveredMs
-				downMs += d.DownMs
+				day := combined[d.DayStartMs]
+				day.DayStartMs = d.DayStartMs
+				day.CoveredMs += d.CoveredMs
+				day.DownMs += d.DownMs
+				combined[d.DayStartMs] = day
 			}
 		}
-		spec = uptimeSpec(project.Name, uptimePercent(coveredMs, downMs), days, page.BannerState)
+		daily := make([]store.DayRollup, 0, len(combined))
+		for _, day := range combined {
+			daily = append(daily, day)
+		}
+		history, uptime := uptimeStrip(daily, todayStartMs, days)
+		spec = uptimeSpec(project.Name, uptime, history, page.BannerState)
 	default:
 		http.NotFound(w, r)
 		return
