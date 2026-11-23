@@ -33,10 +33,11 @@ type Server struct {
 	// monitorsChanged tells the check engine that monitors were added, edited or removed.
 	monitorsChanged func()
 	// mailer sends test emails. It is nil when no SMTP server is configured.
-	mailer *alert.Mailer
-	pages  map[string]*template.Template
-	logins *loginLimiter
-	now    func() time.Time
+	mailer    *alert.Mailer
+	pages     map[string]*template.Template
+	logins    *loginLimiter
+	now       func() time.Time
+	startedAt time.Time
 }
 
 // New builds the server. monitorsChanged is called after every monitor
@@ -50,6 +51,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 		pages:           make(map[string]*template.Template),
 		logins:          newLoginLimiter(),
 		now:             time.Now,
+		startedAt:       time.Now(),
 	}
 	names := []string{
 		"index.html", "status.html", "error.html", "setup.html", "login.html", "dashboard.html",

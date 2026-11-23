@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"runtime"
+	"strconv"
 	"strings"
+	"time"
 
 	"uppies/internal/store"
 )
@@ -240,12 +243,32 @@ func (s *Server) handleInstance(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	s.renderInstance(w, r, http.StatusOK, page)
+}
+
+func (s *Server) renderInstance(w http.ResponseWriter, r *http.Request, status int, page instancePage) {
+	facts, err := s.store.InstanceFacts(r.Context())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	email := "not set up. start uppies with -smtp-addr and -smtp-from."
 	if s.mailer != nil {
 		email = "sent through " + s.mailer.Addr + " as " + s.mailer.From
 	}
-	page.Facts = []figure{{Label: "email alerts", Value: email}}
-	s.render(w, r, http.StatusOK, "instance.html", page)
+	uptime := max(0, s.now().Sub(s.startedAt)).Truncate(time.Second)
+	page.Facts = []figure{
+		{Label: "server uptime", Value: uptime.String()},
+		{Label: "server timezone", Value: systemZoneName()},
+		{Label: "runtime", Value: runtime.Version() + " · " + runtime.GOOS + "/" + runtime.GOARCH},
+		{Label: "database", Value: fmt.Sprintf("sqlite · schema %d", facts.Schema)},
+		{Label: "status pages", Value: strconv.Itoa(facts.StatusPages)},
+		{Label: "monitors", Value: fmt.Sprintf("%d total, %d paused", facts.Monitors, facts.Paused)},
+		{Label: "alert channels", Value: strconv.Itoa(facts.Channels)},
+		{Label: "admin accounts", Value: strconv.Itoa(facts.Users)},
+		{Label: "email alerts", Value: email},
+	}
+	s.render(w, r, status, "instance.html", page)
 }
 
 func (s *Server) handleSaveInstance(w http.ResponseWriter, r *http.Request) {
@@ -262,7 +285,7 @@ func (s *Server) handleSaveInstance(w http.ResponseWriter, r *http.Request) {
 	page.Instance.PublicList = r.PostForm.Get("public_list") == "on"
 	if page.Instance.Name == "" || len(page.Instance.Name) > 60 {
 		page.Problems = map[string]string{"name": "give the instance a name of 1 to 60 characters."}
-		s.render(w, r, http.StatusUnprocessableEntity, "instance.html", page)
+		s.renderInstance(w, r, http.StatusUnprocessableEntity, page)
 		return
 	}
 	if err := s.store.SaveInstance(r.Context(), page.Instance); err != nil {

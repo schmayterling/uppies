@@ -55,6 +55,23 @@ var defaultInstance = InstanceSettings{
 	LoginLayout: "split", LoginBackground: "gradient", ListLayout: "rows", GraphFill: "gradient",
 }
 
+// InstanceFacts describes the live database and the records it contains.
+type InstanceFacts struct {
+	Schema, StatusPages, Monitors, Paused, Channels, Users int
+}
+
+func (s *Store) InstanceFacts(ctx context.Context) (InstanceFacts, error) {
+	var facts InstanceFacts
+	err := s.db.QueryRowContext(ctx, `
+		select (select user_version from pragma_user_version),
+			(select count(*) from projects),
+			count(*), count(*) filter (where paused = 1),
+			(select count(*) from alert_channels),
+			(select count(*) from users)
+		from monitors`).Scan(&facts.Schema, &facts.StatusPages, &facts.Monitors, &facts.Paused, &facts.Channels, &facts.Users)
+	return facts, err
+}
+
 // Instance returns the instance settings, with defaults for what was never saved.
 func (s *Store) Instance(ctx context.Context) (InstanceSettings, error) {
 	settings := defaultInstance

@@ -1144,6 +1144,16 @@ func TestInstancePagesAndUsers(t *testing.T) {
 		}
 	}
 
+	_, instance := s.get(t, s.admin, "/admin/instance")
+	for _, want := range []string{
+		"server uptime", "server timezone", "sqlite · schema", "<span>status pages</span><small>1</small>",
+		"<span>monitors</span><small>0 total, 0 paused</small>", "<span>admin accounts</span><small>1</small>",
+	} {
+		if !strings.Contains(instance, want) {
+			t.Errorf("instance details are missing %q", want)
+		}
+	}
+
 	// Appearance reaches the admin stylesheet. Instance settings reach the front page.
 	s.post(t, s.admin, "/admin/appearance", url.Values{"theme": {"dark"}, "accent_hue": {"25"}}, nil)
 	if _, css := s.get(t, s.anonymous, "/theme.css"); !strings.Contains(css, "color-scheme: dark") || !strings.Contains(css, "0.075 25)") {
