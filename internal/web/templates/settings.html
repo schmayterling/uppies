@@ -1,128 +1,165 @@
 {{define "main"}}
-<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">projects</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / settings</nav>
+<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">overview</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / settings</nav>
+<div class="settings">
 <h1>settings</h1>
+<nav class="tabs" aria-label="settings sections">
+  <a href="#general">general</a><a href="#look">look</a><a href="#images">logo</a><a href="#alerts">alerts</a><a href="#advanced">advanced</a>
+</nav>
 {{with .Notice}}{{if $.NoticeFailed}}{{template "error" .}}{{else}}{{template "success" .}}{{end}}{{end}}
+{{if .Problems}}{{template "error" "some settings were not saved. the fields with a problem are marked below."}}{{end}}
 
-<section aria-labelledby="page-heading">
-  <h2 id="page-heading">status page</h2>
-  <form class="form narrow" method="post" action="/admin/projects/{{.Project.ID}}/settings">
-    <div class="field">
-      <label for="name">name</label>
-      <input id="name" name="name" value="{{.Project.Name}}" required maxlength="120"{{if index .Problems "name"}} aria-invalid="true" aria-describedby="name-problem"{{end}}>
-      {{with index .Problems "name"}}<p class="problem" id="name-problem">{{.}}</p>{{end}}
+<form method="post" action="/admin/projects/{{.Project.ID}}/settings">
+  <h2 class="group-title" id="general">general</h2>
+  <div class="group">
+    <div class="srow">
+      <label class="srow-copy" for="name"><span>name</span><small>shown at the top of the status page.</small></label>
+      <div class="srow-control"><input id="name" name="name" value="{{.Project.Name}}" required maxlength="120"{{if index .Problems "name"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "name"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
-    <div class="field">
-      <label for="tagline">tagline</label>
-      <input id="tagline" name="tagline" value="{{.Project.Tagline}}" maxlength="200" aria-describedby="tagline-hint{{if index .Problems "tagline"}} tagline-problem{{end}}"{{if index .Problems "tagline"}} aria-invalid="true"{{end}}>
-      <p class="hint" id="tagline-hint">optional. one line under the name.</p>
-      {{with index .Problems "tagline"}}<p class="problem" id="tagline-problem">{{.}}</p>{{end}}
+    <div class="srow">
+      <label class="srow-copy" for="tagline"><span>tagline</span><small>one line under the name.</small></label>
+      <div class="srow-control"><input id="tagline" name="tagline" value="{{.Project.Tagline}}" maxlength="200"{{if index .Problems "tagline"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "tagline"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
-    <div class="field">
-      <label for="homepage_url">homepage</label>
-      <input id="homepage_url" name="homepage_url" type="url" value="{{.Project.HomepageURL}}" maxlength="2048" autocapitalize="none" spellcheck="false" aria-describedby="homepage_url-hint{{if index .Problems "homepage_url"}} homepage_url-problem{{end}}"{{if index .Problems "homepage_url"}} aria-invalid="true"{{end}}>
-      <p class="hint" id="homepage_url-hint">optional. the status page links back to this address.</p>
-      {{with index .Problems "homepage_url"}}<p class="problem" id="homepage_url-problem">{{.}}</p>{{end}}
+    <div class="srow">
+      <label class="srow-copy" for="homepage_url"><span>homepage</span><small>the status page links back to this address.</small></label>
+      <div class="srow-control"><input id="homepage_url" name="homepage_url" value="{{.Project.HomepageURL}}" maxlength="2048" placeholder="https://example.com" autocapitalize="none" spellcheck="false"{{if index .Problems "homepage_url"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "homepage_url"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
-    <div class="field">
-      <label for="theme">theme</label>
-      <select id="theme" name="theme" aria-describedby="theme-hint">
-        {{range .Themes}}<option value="{{.}}"{{if eq . $.Project.Theme}} selected{{end}}>{{.}}</option>{{end}}
-      </select>
-      <p class="hint" id="theme-hint">auto follows the visitor's device.</p>
-      {{with index .Problems "theme"}}<p class="problem">{{.}}</p>{{end}}
+    <div class="srow">
+      <label class="srow-copy" for="domain"><span>custom domain</span><small>point this hostname at uppies through your reverse proxy, and its front page becomes this status page.</small></label>
+      <div class="srow-control"><input id="domain" name="domain" value="{{.Project.Domain}}" maxlength="253" placeholder="status.example.com" autocapitalize="none" spellcheck="false"{{if index .Problems "domain"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "domain"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
-    <div class="field">
-      <label for="accent_hue">accent hue</label>
-      <input id="accent_hue" name="accent_hue" type="number" inputmode="numeric" min="0" max="360" value="{{.Project.AccentHue}}" required aria-describedby="accent_hue-hint{{if index .Problems "accent_hue"}} accent_hue-problem{{end}}"{{if index .Problems "accent_hue"}} aria-invalid="true"{{end}}>
-      <p class="hint" id="accent_hue-hint">a number from 0 to 360. 25 is red, 85 is yellow, 150 is green, 200 is teal, 260 is blue, 320 is pink.</p>
-      {{with index .Problems "accent_hue"}}<p class="problem" id="accent_hue-problem">{{.}}</p>{{end}}
+    <div class="srow">
+      <label class="srow-copy" for="timezone"><span>timezone</span><small>incident times are shown in this zone. the daily bars always count utc days.</small></label>
+      <div class="srow-control"><input id="timezone" name="timezone" value="{{.Project.Timezone}}" required maxlength="64" placeholder="Asia/Manila" autocapitalize="none" spellcheck="false"{{if index .Problems "timezone"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "timezone"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
-    <div class="field">
-      <label for="history_days">days of history</label>
-      <select id="history_days" name="history_days">
+    <div class="srow">
+      <label class="srow-copy" for="footer_text"><span>footer text</span><small>one line at the bottom, such as how to reach support.</small></label>
+      <div class="srow-control"><input id="footer_text" name="footer_text" value="{{.Project.FooterText}}" maxlength="500"{{if index .Problems "footer_text"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "footer_text"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+  </div>
+
+  <h2 class="group-title" id="look">look</h2>
+  <div class="group">
+    <div class="srow">
+      <div class="srow-copy" id="theme-label"><span>theme</span><small>auto follows the visitor's device.</small></div>
+      <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="theme-label">
+        {{range .Themes}}<label><input type="radio" name="theme" value="{{.}}"{{if eq . $.Project.Theme}} checked{{end}}><span>{{.}}</span></label>{{end}}
+      </div></div>
+    </div>
+    <div class="srow">
+      <div class="srow-copy" id="accent-label"><span>accent colour</span><small>used for the name, links and focus rings.</small></div>
+      <div class="srow-control"><div class="swatches" role="radiogroup" aria-labelledby="accent-label">
+        {{range .Swatches}}<label class="swatch swatch-{{.}}"><input type="radio" name="accent_hue" value="{{.}}"{{if eq . $.Project.AccentHue}} checked{{end}}><span class="visually-hidden">hue {{.}}</span></label>{{end}}
+        {{if .CustomHue}}<label class="swatch swatch-custom"><input type="radio" name="accent_hue" value="{{.Project.AccentHue}}" checked><span>{{.Project.AccentHue}}</span></label>{{end}}
+      </div></div>
+      {{with index .Problems "accent_hue"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <div class="srow-copy" id="surface-label"><span>background</span><small>neutral is plain white or charcoal. paper is a warm off-white.</small></div>
+      <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="surface-label">
+        {{range .Surfaces}}<label><input type="radio" name="surface" value="{{.}}"{{if eq . $.Project.Surface}} checked{{end}}><span>{{.}}</span></label>{{end}}
+      </div></div>
+    </div>
+    <div class="srow">
+      <div class="srow-copy" id="corners-label"><span>corners</span><small>how round boxes and bars are.</small></div>
+      <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="corners-label">
+        {{range .Corners}}<label><input type="radio" name="corners" value="{{.}}"{{if eq . $.Project.Corners}} checked{{end}}><span>{{.}}</span></label>{{end}}
+      </div></div>
+    </div>
+    <div class="srow">
+      <div class="srow-copy" id="font-label"><span>typeface</span><small>the visitor's own system fonts in four flavours.</small></div>
+      <div class="srow-control"><div class="segmented" role="radiogroup" aria-labelledby="font-label">
+        {{range .Fonts}}<label><input type="radio" name="font" value="{{.}}"{{if eq . $.Project.Font}} checked{{end}}><span>{{.}}</span></label>{{end}}
+      </div></div>
+    </div>
+    <div class="srow">
+      <label class="srow-copy" for="history_days"><span>days of history</span><small>how far back the uptime bars reach.</small></label>
+      <div class="srow-control"><select id="history_days" name="history_days">
         {{range .HistoryViews}}<option value="{{.}}"{{if eq . $.Project.HistoryDays}} selected{{end}}>{{.}} days</option>{{end}}
-      </select>
-      {{with index .Problems "history_days"}}<p class="problem">{{.}}</p>{{end}}
+      </select></div>
+      {{with index .Problems "history_days"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
-    <div class="field">
-      <label for="timezone">timezone</label>
-      <input id="timezone" name="timezone" value="{{.Project.Timezone}}" required maxlength="64" autocapitalize="none" spellcheck="false" aria-describedby="timezone-hint{{if index .Problems "timezone"}} timezone-problem{{end}}"{{if index .Problems "timezone"}} aria-invalid="true"{{end}}>
-      <p class="hint" id="timezone-hint">incident times are shown in this zone. use a name such as UTC, Asia/Manila or Europe/Berlin. the daily bars always count utc days.</p>
-      {{with index .Problems "timezone"}}<p class="problem" id="timezone-problem">{{.}}</p>{{end}}
-    </div>
-    <div class="field">
-      <label for="domain">custom domain</label>
-      <input id="domain" name="domain" value="{{.Project.Domain}}" maxlength="253" autocapitalize="none" spellcheck="false" aria-describedby="domain-hint{{if index .Problems "domain"}} domain-problem{{end}}"{{if index .Problems "domain"}} aria-invalid="true"{{end}}>
-      <p class="hint" id="domain-hint">optional. point this hostname at uppies through your reverse proxy, and its front page becomes this status page.</p>
-      {{with index .Problems "domain"}}<p class="problem" id="domain-problem">{{.}}</p>{{end}}
-    </div>
-    <div class="field">
-      <label for="footer_text">footer text</label>
-      <input id="footer_text" name="footer_text" value="{{.Project.FooterText}}" maxlength="500" aria-describedby="footer_text-hint{{if index .Problems "footer_text"}} footer_text-problem{{end}}"{{if index .Problems "footer_text"}} aria-invalid="true"{{end}}>
-      <p class="hint" id="footer_text-hint">optional. one line at the bottom, such as how to reach support.</p>
-      {{with index .Problems "footer_text"}}<p class="problem" id="footer_text-problem">{{.}}</p>{{end}}
-    </div>
-    <label class="check"><input type="checkbox" name="show_powered_by"{{if .Project.ShowPoweredBy}} checked{{end}}> show "powered by uppies" in the footer.</label>
-    <label class="check"><input type="checkbox" name="noindex"{{if .Project.NoIndex}} checked{{end}}> ask search engines not to list this page.</label>
-    <label class="check"><input type="checkbox" name="show_face"{{if .Project.ShowFace}} checked{{end}}> show the face next to the status sentence.</label>
-    <div class="field">
-      <label for="custom_css">custom css</label>
-      <textarea id="custom_css" name="custom_css" rows="6" maxlength="20000" spellcheck="false" aria-describedby="custom_css-hint{{if index .Problems "custom_css"}} custom_css-problem{{end}}"{{if index .Problems "custom_css"}} aria-invalid="true"{{end}}>{{.Project.CustomCSS}}</textarea>
-      <p class="hint" id="custom_css-hint">optional. loaded last on this project's status page, so it can change any colour, size or spacing.</p>
-      {{with index .Problems "custom_css"}}<p class="problem" id="custom_css-problem">{{.}}</p>{{end}}
-    </div>
-    <div class="actions"><button class="button" type="submit">save status page</button></div>
-  </form>
-</section>
+    <label class="srow">
+      <span class="srow-copy"><span>face</span><small>the small face next to the status sentence.</small></span>
+      <span class="srow-control"><input class="switch" type="checkbox" name="show_face"{{if .Project.ShowFace}} checked{{end}}></span>
+    </label>
+  </div>
 
-<section aria-labelledby="images-heading">
-  <h2 id="images-heading">logo and favicon</h2>
-  <form class="form narrow" method="post" action="/admin/projects/{{.Project.ID}}/images" enctype="multipart/form-data">
-    <div class="field">
-      <label for="logo">logo</label>
-      {{with index .Images "logo"}}<img class="logo-preview" src="/s/{{$.Project.Slug}}/images/logo?v={{.}}" alt="the current logo">{{end}}
-      <input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" aria-describedby="logo-hint{{if index .Problems "logo"}} logo-problem{{end}}"{{if index .Problems "logo"}} aria-invalid="true"{{end}}>
-      <p class="hint" id="logo-hint">shown next to the name on the status page. png, jpeg, webp, gif or svg, up to 512 KB.</p>
-      {{with index .Problems "logo"}}<p class="problem" id="logo-problem">{{.}}</p>{{end}}
-      {{if index .Images "logo"}}<label class="check"><input type="checkbox" name="remove_logo"> remove the current logo.</label>{{end}}
+  <h2 class="group-title" id="advanced">advanced</h2>
+  <div class="group">
+    <label class="srow">
+      <span class="srow-copy"><span>powered by uppies</span><small>a short credit in the footer and the browser tab.</small></span>
+      <span class="srow-control"><input class="switch" type="checkbox" name="show_powered_by"{{if .Project.ShowPoweredBy}} checked{{end}}></span>
+    </label>
+    <label class="srow">
+      <span class="srow-copy"><span>hide from search engines</span><small>asks search engines not to list this page.</small></span>
+      <span class="srow-control"><input class="switch" type="checkbox" name="noindex"{{if .Project.NoIndex}} checked{{end}}></span>
+    </label>
+    <div class="srow">
+      <label class="srow-copy" for="accent_hue_custom"><span>custom accent hue</span><small>a number from 0 to 360 for a colour between the swatches. leave empty to use the swatch.</small></label>
+      <div class="srow-control"><input class="number-field" id="accent_hue_custom" name="accent_hue_custom" type="number" inputmode="numeric" min="0" max="360" value="{{if .CustomHue}}{{.Project.AccentHue}}{{end}}"{{if index .Problems "accent_hue_custom"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "accent_hue_custom"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
-    <div class="field">
-      <label for="favicon">favicon</label>
-      {{with index .Images "favicon"}}<img class="favicon-preview" src="/s/{{$.Project.Slug}}/images/favicon?v={{.}}" alt="the current favicon">{{end}}
-      <input id="favicon" name="favicon" type="file" accept="image/png,image/x-icon,image/svg+xml,image/gif,image/webp,image/jpeg" aria-describedby="favicon-hint{{if index .Problems "favicon"}} favicon-problem{{end}}"{{if index .Problems "favicon"}} aria-invalid="true"{{end}}>
-      <p class="hint" id="favicon-hint">the small icon in the browser tab. a square png, ico or svg works best, up to 512 KB.</p>
-      {{with index .Problems "favicon"}}<p class="problem" id="favicon-problem">{{.}}</p>{{end}}
-      {{if index .Images "favicon"}}<label class="check"><input type="checkbox" name="remove_favicon"> remove the current favicon.</label>{{end}}
+    <div class="srow" data-stack>
+      <label class="srow-copy" for="custom_css"><span>custom css</span><small>loaded last on this project's status page, so it can change any colour, size or spacing.</small></label>
+      <textarea id="custom_css" name="custom_css" rows="6" maxlength="20000" spellcheck="false"{{if index .Problems "custom_css"}} aria-invalid="true"{{end}}>{{.Project.CustomCSS}}</textarea>
+      {{with index .Problems "custom_css"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
-    <div class="actions"><button class="button" type="submit">save images</button></div>
-  </form>
-</section>
+  </div>
+  <div class="savebar"><button class="button" type="submit">save settings</button><a class="button quiet" href="/s/{{.Project.Slug}}">{{template "icon" "external-link"}}view status page</a></div>
+</form>
 
-<section aria-labelledby="badge-heading">
-  <h2 id="badge-heading">badge</h2>
-  <p class="muted">a small image of the current state, for a readme or another site. it lives at <a href="/s/{{.Project.Slug}}/badge.svg">/s/{{.Project.Slug}}/badge.svg</a>.</p>
-</section>
+<h2 class="group-title" id="images">logo and favicon</h2>
+<form method="post" action="/admin/projects/{{.Project.ID}}/images" enctype="multipart/form-data">
+  <div class="group">
+    <div class="srow">
+      <label class="srow-copy" for="logo"><span>logo</span><small>shown next to the name. png, jpeg, webp, gif or svg, up to 512 KB.</small></label>
+      <div class="srow-control">
+        {{with index .Images "logo"}}<img class="logo-preview" src="/s/{{$.Project.Slug}}/images/logo?v={{.}}" alt="the current logo">{{end}}
+        <input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"{{if index .Problems "logo"}} aria-invalid="true"{{end}}>
+      </div>
+      {{with index .Problems "logo"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+      {{if index .Images "logo"}}<label class="check srow-problem"><input type="checkbox" name="remove_logo"> remove the current logo</label>{{end}}
+    </div>
+    <div class="srow">
+      <label class="srow-copy" for="favicon"><span>favicon</span><small>the small icon in the browser tab. a square png, ico or svg works best.</small></label>
+      <div class="srow-control">
+        {{with index .Images "favicon"}}<img class="favicon-preview" src="/s/{{$.Project.Slug}}/images/favicon?v={{.}}" alt="the current favicon">{{end}}
+        <input id="favicon" name="favicon" type="file" accept="image/png,image/x-icon,image/svg+xml,image/gif,image/webp,image/jpeg"{{if index .Problems "favicon"}} aria-invalid="true"{{end}}>
+      </div>
+      {{with index .Problems "favicon"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+      {{if index .Images "favicon"}}<label class="check srow-problem"><input type="checkbox" name="remove_favicon"> remove the current favicon</label>{{end}}
+    </div>
+  </div>
+  <div class="savebar"><button class="button" type="submit">save images</button></div>
+</form>
 
-<section aria-labelledby="alerts-heading">
-  <h2 id="alerts-heading">alerts</h2>
-  <p class="muted">each channel gets a message when a monitor of this project goes down and when it recovers.</p>
-  {{if .Channels}}
-  <ul class="rows">
-    {{range .Channels}}
-    <li class="row">
-      <span class="channel">{{template "icon" (channelIcon .Kind)}}<strong>{{.Kind}}</strong> <span class="target">{{.URL}}</span></span>
-      <span class="actions">
-        <form method="post" action="/admin/projects/{{$.Project.ID}}/channels/{{.ID}}/test"><button class="button quiet" type="submit">send test</button></form>
-        <form method="post" action="/admin/projects/{{$.Project.ID}}/channels/{{.ID}}/delete"><button class="button quiet" type="submit">remove</button></form>
-      </span>
-    </li>
-    {{end}}
-  </ul>
+<div class="title-row group-title" id="alerts">
+  <h2>alerts</h2>
+  <button class="button quiet" type="button" data-open-dialog="add-channel">{{template "icon" "plus"}}add channel</button>
+</div>
+<div class="group">
+  {{range .Channels}}
+  <div class="srow">
+    <span class="srow-copy"><span class="with-icon">{{template "icon" (channelIcon .Kind)}}{{.Kind}}</span><small class="target">{{.URL}}</small></span>
+    <span class="srow-control">
+      <form method="post" action="/admin/projects/{{$.Project.ID}}/channels/{{.ID}}/test"><button class="button quiet" type="submit">send test</button></form>
+      <form method="post" action="/admin/projects/{{$.Project.ID}}/channels/{{.ID}}/delete"><button class="button quiet" type="submit">remove</button></form>
+    </span>
+  </div>
   {{else}}
-  <p class="muted">no channels yet, so nobody is told about outages.</p>
+  <p class="empty">no channels yet, so nobody is told about outages.</p>
   {{end}}
-
-  <form class="form narrow" method="post" action="/admin/projects/{{.Project.ID}}/channels">
+</div>
+<p class="hint">each channel gets a message when a monitor of this project goes down, when it recovers, and before a certificate expires.</p>
+<dialog id="add-channel" aria-labelledby="add-channel-heading"{{if or (index .Problems "kind") (index .Problems "url")}} data-open-on-load{{end}}>
+  <h2 id="add-channel-heading">add an alert channel</h2>
+  <form class="form" method="post" action="/admin/projects/{{.Project.ID}}/channels">
     <div class="field">
       <label for="kind">kind</label>
       <select id="kind" name="kind" aria-describedby="kind-hint">
@@ -136,7 +173,16 @@
       <input id="url" name="url" value="{{.NewChannel.URL}}" required maxlength="2048" autocapitalize="none" spellcheck="false"{{if index .Problems "url"}} aria-invalid="true" aria-describedby="url-problem"{{end}}>
       {{with index .Problems "url"}}<p class="problem" id="url-problem">{{.}}</p>{{end}}
     </div>
-    <div class="actions"><button class="button" type="submit">add channel</button></div>
+    <div class="actions"><button class="button" type="submit">add channel</button><button class="button quiet" type="button" data-close-dialog>cancel</button></div>
   </form>
-</section>
+</dialog>
+
+<h2 class="group-title" id="badge">badge</h2>
+<div class="group">
+  <div class="srow">
+    <span class="srow-copy"><span>status badge</span><small>a small image of the current state, for a readme or another site.</small></span>
+    <span class="srow-control"><a href="/s/{{.Project.Slug}}/badge.svg"><img src="/s/{{.Project.Slug}}/badge.svg" alt="the status badge"></a></span>
+  </div>
+</div>
+</div>
 {{end}}

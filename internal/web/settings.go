@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"slices"
 	"strconv"
@@ -25,6 +26,12 @@ type settingsPage struct {
 	ChannelKinds []string
 	Themes       []string
 	HistoryViews []int
+	Swatches     []int
+	// CustomHue is true when the accent is not one of the swatches.
+	CustomHue bool
+	Surfaces  []string
+	Corners   []string
+	Fonts     []string
 	// Images maps each image kind the project has to its version.
 	Images map[string]int64
 	// NewChannel holds the add-channel form's values after a failed submit.
@@ -40,6 +47,10 @@ func (s *Server) settingsPage(r *http.Request) (settingsPage, error) {
 		ChannelKinds: store.AlertChannelKinds,
 		Themes:       themes,
 		HistoryViews: historyViews,
+		Swatches:     accentSwatches,
+		Surfaces:     surfaces,
+		Corners:      cornerStyles,
+		Fonts:        fonts,
 		NewChannel:   store.AlertChannel{Kind: "webhook"},
 	}
 	id, err := pathID(r)
@@ -51,6 +62,7 @@ func (s *Server) settingsPage(r *http.Request) (settingsPage, error) {
 		return page, err
 	}
 	page.Chrome = s.adminChrome(r, page.Project.Name+" settings")
+	page.CustomHue = !slices.Contains(accentSwatches, page.Project.AccentHue)
 	page.Images, err = s.store.ProjectImageVersions(r.Context(), id)
 	if err != nil {
 		return page, err
@@ -66,6 +78,29 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, http.StatusOK, "settings.html", page)
+}
+
+// accentSwatches are the hues offered as one-click accent colours.
+var accentSwatches = []int{25, 55, 85, 150, 200, 245, 290, 330}
+
+var (
+	surfaces     = []string{"neutral", "paper"}
+	cornerStyles = []string{"sharp", "soft", "round"}
+	fonts        = []string{"system", "rounded", "serif", "mono"}
+)
+
+// choice reads a field that must be one of the allowed values. An absent
+// field keeps the current value.
+func choice(form url.Values, field string, allowed []string, current string, problems map[string]string) string {
+	value := form.Get(field)
+	if value == "" {
+		return current
+	}
+	if !slices.Contains(allowed, value) {
+		problems[field] = "choose one of the options."
+		return current
+	}
+	return value
 }
 
 var (
@@ -99,6 +134,14 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	p.Timezone = strings.TrimSpace(form.Get("timezone"))
 	p.Domain = strings.ToLower(strings.TrimSpace(form.Get("domain")))
 	p.AccentHue = formInt(form, "accent_hue", 0, 360, problems)
+	if custom := strings.TrimSpace(form.Get("accent_hue_custom")); custom != "" {
+		// A hue typed under "advanced" wins over the swatch.
+		p.AccentHue = formInt(form, "accent_hue_custom", 0, 360, problems)
+	}
+	// A look field that is not sent keeps its value, so older forms still save.
+	p.Surface = choice(form, "surface", surfaces, p.Surface, problems)
+	p.Corners = choice(form, "corners", cornerStyles, p.Corners, problems)
+	p.Font = choice(form, "font", fonts, p.Font, problems)
 	// A value that is not a number fails the membership check below.
 	p.HistoryDays, _ = strconv.Atoi(form.Get("history_days"))
 

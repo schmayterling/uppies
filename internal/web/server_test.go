@@ -689,3 +689,39 @@ func TestOverviewSumsUpEveryProject(t *testing.T) {
 		t.Errorf("the outage and its draft incident appear %d times, want one line for both", got)
 	}
 }
+
+func TestEasyLookSettingsReachTheThemeStylesheet(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := fmt.Sprintf("/admin/projects/%d/settings", projectID)
+	form := url.Values{
+		"name": {"Acme"}, "theme": {"auto"}, "accent_hue": {"200"}, "history_days": {"90"}, "timezone": {"UTC"},
+		"surface": {"paper"}, "corners": {"round"}, "font": {"mono"}, "accent_hue_custom": {"312"},
+	}
+	if resp := s.post(t, s.admin, settings, form, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("save: got %d, want 303", resp.StatusCode)
+	}
+	_, theme := s.get(t, s.anonymous, "/s/acme/theme.css")
+	for _, want := range []string{
+		"oklch(0.45 0.075 312)",                          // the typed hue wins over the swatch
+		"--background: light-dark(oklch(0.985 0.022 93)", // paper
+		"--radius-control: 10px",                         // round corners
+		"--font-ui: var(--font-mono)",                    // mono typeface
+	} {
+		if !strings.Contains(theme, want) {
+			t.Errorf("theme.css is missing %q", want)
+		}
+	}
+
+	form.Set("corners", "wobbly")
+	if resp := s.post(t, s.admin, settings, form, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("an unknown corner style: got %d, want 422", resp.StatusCode)
+	}
+	if p, err := s.store.ProjectByID(ctx, projectID); err != nil || p.Corners != "round" {
+		t.Fatalf("after the refused save: corners %q err=%v, want round kept", p.Corners, err)
+	}
+}

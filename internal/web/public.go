@@ -135,8 +135,29 @@ func themeCSS(p store.Project) string {
 	if p.Theme == "light" || p.Theme == "dark" {
 		scheme = p.Theme
 	}
-	return fmt.Sprintf(":root {\n  color-scheme: %s;\n  --accent: light-dark(oklch(0.45 0.075 %d), oklch(0.8 0.075 %d));\n}\n%s\n",
-		scheme, p.AccentHue, p.AccentHue, p.CustomCSS)
+	css := fmt.Sprintf(":root {\n  color-scheme: %s;\n  --accent: light-dark(oklch(0.45 0.075 %d), oklch(0.8 0.075 %d));\n}\n",
+		scheme, p.AccentHue, p.AccentHue)
+	// The easy look settings each add one block. The default choices add nothing.
+	css += lookCSS[p.Surface] + lookCSS[p.Corners] + lookCSS[p.Font]
+	return css + p.CustomCSS + "\n"
+}
+
+// lookCSS holds the stylesheet block of each non-default look choice. The
+// paper colours are the house paper layer from tokens.css.
+var lookCSS = map[string]string{
+	"paper": `:root {
+  --background: light-dark(oklch(0.985 0.022 93), oklch(0.19 0 0));
+  --surface: light-dark(oklch(0.975 0.014 78), oklch(0.22 0 0));
+  --ink: light-dark(oklch(0.225 0.011 73), oklch(0.94 0 0));
+  --muted: light-dark(oklch(0.47 0.025 74), oklch(0.76 0 0));
+  --border: light-dark(rgb(31 27 22 / 0.2), oklch(0.36 0 0));
+}
+`,
+	"sharp":   ":root { --radius-inner: 0px; --radius-control: 2px; --radius-card: 4px; --radius-surface: 4px; }\n",
+	"round":   ":root { --radius-inner: 6px; --radius-control: 10px; --radius-card: 18px; --radius-surface: 22px; }\n",
+	"rounded": ":root { --font-ui: var(--font-rounded); }\n",
+	"serif":   ":root { --font-ui: var(--font-serif); }\n",
+	"mono":    ":root { --font-ui: var(--font-mono); }\n",
 }
 
 func (s *Server) handleStatusPage(w http.ResponseWriter, r *http.Request) {

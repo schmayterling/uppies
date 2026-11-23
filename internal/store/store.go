@@ -242,6 +242,12 @@ create table maintenance_windows (
 ) strict;
 create index maintenance_windows_project on maintenance_windows(project_id, ends_at_ms);
 `,
+	`
+alter table monitors add column display text not null default 'bars' check (display in ('bars', 'latency', 'summary', 'minimal'));
+alter table projects add column surface text not null default 'neutral' check (surface in ('neutral', 'paper'));
+alter table projects add column corners text not null default 'soft' check (corners in ('sharp', 'soft', 'round'));
+alter table projects add column font text not null default 'system' check (font in ('system', 'rounded', 'serif', 'mono'));
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

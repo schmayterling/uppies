@@ -158,13 +158,16 @@ type DayRollup struct {
 	Failures   int64
 	CoveredMs  int64
 	DownMs     int64
+	// LatencyAvgMs is the mean response time of the day's checks.
+	LatencyAvgMs int64
 }
 
 // DailyRollups returns each monitor's days from sinceMs on, oldest first,
 // for all monitors of a project in one query.
 func (s *Store) DailyRollups(ctx context.Context, projectID, sinceMs int64) (map[int64][]DayRollup, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		select r.monitor_id, r.day_start_ms, r.checks, r.failures, r.covered_ms, r.down_ms
+		select r.monitor_id, r.day_start_ms, r.checks, r.failures, r.covered_ms, r.down_ms,
+			r.latency_sum_ms / max(r.checks, 1)
 		from daily_rollups r
 		join monitors m on m.id = r.monitor_id
 		where m.project_id = ? and r.day_start_ms >= ?
@@ -177,7 +180,7 @@ func (s *Store) DailyRollups(ctx context.Context, projectID, sinceMs int64) (map
 	for rows.Next() {
 		var monitorID int64
 		var d DayRollup
-		if err := rows.Scan(&monitorID, &d.DayStartMs, &d.Checks, &d.Failures, &d.CoveredMs, &d.DownMs); err != nil {
+		if err := rows.Scan(&monitorID, &d.DayStartMs, &d.Checks, &d.Failures, &d.CoveredMs, &d.DownMs, &d.LatencyAvgMs); err != nil {
 			return nil, err
 		}
 		byMonitor[monitorID] = append(byMonitor[monitorID], d)

@@ -77,7 +77,7 @@ func TestRecordCheckTracksAnOutage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := DayRollup{DayStartMs: day, Checks: 4, Failures: 4, CoveredMs: 100_000, DownMs: 100_000}
+	want := DayRollup{DayStartMs: day, Checks: 4, Failures: 4, CoveredMs: 100_000, DownMs: 100_000, LatencyAvgMs: 30}
 	if got := rollups[monitorID]; len(got) != 1 || got[0] != want {
 		t.Fatalf("rollups: got %+v, want [%+v]", got, want)
 	}
@@ -230,7 +230,7 @@ func TestUpgradingAVersionOneFileKeepsItsDataAndAddsDefaults(t *testing.T) {
 	}
 	want := Project{
 		ID: 7, Slug: "acme", Name: "Acme", AccentHue: 200, Theme: "auto", ShowFace: true, HistoryDays: 90,
-		ShowPoweredBy: true, Timezone: "UTC",
+		ShowPoweredBy: true, Timezone: "UTC", Surface: "neutral", Corners: "soft", Font: "system",
 	}
 	if got != want {
 		t.Fatalf("project after upgrade: got %+v, want %+v", got, want)
