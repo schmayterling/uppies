@@ -53,7 +53,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 	}
 	names := []string{
 		"index.html", "status.html", "error.html", "setup.html", "login.html", "dashboard.html",
-		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "monitor.html", "alerts.html", "monitors.html", "appearance.html", "instance.html", "users.html",
+		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "monitor.html", "alerts.html", "monitors.html", "editor.html", "appearance.html", "instance.html", "users.html",
 	}
 	for _, name := range names {
 		page, err := template.New("base.html").Funcs(templateFuncs).
@@ -115,6 +115,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("POST /admin/users/{id}/delete", s.handleDeleteUser)
 	admin("POST /admin/projects", s.handleCreateProject)
 	admin("GET /admin/projects/{id}", s.handleProject)
+	admin("GET /admin/projects/{id}/editor", s.handleEditor)
 	admin("POST /admin/projects/{id}/delete", s.handleDeleteProject)
 	admin("POST /admin/projects/{id}/placements", s.handleSavePlacements)
 	admin("POST /admin/projects/{id}/look", s.handleSaveLook)
@@ -133,8 +134,6 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("GET /admin/monitors/new", s.handleNewMonitorForm)
 	admin("POST /admin/monitors", s.handleCreateMonitor)
 	admin("POST /admin/monitors/order", s.handleOrderMonitors)
-	admin("POST /admin/categories", s.handleCreateCategory)
-	admin("POST /admin/categories/delete", s.handleDeleteCategory)
 	admin("GET /admin/monitors/{id}", s.handleEditMonitorForm)
 	admin("POST /admin/monitors/{id}", s.handleUpdateMonitor)
 	admin("POST /admin/monitors/{id}/delete", s.handleDeleteMonitor)

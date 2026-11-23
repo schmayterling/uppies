@@ -420,6 +420,28 @@ update monitors set position = (
 		and (earlier.name < monitors.name or (earlier.name = monitors.name and earlier.id <= monitors.id))
 );
 `,
+	// Step 17 moves categories from the install to each status page. A page
+	// has its own list of categories and puts each monitor it shows in one of
+	// them, or in none. Monitors themselves no longer have a category.
+	`
+alter table page_monitors add column category text not null default '' check (length(category) <= 80);
+update page_monitors set category = (select m.category from monitors m where m.id = page_monitors.monitor_id);
+
+create table page_categories (
+	project_id integer not null references projects(id) on delete cascade,
+	name text not null check (length(name) between 1 and 80),
+	position integer not null,
+	primary key (project_id, name)
+) strict, without rowid;
+insert into page_categories (project_id, name, position)
+select p.project_id, p.category,
+	row_number() over (partition by p.project_id order by coalesce(max(c.position), 0), p.category)
+from page_monitors p left join categories c on c.name = p.category
+where p.category <> '' group by p.project_id, p.category;
+
+drop table categories;
+alter table monitors drop column category;
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

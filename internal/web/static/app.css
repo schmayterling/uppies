@@ -245,14 +245,19 @@ label.srow { cursor: pointer; }
 .order-grip { display: inline-grid; place-items: center; margin-inline-end: var(--space-1); color: var(--muted); cursor: grab; vertical-align: middle; }
 tbody:has(> [data-drag]) > .empty-row { display: none; }
 /* the editor of a status page: its controls on the left, the page itself on the right */
-.content:has(.editor) { max-inline-size: calc(var(--content-wide) * 1.5); }
-.editor { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--space-5); align-items: start; }
+.content:has(.editor) { max-inline-size: none; }
+.editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-5); align-items: start; }
 .editor-preview { position: sticky; inset-block-start: var(--space-4); }
-.preview { display: block; inline-size: 100%; block-size: calc(100vh - var(--space-8) * 3); border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--background); }
-.editor-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; }
+.preview { display: block; inline-size: 100%; block-size: calc(100vh - var(--space-8) * 2); border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--background); }
+.editor-group { margin-block-start: var(--space-4); }
+.editor-group-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.editor-group-head h3 { margin: 0; color: var(--muted); font-size: var(--text-sm); font-weight: var(--weight-regular); }
+.editor-list { list-style: none; margin: var(--space-2) 0 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; }
+.editor-list > .empty-row { padding: var(--space-2) var(--space-3); font-size: var(--text-sm); }
+.editor-list:has(> [data-drag]) > .empty-row { display: none; }
+.editor-add > input { flex: 1; min-inline-size: 0; }
 .editor-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-3); background: var(--background); }
 .editor-row + .editor-row { border-block-start: 1px solid var(--border); }
-.editor-row.dragging { opacity: 0.5; }
 .editor-grip { display: grid; place-items: center; color: var(--muted); cursor: grab; }
 .editor-name { display: grid; gap: var(--space-0-5); min-inline-size: 0; }
 .editor-name > a { color: var(--ink); font-weight: var(--weight-semibold); text-decoration: none; overflow-wrap: anywhere; }

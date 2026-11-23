@@ -147,10 +147,10 @@ func seedProject(ctx context.Context, st *store.Store, now time.Time, p store.Pr
 		}
 		ids[spec.name] = monitorID
 		if !spec.hidden {
-			shown = append(shown, store.Placement{MonitorID: monitorID, Display: spec.display})
+			shown = append(shown, store.Placement{MonitorID: monitorID, Category: spec.category, Display: spec.display})
 		}
 	}
-	// The monitors are on the page already. This gives each its own look.
+	// The monitors are on the page already. This gives each its category and its own look.
 	return id, ids, st.SetPlacements(ctx, id, shown)
 }
 
@@ -184,12 +184,7 @@ func seedMonitor(ctx context.Context, st *store.Store, now time.Time, projectID 
 	m := store.Monitor{
 		Name: spec.name, Kind: spec.kind, Target: spec.target, Keyword: spec.keyword,
 		IntervalS: spec.intervalS, TimeoutMs: 10_000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
-		Paused: spec.paused, Category: spec.category,
-	}
-	if spec.category != "" {
-		if err := st.CreateCategory(ctx, spec.category); err != nil {
-			return 0, err
-		}
+		Paused: spec.paused,
 	}
 	if spec.kind == "push" {
 		// A token goes into a URL, so the spaces of the name become dashes.

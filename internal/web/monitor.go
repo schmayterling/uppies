@@ -170,9 +170,11 @@ func responseChart(buckets []store.CheckBucket, firstSlotMs int64, zone *time.Lo
 
 // monitorPage is the data of monitor.html, the public detail view of one monitor.
 type monitorPage struct {
-	Chrome   chrome
-	Project  store.Project
-	Monitor  store.Monitor
+	Chrome  chrome
+	Project store.Project
+	Monitor store.Monitor
+	// Category is the page's category the monitor is listed under, empty for none.
+	Category string
 	Images   map[string]int64
 	NavLinks []navLink
 	Zone     *time.Location
@@ -243,7 +245,7 @@ func (s *Server) handleMonitorPage(w http.ResponseWriter, r *http.Request) {
 	}
 	page := monitorPage{
 		Chrome:  chrome{Title: m.Name + " · " + project.Name, Unbranded: !project.ShowPoweredBy},
-		Project: project, Monitor: m, Images: images, Zone: zone, ZoneName: zoneName, Detail: detail,
+		Project: project, Monitor: m, Category: placed.Category, Images: images, Zone: zone, ZoneName: zoneName, Detail: detail,
 		Badges: []string{"p90", "p95", "p99"}, Origin: scheme + "://" + r.Host,
 	}
 	page.State, page.Word = componentState(m)

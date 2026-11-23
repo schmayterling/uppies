@@ -332,8 +332,10 @@ type projectPage struct {
 	// Monitors are the monitors the status page shows, in its order. Others
 	// are the ones it could add.
 	Monitors []editorRow
-	Others   []store.Monitor
-	Choices  editorChoices
+	// Groups are the same monitors sorted into the page's categories.
+	Groups  []editorGroup
+	Others  []store.Monitor
+	Choices editorChoices
 	// CustomHue is true when the accent is not one of the swatches.
 	CustomHue bool
 	Saved     bool
@@ -482,8 +484,13 @@ func (s *Server) projectPage(r *http.Request) (projectPage, error) {
 		shown[row.ID] = true
 		rows = append(rows, editorRow{
 			overviewRow: newOverviewRow(row, []store.Project{project}, rollups[row.ID], todayStartMs),
+			Category:    monitors[i].Category,
 			Display:     monitors[i].Display, GraphFill: monitors[i].GraphFill,
 		})
+	}
+	categories, err := s.store.PageCategories(ctx, id)
+	if err != nil {
+		return projectPage{}, err
 	}
 	all, err := s.store.Monitors(ctx)
 	if err != nil {
@@ -495,6 +502,7 @@ func (s *Server) projectPage(r *http.Request) (projectPage, error) {
 		Chrome:      s.adminChrome(r, project.Name),
 		Project:     project,
 		Monitors:    rows,
+		Groups:      editorGroups(categories, rows),
 		Others:      others,
 		Choices:     editorOptions,
 		CustomHue:   !slices.Contains(accentSwatches, project.AccentHue),
@@ -596,10 +604,6 @@ func parseMonitorForm(form url.Values, m store.Monitor) (store.Monitor, map[stri
 	m.Target = strings.TrimSpace(form.Get("target"))
 	m.Keyword = form.Get("keyword")
 	m.Paused = form.Get("paused") == "on"
-	m.Category = strings.TrimSpace(form.Get("category"))
-	if len(m.Category) > 80 {
-		problems["category"] = "keep the category to 80 characters."
-	}
 
 	if m.Name == "" || len(m.Name) > 120 {
 		problems["name"] = "give the monitor a name of 1 to 120 characters."

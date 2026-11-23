@@ -40,7 +40,8 @@ func TestTheEditorOrdersAddsRemovesAndStylesMonitors(t *testing.T) {
 	}
 	spare := strconv.FormatInt(spareID, 10)
 	save := fmt.Sprintf("/admin/projects/%d/placements", projectID)
-	names := func() []string {
+	// layout reads the page back as "category/name:display:fill" per monitor, then its categories.
+	layout := func() string {
 		t.Helper()
 		placed, err := s.store.MonitorsByProject(ctx, projectID)
 		if err != nil {
@@ -48,54 +49,102 @@ func TestTheEditorOrdersAddsRemovesAndStylesMonitors(t *testing.T) {
 		}
 		var got []string
 		for _, m := range placed {
-			got = append(got, m.Name+":"+m.Display+":"+m.GraphFill)
+			got = append(got, m.Category+"/"+m.Name+":"+m.Display+":"+m.GraphFill)
 		}
-		return got
+		categories, err := s.store.PageCategories(ctx, projectID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(got, " ") + " | " + strings.Join(categories, ",")
 	}
+	want := func(step, expected string) {
+		t.Helper()
+		if got := layout(); got != expected {
+			t.Fatalf("%s:\n got %s\nwant %s", step, got, expected)
+		}
+	}
+	item := func(id string) string { return "m:" + id }
+	api, website, database := ids[0], ids[1], ids[2]
 
-	if resp := s.post(t, s.anonymous, save, url.Values{"monitor": ids}, nil); resp.Header.Get("Location") != "/admin/login" {
+	if resp := s.post(t, s.anonymous, save, url.Values{"item": {item(api)}}, nil); resp.Header.Get("Location") != "/admin/login" {
 		t.Fatalf("anonymous save: got %d to %q, want a redirect to /admin/login", resp.StatusCode, resp.Header.Get("Location"))
 	}
-	// The editor page lists the page's monitors and offers the one that is not on it.
-	_, page := s.get(t, s.admin, fmt.Sprintf("/admin/projects/%d", projectID))
-	for _, want := range []string{`name="monitor" value="` + ids[0] + `"`, `<option value="` + spare + `">queue</option>`, `data-preview src="/s/acme"`, `data-pane="incidents"`} {
-		if !strings.Contains(page, want) {
-			t.Errorf("editor page is missing %q", want)
+	// The editor is a page of its own. It lists the page's monitors and offers the one that is not on it.
+	editor := fmt.Sprintf("/admin/projects/%d/editor", projectID)
+	_, page := s.get(t, s.admin, editor)
+	for _, wanted := range []string{`name="item" value="m:` + api + `"`, `<option value="` + spare + `">queue</option>`, `data-preview src="/s/acme"`, `name="new_category"`} {
+		if !strings.Contains(page, wanted) {
+			t.Errorf("editor page is missing %q", wanted)
 		}
 	}
+	if _, admin := s.get(t, s.admin, fmt.Sprintf("/admin/projects/%d", projectID)); !strings.Contains(admin, editor) || !strings.Contains(admin, `data-pane="incidents"`) {
+		t.Error("the status page's admin page must link to the editor and keep incidents in a tab")
+	}
 
-	// A new order with a look per monitor. An unknown look falls back to the plain one.
+	// An arrangement with categories and a look per monitor. An unknown look falls back to the plain one.
 	form := url.Values{
-		"monitor":           {ids[2], ids[0], ids[1]},
-		"display-" + ids[2]: {"latency"}, "fill-" + ids[2]: {"filled"},
-		"display-" + ids[0]: {"sparkles"}, "fill-" + ids[0]: {"default"},
-		"display-" + ids[1]: {"minimal"},
+		"item":                {"c:", item(database), "c:web", item(api), item(website), "c:empty"},
+		"display-" + database: {"latency"}, "fill-" + database: {"filled"},
+		"display-" + api: {"sparkles"}, "fill-" + api: {"default"},
+		"display-" + website: {"minimal"},
 	}
-	if resp := s.post(t, s.admin, save, form, nil); resp.StatusCode != http.StatusSeeOther {
-		t.Fatalf("save: got %d, want 303", resp.StatusCode)
+	if resp := s.post(t, s.admin, save, form, nil); resp.Header.Get("Location") != editor {
+		t.Fatalf("save: got %d to %q, want a redirect to the editor", resp.StatusCode, resp.Header.Get("Location"))
 	}
-	if got, want := names(), []string{"database:latency:filled", "api:bars:", "website:minimal:"}; !slices.Equal(got, want) {
-		t.Fatalf("after a new order: got %v, want %v", got, want)
+	want("after the arrangement", "/database:latency:filled web/api:bars: web/website:minimal: | web,empty")
+
+	// Without script each button sends one change with the arrangement.
+	change := func(field, value string) {
+		t.Helper()
+		placed, err := s.store.MonitorsByProject(ctx, projectID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		categories, err := s.store.PageCategories(ctx, projectID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The form as the editor would send it: each category with its monitors, in order.
+		sent := url.Values{"item": {"c:"}, field: {value}}
+		for _, category := range append([]string{""}, categories...) {
+			if category != "" {
+				sent.Add("item", "c:"+category)
+			}
+			for _, m := range placed {
+				if m.Category == category {
+					sent.Add("item", fmt.Sprintf("m:%d", m.MonitorID))
+					sent.Set(fmt.Sprintf("display-%d", m.MonitorID), m.Display)
+					sent.Set(fmt.Sprintf("fill-%d", m.MonitorID), m.GraphFill)
+				}
+			}
+		}
+		if resp := s.post(t, s.admin, save, sent, nil); resp.StatusCode != http.StatusSeeOther {
+			t.Fatalf("%s=%s: got %d, want 303", field, value, resp.StatusCode)
+		}
 	}
-	// Without script the arrows, the cross and the add menu each send one change with the list.
-	form.Set("move", ids[1]+"-up")
-	s.post(t, s.admin, save, form, nil)
-	if got, want := names(), []string{"database:latency:filled", "website:minimal:", "api:bars:"}; !slices.Equal(got, want) {
-		t.Fatalf("after moving the website up: got %v, want %v", got, want)
-	}
-	form = url.Values{"monitor": {ids[2], ids[1], ids[0]}, "remove": {ids[2]}, "add": {spare}}
-	s.post(t, s.admin, save, form, nil)
-	if got, want := names(), []string{"website:bars:", "api:bars:", "queue:bars:"}; !slices.Equal(got, want) {
-		t.Fatalf("after removing the database and adding the queue: got %v, want %v", got, want)
-	}
+	change("up", website)
+	want("the website moves up inside its category", "/database:latency:filled web/website:minimal: web/api:bars: | web,empty")
+	change("up", website)
+	want("at the top of its category it crosses into the one above", "/database:latency:filled /website:minimal: web/api:bars: | web,empty")
+	change("down", api)
+	want("at the bottom of its category it crosses into the one below", "/database:latency:filled /website:minimal: empty/api:bars: | web,empty")
+	change("category_up", "empty")
+	want("a category moves above another", "/database:latency:filled /website:minimal: empty/api:bars: | empty,web")
+	change("category_up", "empty")
+	want("the first category cannot move above the monitors without one", "/database:latency:filled /website:minimal: empty/api:bars: | empty,web")
+	change("new_category", "late")
+	want("a new category goes to the end", "/database:latency:filled /website:minimal: empty/api:bars: | empty,web,late")
+	change("remove_category", "empty")
+	want("removing a category keeps its monitors, without a category", "/database:latency:filled /website:minimal: /api:bars: | web,late")
+	change("remove", database)
+	change("add", spare)
+	want("a monitor is taken off and another one added", "/website:minimal: /api:bars: /queue:bars: | web,late")
 	// Taking a monitor off a page does not delete it. One that does not exist, or is named twice, is left out.
 	if all, err := s.store.Monitors(ctx); err != nil || len(all) != 4 {
 		t.Fatalf("monitors: got %d err=%v, want all 4 still there", len(all), err)
 	}
-	s.post(t, s.admin, save, url.Values{"monitor": {ids[0], "999", ids[0]}}, nil)
-	if got, want := names(), []string{"api:bars:"}; !slices.Equal(got, want) {
-		t.Fatalf("after a list with a missing and a repeated monitor: got %v, want %v", got, want)
-	}
+	s.post(t, s.admin, save, url.Values{"item": {item(api), "m:999", item(api)}}, nil)
+	want("a list with a missing and a repeated monitor", "/api:bars: | ")
 	if _, public := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(public, "api") || strings.Contains(public, "website") {
 		t.Error("the status page must show exactly the monitors the editor left on it")
 	}

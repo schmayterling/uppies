@@ -6,13 +6,15 @@ import (
 )
 
 // Placement puts a monitor on a status page: where in the page's list it
-// stands and how it is drawn there. A monitor can be
+// stands, in which of the page's categories, and how it is drawn there. A monitor can be
 // on several pages and look different on each.
 type Placement struct {
 	ProjectID int64
 	MonitorID int64
 	// Position orders the page's monitors, smallest first.
 	Position int
+	// Category is the page's category the monitor is listed under. Empty for none.
+	Category string
 	// Display is how the page draws the monitor: one of MonitorDisplays.
 	Display string
 	// GraphFill is how the monitor's graphs are filled on this page: one of
@@ -26,7 +28,7 @@ type PlacedMonitor struct {
 	Placement
 }
 
-const placedColumns = `p.project_id, p.monitor_id, p.position, p.display, p.graph_fill`
+const placedColumns = `p.project_id, p.monitor_id, p.position, p.category, p.display, p.graph_fill`
 
 func (s *Store) placed(ctx context.Context, query string, args ...any) ([]PlacedMonitor, error) {
 	rows, err := s.db.QueryContext(ctx, query, args...)
@@ -38,12 +40,11 @@ func (s *Store) placed(ctx context.Context, query string, args ...any) ([]Placed
 	for rows.Next() {
 		var pm PlacedMonitor
 		p, m := &pm.Placement, &pm.Monitor
-		err := rows.Scan(&p.ProjectID, &p.MonitorID, &p.Position, &p.Display, &p.GraphFill,
+		err := rows.Scan(&p.ProjectID, &p.MonitorID, &p.Position, &p.Category, &p.Display, &p.GraphFill,
 			&m.ID, &m.Name, &m.Kind, &m.Target, &m.Keyword, &m.IntervalS, &m.TimeoutMs,
 			&m.Retries, &m.RetryIntervalS, &m.RecoveryChecks, &m.Paused, &m.Tracker.Status, &m.StatusSinceMs,
 			&m.Tracker.FailStreak, &m.Tracker.OKStreak, &m.Tracker.FailingSinceMs, &m.LastCheckAtMs,
-			&m.LastLatencyMs, &m.LastError, &m.PushToken, &m.LastPushAtMs, &m.CertExpiresAtMs, &m.CertWarnedDays,
-			&m.Category)
+			&m.LastLatencyMs, &m.LastError, &m.PushToken, &m.LastPushAtMs, &m.CertExpiresAtMs, &m.CertWarnedDays)
 		if err != nil {
 			return nil, err
 		}
@@ -56,7 +57,7 @@ func (s *Store) placed(ctx context.Context, query string, args ...any) ([]Placed
 const monitorColumnsOf = `m.id, m.name, m.kind, m.target, m.keyword, m.interval_s, m.timeout_ms, m.retries,
 	m.retry_interval_s, m.recovery_checks, m.paused, m.status, m.status_since_ms, m.fail_streak, m.ok_streak,
 	m.failing_since_ms, m.last_check_at_ms, m.last_latency_ms, m.last_error, m.push_token, m.last_push_at_ms,
-	m.cert_expires_at_ms, m.cert_warned_days, m.category`
+	m.cert_expires_at_ms, m.cert_warned_days`
 
 // MonitorsByProject lists the monitors a status page shows, in the page's order.
 func (s *Store) MonitorsByProject(ctx context.Context, projectID int64) ([]PlacedMonitor, error) {
@@ -85,21 +86,52 @@ func (s *Store) PlaceMonitor(ctx context.Context, projectID, monitorID int64) er
 }
 
 // SetPlacements replaces the list of monitors a status page shows. The order
-// of the list becomes the order on the page.
+// of the list becomes the order on the page. The page's categories stay, and
+// a category that a placement names for the first time is added at the end.
 func (s *Store) SetPlacements(ctx context.Context, projectID int64, placements []Placement) error {
+	categories, err := s.PageCategories(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	return s.SetPageLayout(ctx, projectID, categories, placements)
+}
+
+// SetPageLayout replaces what a status page shows: its categories in their
+// order, and its monitors in theirs. A category that a placement names and
+// the list leaves out is added at the end.
+func (s *Store) SetPageLayout(ctx context.Context, projectID int64, categories []string, placements []Placement) error {
 	return s.write(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, "delete from page_monitors where project_id = ?", projectID); err != nil {
-			return err
+		for _, table := range []string{"page_monitors", "page_categories"} {
+			// The table names are the two literals above, not input.
+			if _, err := tx.ExecContext(ctx, "delete from "+table+" where project_id = ?", projectID); err != nil {
+				return err
+			}
+		}
+		names := append([]string(nil), categories...)
+		for _, p := range placements {
+			names = append(names, p.Category)
+		}
+		position := 0
+		for _, name := range names {
+			if name == "" {
+				continue
+			}
+			position++
+			if _, err := tx.ExecContext(ctx, `
+				insert into page_categories (project_id, name, position) values (?, ?, ?)
+				on conflict (project_id, name) do nothing`, projectID, name, position); err != nil {
+				return err
+			}
 		}
 		insert, err := tx.PrepareContext(ctx, `
-			insert into page_monitors (project_id, monitor_id, position, display, graph_fill)
-			values (?, ?, ?, ?, ?)`)
+			insert into page_monitors (project_id, monitor_id, position, category, display, graph_fill)
+			values (?, ?, ?, ?, ?, ?)`)
 		if err != nil {
 			return err
 		}
 		defer insert.Close()
 		for i, p := range placements {
-			if _, err := insert.ExecContext(ctx, projectID, p.MonitorID, i+1, displayOrDefault(p.Display), p.GraphFill); err != nil {
+			if _, err := insert.ExecContext(ctx, projectID, p.MonitorID, i+1, p.Category, displayOrDefault(p.Display), p.GraphFill); err != nil {
 				return err
 			}
 		}
@@ -107,25 +139,9 @@ func (s *Store) SetPlacements(ctx context.Context, projectID int64, placements [
 	})
 }
 
-// SetProjectOrder puts the status pages in the order of ids. A page that is
-// not named keeps its place behind the named ones.
-func (s *Store) SetProjectOrder(ctx context.Context, ids []int64) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, "update projects set position = position + ?", len(ids)); err != nil {
-			return err
-		}
-		for i, id := range ids {
-			if _, err := tx.ExecContext(ctx, "update projects set position = ? where id = ?", i+1, id); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
-
-// Categories lists the categories a monitor can be put in, in their order.
-func (s *Store) Categories(ctx context.Context) ([]string, error) {
-	rows, err := s.db.QueryContext(ctx, "select name from categories order by position, name")
+// PageCategories lists a status page's categories in their order.
+func (s *Store) PageCategories(ctx context.Context, projectID int64) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, "select name from page_categories where project_id = ? order by position, name", projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -141,22 +157,19 @@ func (s *Store) Categories(ctx context.Context) ([]string, error) {
 	return names, rows.Err()
 }
 
-// CreateCategory adds a category at the end of the list. One that exists already stays as it is.
-func (s *Store) CreateCategory(ctx context.Context, name string) error {
-	_, err := s.db.ExecContext(ctx, `
-		insert into categories (name, position) values (?, (select coalesce(max(position), 0) + 1 from categories))
-		on conflict (name) do nothing`, name)
-	return err
-}
-
-// DeleteCategory removes a category. Its monitors stay and have no category afterwards.
-func (s *Store) DeleteCategory(ctx context.Context, name string) error {
+// SetProjectOrder puts the status pages in the order of ids. A page that is
+// not named keeps its place behind the named ones.
+func (s *Store) SetProjectOrder(ctx context.Context, ids []int64) error {
 	return s.write(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, "update monitors set category = '' where category = ?", name); err != nil {
+		if _, err := tx.ExecContext(ctx, "update projects set position = position + ?", len(ids)); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, "delete from categories where name = ?", name)
-		return err
+		for i, id := range ids {
+			if _, err := tx.ExecContext(ctx, "update projects set position = ? where id = ?", i+1, id); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 

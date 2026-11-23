@@ -1,22 +1,11 @@
 {{define "main"}}
 <div class="title-row">
   <h1>monitors</h1>
-  <span class="actions">
-    <button class="button quiet" type="button" data-open-dialog="add-category">{{template "icon" "folder"}}new category</button>
-    <a class="button" href="/admin/monitors/new">{{template "icon" "plus"}}new monitor</a>
-  </span>
+  <a class="button" href="/admin/monitors/new">{{template "icon" "plus"}}new monitor</a>
 </div>
-<p class="muted">everything uppies checks. a monitor belongs to the install: put it on any status page from that page's editor.</p>
-<p class="hint">drag a monitor to change its place or its category. drag a category by its name to move the whole group.</p>
-<form id="delete-category" method="post" action="/admin/categories/delete"></form>
+<p class="muted">everything uppies checks. a monitor belongs to the install: put it on any status page from that page's editor, where it also gets its category.</p>
+{{if .Rows}}
 <form method="post" action="/admin/monitors/order" data-order>
-{{range .Groups}}
-<section class="order-group" aria-label="{{or .Category "no category"}}"{{if .Category}} draggable="true" data-drag="category"{{end}}>
-  <input type="hidden" name="item" value="c:{{.Category}}">
-  <div class="title-row group-title">
-    <h2>{{if .Category}}<span class="order-grip" aria-hidden="true">{{template "icon" "grip"}}</span>{{.Category}}{{else}}no category{{end}}</h2>
-    {{if .Category}}<button class="button quiet" type="submit" form="delete-category" name="name" value="{{.Category}}">delete category</button>{{end}}
-  </div>
   <div class="panel table-scroll">
   <table class="dense">
     <thead><tr><th scope="col">monitor</th><th scope="col">state</th><th scope="col">status pages</th><th scope="col">last check</th><th scope="col" class="number">latency</th></tr></thead>
@@ -37,23 +26,12 @@
         <td class="number">{{if and .LastCheckAtMs (eq .State "ok") (ne .Kind "push")}}{{.LastLatencyMs}} ms{{end}}</td>
       </tr>
       {{end}}
-      <tr class="empty-row"><td colspan="5" class="muted">{{if .Category}}no monitors in this category yet. drag one here, or choose the category in a monitor's settings.{{else}}every monitor has a category.{{end}}</td></tr>
     </tbody>
   </table>
   </div>
-</section>
-{{end}}
 </form>
-<dialog id="add-category" aria-labelledby="add-category-heading"{{if index .Problems "name"}} data-open-on-load{{end}}>
-  <h2 id="add-category-heading">new category</h2>
-  <p>categories group monitors here and on every status page that shows them.</p>
-  <form class="form" method="post" action="/admin/categories">
-    <div class="field">
-      <label for="category-name">name</label>
-      <input id="category-name" name="name" value="{{.NewCategory}}" required maxlength="80"{{if index .Problems "name"}} aria-invalid="true" aria-describedby="category-name-problem"{{end}}>
-      {{with index .Problems "name"}}<p class="problem" id="category-name-problem">{{.}}</p>{{end}}
-    </div>
-    <div class="actions"><button class="button" type="submit">add category</button><button class="button quiet" type="button" data-close-dialog>cancel</button></div>
-  </form>
-</dialog>
+<p class="hint">drag a monitor to change its place in this list.</p>
+{{else}}
+<p class="panel empty">no monitors yet. <a href="/admin/monitors/new">add the first one</a> to start checking.</p>
+{{end}}
 {{end}}

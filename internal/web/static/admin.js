@@ -585,81 +585,16 @@ document.addEventListener("change", async (event) => {
   }
   const saved = await saveForm(form);
   // A new file, or a monitor added to a list, changes what the page has to show.
-  if (saved && (event.target.type === "file" || event.target.name === "add" || event.target.name.startsWith("remove_"))) {
+  if (saved && (event.target.type === "file" || ["add", "new_category"].includes(event.target.name) || event.target.name.startsWith("remove_"))) {
     location.reload();
   }
 });
 
-// The list of monitors in a status page's editor: arrows and dragging move a
-// row, the cross takes it off the page, and each change is saved at once.
-// Without script the same buttons send the form, and the server does the move.
-document.addEventListener("click", async (event) => {
-  const form = event.target.closest("form[data-editor-list]");
-  const row = event.target.closest("[data-row]");
-  if (!form || !row) {
-    return;
-  }
-  const move = event.target.closest("[data-move]");
-  if (move) {
-    event.preventDefault();
-    const up = move.dataset.move === "up";
-    const neighbour = up ? row.previousElementSibling : row.nextElementSibling;
-    if (!neighbour) {
-      return;
-    }
-    if (up) {
-      neighbour.before(row);
-    } else {
-      neighbour.after(row);
-    }
-    move.focus();
-    saveForm(form);
-  } else if (event.target.closest("[data-remove]")) {
-    event.preventDefault();
-    row.remove();
-    if (await saveForm(form)) {
-      // The monitor goes back into the list of those that can be added.
-      location.reload();
-    }
-  }
-});
-
-let draggedRow = null;
-document.addEventListener("dragstart", (event) => {
-  draggedRow = event.target.closest ? event.target.closest("form[data-editor-list] [data-row]") : null;
-  if (draggedRow) {
-    event.dataTransfer.effectAllowed = "move";
-    draggedRow.classList.add("dragging");
-  }
-});
-document.addEventListener("dragover", (event) => {
-  const over = draggedRow && event.target.closest("[data-row]");
-  if (!over || over.parentElement !== draggedRow.parentElement) {
-    return;
-  }
-  event.preventDefault();
-  if (over === draggedRow) {
-    return;
-  }
-  const box = over.getBoundingClientRect();
-  if (event.clientY < box.top + box.height / 2) {
-    over.before(draggedRow);
-  } else {
-    over.after(draggedRow);
-  }
-});
-document.addEventListener("dragend", () => {
-  if (!draggedRow) {
-    return;
-  }
-  draggedRow.classList.remove("dragging");
-  saveForm(draggedRow.closest("form"));
-  draggedRow = null;
-});
-
-// The list of all monitors: a row is dragged to another place or into another
-// category, a category is dragged as a whole. Every item carries a hidden
-// field, so the order of the fields is the arrangement, and it is saved on drop.
+// Lists arranged by dragging: the list of all monitors, and a status page's
+// monitors and categories in its editor. A row is dragged to another place or
+// into another category, a category is dragged as a whole. Every item carries
+// a hidden field, so the order of the fields is the arrangement, and it is
+// saved on drop. The arrows beside a row send the form the ordinary way.
 let draggedItem = null;
 document.addEventListener("dragstart", (event) => {
   draggedItem = event.target.closest ? event.target.closest("form[data-order] [data-drag]") : null;

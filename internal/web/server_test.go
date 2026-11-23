@@ -696,7 +696,7 @@ func TestSignInPageLayoutAndBackgroundAreChosenInAppearance(t *testing.T) {
 	}
 }
 
-func TestMonitorsBelongToTheInstallAndAreListedByCategory(t *testing.T) {
+func TestMonitorsBelongToTheInstallAndKeepTheirOrder(t *testing.T) {
 	ctx := context.Background()
 	s := newSite(t)
 	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
@@ -706,78 +706,53 @@ func TestMonitorsBelongToTheInstallAndAreListedByCategory(t *testing.T) {
 	if status, _ := s.get(t, s.anonymous, "/admin/monitors"); status != http.StatusSeeOther {
 		t.Fatalf("monitors without a session: got %d, want 303", status)
 	}
-	// A category can exist before any monitor is in it.
-	if resp := s.post(t, s.admin, "/admin/categories", url.Values{"name": {""}}, nil); resp.StatusCode != http.StatusUnprocessableEntity {
-		t.Errorf("a category without a name: got %d, want 422", resp.StatusCode)
-	}
-	if resp := s.post(t, s.admin, "/admin/categories", url.Values{"name": {"core"}}, nil); resp.StatusCode != http.StatusSeeOther {
-		t.Fatalf("add a category: got %d, want 303", resp.StatusCode)
-	}
 	form := url.Values{
 		"name": {"database"}, "kind": {"tcp"}, "target": {"db.example.com:5432"}, "interval_s": {"60"}, "timeout_s": {"5"},
-		"retries": {"2"}, "retry_interval_s": {"20"}, "recovery_checks": {"2"}, "category": {"storage"},
+		"retries": {"2"}, "retry_interval_s": {"20"}, "recovery_checks": {"2"},
 	}
-	// One monitor on no status page, with a category that is new, and one on a page.
+	// One monitor on no status page, and one on a page.
 	if resp := s.post(t, s.admin, "/admin/monitors", form, nil); resp.Header.Get("Location") != "/admin/monitors" {
 		t.Fatalf("create on no page: got %d to %q, want a redirect to the list", resp.StatusCode, resp.Header.Get("Location"))
 	}
 	form.Set("name", "website")
-	form.Set("category", "")
 	form.Set("page", strconv.FormatInt(projectID, 10))
 	if resp := s.post(t, s.admin, "/admin/monitors", form, nil); resp.Header.Get("Location") != fmt.Sprintf("/admin/projects/%d", projectID) {
 		t.Fatalf("create on a page: got %d to %q, want a redirect to the page", resp.StatusCode, resp.Header.Get("Location"))
 	}
-	_, page := s.get(t, s.admin, "/admin/monitors")
-	// Uncategorised first, then the categories in the order they were made, the empty one included.
-	order := []string{"no category", "website", "Acme", "core</h2>", "no monitors in this category yet", "storage</h2>", "database", "on none"}
-	at := 0
-	for _, want := range order {
-		next := strings.Index(page[at:], want)
-		if next < 0 {
-			t.Fatalf("monitors page: %q is missing or out of order, wanted the order %v", want, order)
+	inOrder := func(page string, order []string) {
+		t.Helper()
+		at := 0
+		for _, want := range order {
+			next := strings.Index(page[at:], want)
+			if next < 0 {
+				t.Fatalf("monitors page: %q is missing or out of order, wanted the order %v", want, order)
+			}
+			at += next + len(want)
 		}
-		at += next + len(want)
 	}
-	// The arrangement is saved as the fields stand: the database moves into "core"
-	// ahead of nothing, and "storage" goes before "core".
-	monitorsNow, err := s.store.Monitors(ctx)
-	if err != nil || len(monitorsNow) != 2 {
-		t.Fatalf("monitors: got %d err=%v, want 2", len(monitorsNow), err)
+	_, page := s.get(t, s.admin, "/admin/monitors")
+	inOrder(page, []string{"database", "on none", "website", "Acme"})
+	// The list is arranged by sending its items in the new order.
+	monitors, err := s.store.Monitors(ctx)
+	if err != nil || len(monitors) != 2 {
+		t.Fatalf("monitors: got %d err=%v, want 2", len(monitors), err)
 	}
-	byName := map[string]string{}
-	for _, m := range monitorsNow {
-		byName[m.Name] = strconv.FormatInt(m.ID, 10)
-	}
-	arrange := url.Values{"item": {"c:", "c:storage", "m:" + byName["website"], "c:core", "m:" + byName["database"], "m:not-a-number"}}
+	arrange := url.Values{"item": {fmt.Sprintf("m:%d", monitors[1].ID), "m:not-a-number", fmt.Sprintf("m:%d", monitors[0].ID)}}
 	if resp := s.post(t, s.admin, "/admin/monitors/order", arrange, nil); resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("arrange: got %d, want 303", resp.StatusCode)
 	}
 	_, page = s.get(t, s.admin, "/admin/monitors")
-	order = []string{"no category", "every monitor has a category", "storage</h2>", "website", "core</h2>", "database"}
-	at = 0
-	for _, want := range order {
-		next := strings.Index(page[at:], want)
-		if next < 0 {
-			t.Fatalf("monitors page after arranging: %q is missing or out of order, wanted the order %v", want, order)
-		}
-		at += next + len(want)
-	}
-	arrange = url.Values{"item": {"c:", "m:" + byName["website"], "c:core", "c:storage", "m:" + byName["database"]}}
-	s.post(t, s.admin, "/admin/monitors/order", arrange, nil)
+	inOrder(page, []string{"website", "Acme", "database", "on none"})
 	// Only the monitor that was put on the page is public there.
 	if _, status := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(status, "website") || strings.Contains(status, "database") {
 		t.Error("the status page must show the monitor placed on it and not the other one")
 	}
-	// Deleting a category keeps its monitors. Deleting a status page keeps them too.
-	if resp := s.post(t, s.admin, "/admin/categories/delete", url.Values{"name": {"storage"}}, nil); resp.StatusCode != http.StatusSeeOther {
-		t.Fatalf("delete a category: got %d, want 303", resp.StatusCode)
-	}
+	// Deleting a status page keeps its monitors.
 	if resp := s.post(t, s.admin, fmt.Sprintf("/admin/projects/%d/delete", projectID), nil, nil); resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("delete the status page: got %d, want 303", resp.StatusCode)
 	}
-	_, page = s.get(t, s.admin, "/admin/monitors")
-	if strings.Contains(page, "storage</h2>") || !strings.Contains(page, "database") || !strings.Contains(page, "website") {
-		t.Error("after deleting a category and a status page, both monitors must remain and the category be gone")
+	if _, page = s.get(t, s.admin, "/admin/monitors"); !strings.Contains(page, "database") || !strings.Contains(page, "website") {
+		t.Error("after deleting a status page, both monitors must remain")
 	}
 }
 
@@ -1026,10 +1001,14 @@ func TestIncidentHistoryPageListsAYearAndHidesDrafts(t *testing.T) {
 	}
 }
 
-func TestStatusPageGroupsMonitorsByCategory(t *testing.T) {
+func TestStatusPageGroupsMonitorsByItsOwnCategories(t *testing.T) {
 	ctx := context.Background()
 	s := newSite(t)
 	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherID, err := s.store.CreateProject(ctx, "other", "Other", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1037,17 +1016,26 @@ func TestStatusPageGroupsMonitorsByCategory(t *testing.T) {
 		Kind: "http", Target: "https://example.com",
 		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
 	}
+	var layout, plain []store.Placement
 	for _, m := range []struct{ name, category string }{
-		{"zebra api", "web"}, {"alpha site", "web"}, {"database", "infrastructure"}, {"loose check", ""},
+		{"loose check", ""}, {"zebra api", "web"}, {"alpha site", "web"}, {"database", "infrastructure"},
 	} {
-		monitor.Name, monitor.Category = m.name, m.category
-		if _, err := s.createShown(ctx, projectID, monitor, 1); err != nil {
+		monitor.Name = m.name
+		id, err := s.store.CreateMonitor(ctx, monitor, 1)
+		if err != nil {
 			t.Fatal(err)
 		}
+		layout = append(layout, store.Placement{MonitorID: id, Category: m.category})
+		plain = append(plain, store.Placement{MonitorID: id})
+	}
+	// The same monitors are on two pages. Only the first page sorts them into categories.
+	if err := s.store.SetPageLayout(ctx, projectID, []string{"web", "infrastructure"}, layout); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.SetPageLayout(ctx, otherID, nil, plain); err != nil {
+		t.Fatal(err)
 	}
 	_, page := s.get(t, s.anonymous, "/s/acme")
-	// Uncategorised monitors come first, then each category once, at the place of
-	// its first monitor in the page's own order, which here is the order they were added in.
 	order := []string{"loose check", "<h3>web</h3>", "zebra api", "alpha site", "<h3>infrastructure</h3>", "database"}
 	at := 0
 	for _, want := range order {
@@ -1059,6 +1047,9 @@ func TestStatusPageGroupsMonitorsByCategory(t *testing.T) {
 	}
 	if got := strings.Count(page, "<h3>web</h3>"); got != 1 {
 		t.Errorf("the web heading appears %d times, want once", got)
+	}
+	if _, other := s.get(t, s.anonymous, "/s/other"); strings.Contains(other, "<h3>web</h3>") || !strings.Contains(other, "zebra api") {
+		t.Error("the other page shows the same monitors and must have no category headings")
 	}
 }
 

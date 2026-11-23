@@ -375,50 +375,38 @@ func TestAStatusPageListsMonitorsInItsOwnOrderAndStyle(t *testing.T) {
 			t.Errorf("monitor %d during page two's maintenance: got %v err=%v, want %v", id, resting, err, wantResting)
 		}
 	}
-	// Categories are a list of their own. Deleting one leaves its monitors without a category.
-	if err := errors.Join(s.CreateCategory(ctx, "web"), s.CreateCategory(ctx, "core"), s.CreateCategory(ctx, "web")); err != nil {
+	// Each status page has its own categories. Page one names two, page two has none.
+	layout := []Placement{{MonitorID: ids[1], Category: "core"}, {MonitorID: ids[0], Category: "web", Display: "minimal"}}
+	if err := s.SetPageLayout(ctx, one, []string{"web", "empty one", "web"}, layout); err != nil {
 		t.Fatal(err)
 	}
-	m, err := s.Monitor(ctx, ids[1])
-	if err != nil {
+	if names, err := s.PageCategories(ctx, one); err != nil || !slices.Equal(names, []string{"web", "empty one", "core"}) {
+		t.Fatalf("categories of page one: got %v err=%v, want the listed ones once each, then the one only a monitor names", names, err)
+	}
+	if names, err := s.PageCategories(ctx, two); err != nil || len(names) != 0 {
+		t.Fatalf("categories of page two: got %v err=%v, want none", names, err)
+	}
+	placed, err = s.MonitorsByProject(ctx, one)
+	if err != nil || len(placed) != 2 || placed[0].Category != "core" || placed[1].Category != "web" {
+		t.Fatalf("page one after the layout: got %+v err=%v, want the two monitors in their categories", placed, err)
+	}
+	// Saving only the monitors keeps the page's categories, the empty one included.
+	if err := s.SetPlacements(ctx, one, []Placement{{MonitorID: ids[0]}}); err != nil {
 		t.Fatal(err)
 	}
-	m.Category = "core"
-	if err := s.UpdateMonitor(ctx, m); err != nil {
-		t.Fatal(err)
-	}
-	if names, err := s.Categories(ctx); err != nil || !slices.Equal(names, []string{"web", "core"}) {
-		t.Fatalf("categories: got %v err=%v, want web then core, each once", names, err)
-	}
-	if err := s.DeleteCategory(ctx, "core"); err != nil {
-		t.Fatal(err)
-	}
-	if m, err := s.Monitor(ctx, ids[1]); err != nil || m.Category != "" {
-		t.Fatalf("monitor after its category was deleted: got %q err=%v, want no category", m.Category, err)
+	if names, err := s.PageCategories(ctx, one); err != nil || !slices.Equal(names, []string{"web", "empty one", "core"}) {
+		t.Fatalf("categories after saving only the monitors: got %v err=%v, want them kept", names, err)
 	}
 	if names, err := s.PageNames(ctx, ids[0]); err != nil || !slices.Equal(names, []string{"One", "Two"}) {
 		t.Fatalf("pages that show the first monitor: got %v err=%v, want One and Two", names, err)
 	}
-	// The list of all monitors is arranged by hand: categories in the order of
-	// the groups, monitors moved to their group and ordered inside it.
-	order := []MonitorGroup{{Category: "", MonitorIDs: []int64{ids[2]}}, {Category: "late", MonitorIDs: []int64{ids[1], ids[0]}}, {Category: "web"}}
-	if err := s.SetMonitorOrder(ctx, order); err != nil {
+	// The list of all monitors has an order of its own. A monitor that is not named goes behind.
+	if err := s.SetMonitorOrder(ctx, []int64{ids[2], ids[0]}); err != nil {
 		t.Fatal(err)
 	}
 	arranged, err := s.Monitors(ctx)
-	if err != nil || len(arranged) != 3 {
-		t.Fatalf("monitors: got %d err=%v, want 3", len(arranged), err)
-	}
-	for i, want := range []struct {
-		id       int64
-		category string
-	}{{ids[2], ""}, {ids[1], "late"}, {ids[0], "late"}} {
-		if arranged[i].ID != want.id || arranged[i].Category != want.category {
-			t.Errorf("monitor %d in the list: got id %d in %q, want id %d in %q", i, arranged[i].ID, arranged[i].Category, want.id, want.category)
-		}
-	}
-	if names, err := s.Categories(ctx); err != nil || !slices.Equal(names, []string{"late", "web"}) {
-		t.Fatalf("categories after arranging: got %v err=%v, want late then web", names, err)
+	if err != nil || len(arranged) != 3 || arranged[0].ID != ids[2] || arranged[1].ID != ids[0] || arranged[2].ID != ids[1] {
+		t.Fatalf("monitors after arranging: got %+v err=%v, want the third, the first, then the one not named", arranged, err)
 	}
 	// Status pages keep the order they are given.
 	if err := s.SetProjectOrder(ctx, []int64{two, one}); err != nil {

@@ -78,9 +78,6 @@ type Monitor struct {
 	RetryIntervalS int
 	RecoveryChecks int
 	Paused         bool
-	// Category groups monitors in the admin's list of all monitors. Empty for
-	// none. A status page has its own categories, see Placement.
-	Category string
 
 	Tracker       health.Tracker
 	StatusSinceMs int64
@@ -100,7 +97,7 @@ type Monitor struct {
 const monitorColumns = `id, name, kind, target, keyword, interval_s, timeout_ms, retries,
 	retry_interval_s, recovery_checks, paused, status, status_since_ms, fail_streak, ok_streak,
 	failing_since_ms, last_check_at_ms, last_latency_ms, last_error, push_token, last_push_at_ms,
-	cert_expires_at_ms, cert_warned_days, category`
+	cert_expires_at_ms, cert_warned_days`
 
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -111,8 +108,7 @@ func scanMonitor(row rowScanner) (Monitor, error) {
 	err := row.Scan(&m.ID, &m.Name, &m.Kind, &m.Target, &m.Keyword, &m.IntervalS, &m.TimeoutMs,
 		&m.Retries, &m.RetryIntervalS, &m.RecoveryChecks, &m.Paused, &m.Tracker.Status, &m.StatusSinceMs,
 		&m.Tracker.FailStreak, &m.Tracker.OKStreak, &m.Tracker.FailingSinceMs, &m.LastCheckAtMs,
-		&m.LastLatencyMs, &m.LastError, &m.PushToken, &m.LastPushAtMs, &m.CertExpiresAtMs, &m.CertWarnedDays,
-		&m.Category)
+		&m.LastLatencyMs, &m.LastError, &m.PushToken, &m.LastPushAtMs, &m.CertExpiresAtMs, &m.CertWarnedDays)
 	return m, err
 }
 
@@ -219,10 +215,10 @@ func (s *Store) DeleteProject(ctx context.Context, id int64) error {
 func (s *Store) CreateMonitor(ctx context.Context, m Monitor, nowMs int64) (int64, error) {
 	res, err := s.db.ExecContext(ctx, `
 		insert into monitors (name, kind, target, keyword, interval_s, timeout_ms, retries,
-			retry_interval_s, recovery_checks, paused, push_token, category, status_since_ms, created_at_ms, position)
-		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (select coalesce(max(position), 0) + 1 from monitors))`,
+			retry_interval_s, recovery_checks, paused, push_token, status_since_ms, created_at_ms, position)
+		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (select coalesce(max(position), 0) + 1 from monitors))`,
 		m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries,
-		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.PushToken, m.Category, nowMs, nowMs)
+		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.PushToken, nowMs, nowMs)
 	if err != nil {
 		return 0, err
 	}
@@ -244,11 +240,10 @@ func displayOrDefault(display string) string {
 func (s *Store) UpdateMonitor(ctx context.Context, m Monitor) error {
 	res, err := s.db.ExecContext(ctx, `
 		update monitors set name = ?, kind = ?, target = ?, keyword = ?, interval_s = ?, timeout_ms = ?,
-			retries = ?, retry_interval_s = ?, recovery_checks = ?, paused = ?, push_token = ?,
-			category = ?
+			retries = ?, retry_interval_s = ?, recovery_checks = ?, paused = ?, push_token = ?
 		where id = ?`,
 		m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries, m.RetryIntervalS,
-		m.RecoveryChecks, m.Paused, m.PushToken, m.Category, m.ID)
+		m.RecoveryChecks, m.Paused, m.PushToken, m.ID)
 	if err != nil {
 		return err
 	}
@@ -285,42 +280,21 @@ func (s *Store) Monitor(ctx context.Context, id int64) (Monitor, error) {
 	return m, err
 }
 
-// Monitors lists every monitor: those without a category first, then each
-// category in the order of the list of categories, and inside a category in
-// the order the admin gave the monitors.
+// Monitors lists every monitor in the order the admin gave them.
 func (s *Store) Monitors(ctx context.Context) ([]Monitor, error) {
-	return s.monitors(ctx, `
-		select `+monitorColumns+` from monitors
-		order by category <> '', coalesce((select c.position from categories c where c.name = monitors.category), 0),
-			category, position, id`)
+	return s.monitors(ctx, "select "+monitorColumns+" from monitors order by position, id")
 }
 
-// MonitorGroup is a category with its monitors in their order. The group
-// without a name holds the monitors that have no category.
-type MonitorGroup struct {
-	Category   string
-	MonitorIDs []int64
-}
-
-// SetMonitorOrder arranges the list of all monitors: the categories take the
-// order of the groups, and each monitor moves to its group's category and to
-// its place in the group. A category that is new is added. Monitors and
-// categories that no group names stay as they are.
-func (s *Store) SetMonitorOrder(ctx context.Context, groups []MonitorGroup) error {
+// SetMonitorOrder puts the monitors in the order of ids. A monitor that is
+// not named keeps its place behind the named ones.
+func (s *Store) SetMonitorOrder(ctx context.Context, ids []int64) error {
 	return s.write(ctx, func(tx *sql.Tx) error {
-		for i, group := range groups {
-			if group.Category != "" {
-				if _, err := tx.ExecContext(ctx, `
-					insert into categories (name, position) values (?1, ?2)
-					on conflict (name) do update set position = ?2`, group.Category, i+1); err != nil {
-					return err
-				}
-			}
-			for place, monitorID := range group.MonitorIDs {
-				if _, err := tx.ExecContext(ctx,
-					"update monitors set category = ?, position = ? where id = ?", group.Category, place+1, monitorID); err != nil {
-					return err
-				}
+		if _, err := tx.ExecContext(ctx, "update monitors set position = position + ?", len(ids)); err != nil {
+			return err
+		}
+		for i, id := range ids {
+			if _, err := tx.ExecContext(ctx, "update monitors set position = ? where id = ?", i+1, id); err != nil {
+				return err
 			}
 		}
 		return nil

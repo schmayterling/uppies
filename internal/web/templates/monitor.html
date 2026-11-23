@@ -10,7 +10,7 @@
     <h1>{{.Monitor.Name}}</h1>
     <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
   </div>
-  {{with .Monitor.Category}}<p class="muted">{{.}}</p>{{end}}
+  {{with .Category}}<p class="muted">{{.}}</p>{{end}}
 </header>
 {{template "monitor-detail" (pair .Detail .Project.HistoryDays)}}
 <section aria-labelledby="badges-heading">

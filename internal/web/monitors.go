@@ -17,8 +17,6 @@ type monitorFormPage struct {
 	Chrome  chrome
 	Monitor store.Monitor
 	Kinds   []string
-	// Categories are the categories a monitor can be put in.
-	Categories []string
 	// Channels are all alert channels, and ChannelIDs the ones this monitor alerts.
 	Channels   []store.AlertChannel
 	ChannelIDs []int64
@@ -61,13 +59,10 @@ func defaultMonitor() store.Monitor {
 	}
 }
 
-// monitorForm fills in what the monitor form offers: kinds, categories and alert channels.
+// monitorForm fills in what the monitor form offers: kinds and alert channels.
 func (s *Server) monitorForm(r *http.Request, title string, m store.Monitor) (monitorFormPage, error) {
 	page := monitorFormPage{Chrome: s.adminChrome(r, title), Monitor: m, Kinds: check.Kinds, StateIcons: stateIcons}
 	var err error
-	if page.Categories, err = s.store.Categories(r.Context()); err != nil {
-		return page, err
-	}
 	page.Channels, err = s.store.AlertChannels(r.Context())
 	return page, err
 }
@@ -161,7 +156,7 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	if err := s.saveMonitorExtras(r, m, monitorID, channelIDs); err != nil {
+	if err := s.store.SetMonitorChannels(ctx, monitorID, channelIDs); err != nil {
 		s.fail(w, r, err)
 		return
 	}
@@ -185,18 +180,6 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Redirect(w, r, "/admin/monitors", http.StatusSeeOther)
 	}
-}
-
-// saveMonitorExtras stores what belongs to a monitor outside its own row:
-// the channels it alerts, and its category in the list of categories.
-func (s *Server) saveMonitorExtras(r *http.Request, m store.Monitor, monitorID int64, channelIDs []int64) error {
-	if err := s.store.SetMonitorChannels(r.Context(), monitorID, channelIDs); err != nil {
-		return err
-	}
-	if m.Category == "" {
-		return nil
-	}
-	return s.store.CreateCategory(r.Context(), m.Category)
 }
 
 // pathMonitor loads the monitor named by the path.
@@ -265,7 +248,7 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	if err := s.saveMonitorExtras(r, m, m.ID, channelIDs); err != nil {
+	if err := s.store.SetMonitorChannels(r.Context(), m.ID, channelIDs); err != nil {
 		s.fail(w, r, err)
 		return
 	}
@@ -287,21 +270,10 @@ func (s *Server) handleDeleteMonitor(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin/monitors", http.StatusSeeOther)
 }
 
-// monitorsPage is the data of monitors.html: every monitor of the install, by category.
+// monitorsPage is the data of monitors.html: every monitor of the install, in the admin's order.
 type monitorsPage struct {
 	Chrome chrome
-	Groups []monitorGroup
-	Total  int
-	// NewCategory holds the add-category form's value after a failed submit.
-	NewCategory string
-	Problems    map[string]string
-}
-
-// monitorGroup is one category with its monitors. The group without a name
-// holds the monitors that have no category.
-type monitorGroup struct {
-	Category string
-	Rows     []monitorListRow
+	Rows   []monitorListRow
 }
 
 type monitorListRow struct {
@@ -310,110 +282,39 @@ type monitorListRow struct {
 	Pages []store.Project
 }
 
-func (s *Server) monitorsPage(r *http.Request) (monitorsPage, error) {
+func (s *Server) handleMonitors(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	page := monitorsPage{Chrome: s.adminChrome(r, "monitors")}
 	monitors, err := s.store.Monitors(ctx)
 	if err != nil {
-		return page, err
-	}
-	categories, err := s.store.Categories(ctx)
-	if err != nil {
-		return page, err
+		s.fail(w, r, err)
+		return
 	}
 	pages, err := s.pagesByMonitor(ctx)
-	if err != nil {
-		return page, err
-	}
-	page.Total = len(monitors)
-	// Monitors without a category come first, then each category in its
-	// order. A category shows even when it is empty, so that it can be filled.
-	index := map[string]int{"": 0}
-	page.Groups = []monitorGroup{{}}
-	for _, name := range categories {
-		index[name] = len(page.Groups)
-		page.Groups = append(page.Groups, monitorGroup{Category: name})
-	}
-	for _, row := range monitorRows(monitors) {
-		at, listed := index[row.Category]
-		if !listed {
-			// A category that is on a monitor and not in the list still gets its group.
-			at = len(page.Groups)
-			index[row.Category] = at
-			page.Groups = append(page.Groups, monitorGroup{Category: row.Category})
-		}
-		page.Groups[at].Rows = append(page.Groups[at].Rows, monitorListRow{monitorRow: row, Pages: pages[row.ID]})
-	}
-	return page, nil
-}
-
-func (s *Server) handleMonitors(w http.ResponseWriter, r *http.Request) {
-	page, err := s.monitorsPage(r)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
+	for _, row := range monitorRows(monitors) {
+		page.Rows = append(page.Rows, monitorListRow{monitorRow: row, Pages: pages[row.ID]})
+	}
 	s.render(w, r, http.StatusOK, "monitors.html", page)
 }
 
-// handleOrderMonitors stores the arrangement of the list of all monitors. The
-// form sends one item per category and per monitor, in the order they stand
-// in: "c:" and a category's name, then "m:" and the id of each monitor in it.
+// handleOrderMonitors stores the order of the list of all monitors. The form
+// sends one item per monitor in the order they stand in: "m:" and its id.
 func (s *Server) handleOrderMonitors(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	var groups []store.MonitorGroup
+	var ids []int64
 	for _, item := range r.PostForm["item"] {
-		kind, value, _ := strings.Cut(item, ":")
-		switch {
-		case kind == "c" && len(value) <= 80:
-			groups = append(groups, store.MonitorGroup{Category: value})
-		case kind == "m" && len(groups) > 0:
-			if id, err := strconv.ParseInt(value, 10, 64); err == nil {
-				last := &groups[len(groups)-1]
-				last.MonitorIDs = append(last.MonitorIDs, id)
-			}
+		if id, err := strconv.ParseInt(strings.TrimPrefix(item, "m:"), 10, 64); err == nil {
+			ids = append(ids, id)
 		}
 	}
-	if err := s.store.SetMonitorOrder(r.Context(), groups); err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	http.Redirect(w, r, "/admin/monitors", http.StatusSeeOther)
-}
-
-func (s *Server) handleCreateCategory(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	name := strings.TrimSpace(r.PostForm.Get("name"))
-	if name == "" || len(name) > 80 {
-		page, err := s.monitorsPage(r)
-		if err != nil {
-			s.fail(w, r, err)
-			return
-		}
-		page.NewCategory = name
-		page.Problems = map[string]string{"name": "give the category a name of 1 to 80 characters."}
-		s.render(w, r, http.StatusUnprocessableEntity, "monitors.html", page)
-		return
-	}
-	if err := s.store.CreateCategory(r.Context(), name); err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	http.Redirect(w, r, "/admin/monitors", http.StatusSeeOther)
-}
-
-func (s *Server) handleDeleteCategory(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	if err := s.store.DeleteCategory(r.Context(), r.PostForm.Get("name")); err != nil {
+	if err := s.store.SetMonitorOrder(r.Context(), ids); err != nil {
 		s.fail(w, r, err)
 		return
 	}
