@@ -1,0 +1,13 @@
+{{define "incident-calendar"}}
+  <div class="heat-scroll">
+    <div class="heat-frame">
+      <span></span>
+      <div class="heat-months" aria-hidden="true">{{range .Months}}<span>{{.}}</span>{{end}}</div>
+      <div class="heat-days" aria-hidden="true"><span></span><span>mon</span><span></span><span>wed</span><span></span><span>fri</span><span></span></div>
+      <div class="heat" role="img" aria-label="{{if eq .Total 1}}1 incident{{else}}{{.Total}} incidents{{end}} in {{.Year}}. each square is a day.">
+        {{range .Weeks}}{{range .}}<span class="heat-cell{{if .Blank}} heat-blank{{else if .Future}} heat-future{{else}} heat-{{.Level}}{{end}}"{{if .Tip}} data-tip="{{.Tip}}"{{end}}></span>{{end}}{{end}}
+      </div>
+    </div>
+  </div>
+  <p class="heat-legend meta"><span class="heat-cell heat-0"></span>none <span class="heat-cell heat-1"></span>minor <span class="heat-cell heat-2"></span>major <span class="heat-cell heat-3"></span>critical</p>
+{{end}}

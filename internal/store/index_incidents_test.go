@@ -46,9 +46,9 @@ func TestPublishedIncidentSummariesKeepTheirOrderAcrossPages(t *testing.T) {
 			create(east, "active draft", "investigating", startedAt+2000, false)
 			create(west, "resolved draft", "resolved", startedAt-500, false)
 
-			checkPage := func(before IncidentCursor, want []int64) {
+			checkPage := func(list func(IncidentCursor) ([]PublishedIncidentSummary, error), before IncidentCursor, want []int64) {
 				t.Helper()
-				rows, err := s.PublishedIncidentSummaries(ctx, before, 2)
+				rows, err := list(before)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -60,10 +60,23 @@ func TestPublishedIncidentSummariesKeepTheirOrderAcrossPages(t *testing.T) {
 					t.Fatalf("before %+v: incident IDs = %v, want %v", before, got, want)
 				}
 			}
-			checkPage(IncidentCursor{}, []int64{newest, higherTie})
+			allTime := func(before IncidentCursor) ([]PublishedIncidentSummary, error) {
+				return s.PublishedIncidentSummaries(ctx, before, 2)
+			}
+			checkPage(allTime, IncidentCursor{}, []int64{newest, higherTie})
 			create(west, "published between requests", "investigating", startedAt+3000, true)
-			checkPage(IncidentCursor{StartedAtMs: startedAt, ID: higherTie}, []int64{lowerTie, oldest})
-			checkPage(IncidentCursor{StartedAtMs: startedAt - 1000, ID: oldest}, nil)
+			afterHigherTie := IncidentCursor{StartedAtMs: startedAt, ID: higherTie}
+			afterOldest := IncidentCursor{StartedAtMs: startedAt - 1000, ID: oldest}
+			checkPage(allTime, afterHigherTie, []int64{lowerTie, oldest})
+			checkPage(allTime, afterOldest, nil)
+
+			create(east, "just before the interval", "resolved", startedAt-1001, true)
+			withinInterval := func(before IncidentCursor) ([]PublishedIncidentSummary, error) {
+				return s.PublishedIncidentSummariesBetween(ctx, before, startedAt-1000, startedAt+1000, 2)
+			}
+			checkPage(withinInterval, IncidentCursor{}, []int64{higherTie, lowerTie})
+			checkPage(withinInterval, afterHigherTie, []int64{lowerTie, oldest})
+			checkPage(withinInterval, afterOldest, nil)
 		})
 	}
 }

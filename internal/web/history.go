@@ -180,19 +180,27 @@ func recentDayGroups(resolved []incidentView, now time.Time, zone *time.Location
 	return mergeQuietRuns(groups)
 }
 
-// incidentMap builds the year's grid: one column per week, Sunday on top,
-// one cell per day. Days after today are blank.
-func incidentMap(incidents []store.Incident, year int, now time.Time, zone *time.Location) [][]heatCell {
-	type dayTotal struct{ count, level int }
-	totals := make(map[string]dayTotal)
-	for _, in := range incidents {
-		key := time.UnixMilli(in.StartedAtMs).In(zone).Format(time.DateOnly)
-		t := totals[key]
-		t.count++
-		t.level = max(t.level, impactLevels[in.Impact])
-		totals[key] = t
-	}
+type incidentDayTotal struct{ count, level int }
+type incidentDayTotals map[string]incidentDayTotal
 
+func (totals incidentDayTotals) add(startedAtMs int64, impact string, zone *time.Location) {
+	key := time.UnixMilli(startedAtMs).In(zone).Format(time.DateOnly)
+	total := totals[key]
+	total.count++
+	total.level = max(total.level, impactLevels[impact])
+	totals[key] = total
+}
+
+func incidentMap(incidents []store.Incident, year int, now time.Time, zone *time.Location) [][]heatCell {
+	totals := make(incidentDayTotals)
+	for _, in := range incidents {
+		totals.add(in.StartedAtMs, in.Impact, zone)
+	}
+	return incidentCalendarWeeks(totals, year, now, zone)
+}
+
+// incidentCalendarWeeks builds one column per week, Sunday on top, one cell per day.
+func incidentCalendarWeeks(totals incidentDayTotals, year int, now time.Time, zone *time.Location) [][]heatCell {
 	// Days are stepped at noon, so "after today" must compare against the end of today.
 	endOfToday := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, zone)
 	first := time.Date(year, time.January, 1, 12, 0, 0, 0, zone)
