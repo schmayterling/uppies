@@ -1,12 +1,36 @@
 services:
   uppies:
     image: ${UPPIES_IMAGE:-ghcr.io/schmayterling/uppies:latest}
+    command: ["-addr", ":8080", "-db-backend", "tursopg"]
+    environment:
+      UPPIES_DATABASE_URL: postgres://postgres@tursopg:5432/postgres?sslmode=disable
+    depends_on:
+      tursopg:
+        condition: service_healthy
+        restart: true
     restart: unless-stopped
     stop_grace_period: 15s
     ports:
       - "${UPPIES_BIND:-127.0.0.1}:${UPPIES_PORT:-8080}:8080"
+    networks:
+      - default
+      - database
+
+  tursopg:
+    image: ${UPPIES_TURSOPG_IMAGE:-uppies-tursopg:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.tursopg
+    restart: unless-stopped
+    stop_grace_period: 15s
     volumes:
-      - uppies-data:/data
+      - tursopg-data:/data
+    networks:
+      - database
+
+networks:
+  database:
+    internal: true
 
 volumes:
-  uppies-data:
+  tursopg-data:

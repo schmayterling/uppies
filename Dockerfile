@@ -10,8 +10,8 @@ COPY internal ./internal
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/uppies ./cmd/uppies \
     && mkdir /out/data
 
-# Final stage: the binary, CA certificates and an unprivileged user. Nothing else.
-FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+# Turso SQLite loads a native library that requires glibc and libgcc.
+FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
 LABEL org.opencontainers.image.source="https://github.com/schmayterling/uppies"
 COPY --from=build /out/uppies /uppies
 COPY --from=build --chown=nonroot:nonroot /out/data /data

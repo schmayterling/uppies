@@ -1,0 +1,12 @@
+services:
+  uppies:
+    image: ${UPPIES_IMAGE:-ghcr.io/schmayterling/uppies:latest}
+    restart: unless-stopped
+    stop_grace_period: 15s
+    ports:
+      - "${UPPIES_BIND:-127.0.0.1}:${UPPIES_PORT:-8080}:8080"
+    volumes:
+      - uppies-data:/data
+
+volumes:
+  uppies-data:

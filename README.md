@@ -3,8 +3,7 @@
 A small self-hosted uptime monitor with incident management, a timeline and
 public status pages for several projects from one install.
 
-Status: early. The core works and is tested, but it has not run in production
-and several planned features are missing (see "Not built yet").
+Uppies is under active development. See "Not built yet" for planned features.
 
 ## What it does today
 
@@ -28,9 +27,9 @@ and several planned features are missing (see "Not built yet").
 - Sends an alert when a monitor goes down and when it recovers, by email or
   to a plain webhook (JSON), Discord or Slack. The alert says what failed, why, and on
   recovery for how long.
-- Groups monitors into categories, and lets each monitor choose how the status
-  page draws it: daily bars, a response time line, uptime figures, or just its
-  name and state.
+- Groups monitors into categories. Each status page can draw a component as
+  daily bars, a response-time line, uptime figures, or a name and state.
+  A component can stay visible without contributing to the page's overall status.
 - Keeps an incident history page per project, with a year map of incidents and
   a timeline of every update.
 - Lets you shape each status page: logo, favicon, tagline, link to your homepage, accent
@@ -40,10 +39,11 @@ and several planned features are missing (see "Not built yet").
 - Serves a status badge per project at `/s/<address>/badge.svg` for readmes
   and other sites.
 - Has an admin with more than one account, its own theme, and instance
-  settings such as the name and whether the status pages are listed publicly.
+  settings for the public list's site name, navbar links, and visibility.
 - Offers a [versioned JSON API](API.md) for status pages, monitors, incidents,
   maintenance and alert channels, with scoped API tokens.
-- Runs as one binary and stores everything in one SQLite file.
+- Runs as one binary with SQLite by default, with PostgreSQL, MariaDB,
+  embedded Turso SQLite, and Turso PostgreSQL available as alternatives.
 
 ## Run it
 
@@ -73,20 +73,45 @@ supported.
 Ping uses an unprivileged socket. On Linux the user running uppies must be
 inside the range of the `net.ipv4.ping_group_range` setting.
 
+### Choose a database
+
+Set `-db-backend` or `UPPIES_DB_BACKEND` when starting Uppies.
+
+| Engine | Backend | Connection |
+| --- | --- | --- |
+| SQLite | `sqlite` | `-db /data/uppies.db`. This is the default. |
+| PostgreSQL | `postgres` | `UPPIES_DATABASE_URL` with a PostgreSQL connection string. |
+| MariaDB | `mariadb` | `UPPIES_DATABASE_URL` with a Go MySQL driver DSN, such as `user:password@tcp(db:3306)/uppies?tls=true`. |
+| Turso SQLite | `turso-sqlite` | `-db /data/uppies-turso.db` for a separate embedded Turso file. |
+| Turso PostgreSQL | `tursopg` | `UPPIES_DATABASE_URL` pointing to the private service in Compose. |
+
+Create a dedicated database for each server-backed instance. Uppies installs
+its schema on first start. Each backend keeps its own data.
+
 ### Run with Docker Compose
 
-Put `compose.yaml` on the deployment host and run:
+From a checkout, pull the Uppies image and start the stack.
 
 ```sh
-docker compose pull
-docker compose up -d
+docker compose pull uppies
+docker compose up -d --build
 ```
 
-Open `http://localhost:8080` on the host to set up the first admin account.
-Compose pulls `ghcr.io/schmayterling/uppies:latest` on Linux amd64 and arm64
-and keeps SQLite and its backups in the `uppies-data` volume. The port
-binds to loopback by default. Set `UPPIES_PORT` or `UPPIES_BIND` to
-change the host port or bind address.
+Open `http://localhost:8080` to create the first admin account. Set
+`UPPIES_PORT` or `UPPIES_BIND` to change the default loopback binding.
+
+Compose builds the pinned Turso PostgreSQL preview from `Dockerfile.tursopg`
+and stores its database in `tursopg-data`. The service uses a private Docker
+network because its wire protocol has no authentication or TLS. Run one
+Uppies process against that database. The image enables foreign-key checks
+on every connection, which Uppies verifies at startup.
+
+For an existing SQLite install, keep the same Compose project name and
+start `compose.sqlite.yaml` to retain the `uppies-data` volume and backups.
+
+```sh
+docker compose -f compose.sqlite.yaml up -d
+```
 
 The [container workflow](.github/workflows/container.yml) publishes
 `latest` and `sha-<commit>` tags from `main`. Set `UPPIES_IMAGE` to
@@ -97,7 +122,7 @@ To build and run an image from a checkout, use:
 
 ```sh
 docker build -t uppies:local .
-UPPIES_IMAGE=uppies:local docker compose up -d
+UPPIES_IMAGE=uppies:local docker compose up -d --build
 ```
 
 To serve a status page on its own domain, enter the hostname in the project's
