@@ -60,9 +60,30 @@ func createAPIToken(t *testing.T, site *site, permissions ...string) string {
 
 func TestAPITokenSecretIsShownOnlyAfterCreation(t *testing.T) {
 	site := newSite(t)
-	form := url.Values{"name": {"CI"}, "lifetime": {"30"}, "permission": {"monitors:*"}}
-	if resp := site.post(t, site.admin, "/admin/api-tokens", form, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+	form := url.Values{"name": {"CI"}, "lifetime": {"90"}, "permission": {"monitors:*", "monitors:read"}}
+	resp, err := site.admin.PostForm(site.server.URL+"/admin/api-tokens", form)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rendered, err := io.ReadAll(resp.Body)
+	if closeErr := resp.Body.Close(); closeErr != nil {
+		t.Fatal(closeErr)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("create with unknown permission: got %d, want 422", resp.StatusCode)
+	}
+	for _, want := range []string{
+		`<dialog id="new-token" aria-labelledby="new-token-heading" data-open-on-load>`,
+		`<option value="90" selected>`,
+		`value="monitors:read" checked`,
+		`id="token-name" name="name" value="CI"`,
+	} {
+		if !strings.Contains(string(rendered), want) {
+			t.Errorf("create token error is missing %s", want)
+		}
 	}
 	token := createAPIToken(t, site)
 	status, body := site.get(t, site.admin, "/admin/api-tokens/1")

@@ -43,15 +43,18 @@
   </details>
   {{end}}
   {{else}}
-  <div class="title-row"><h1>api tokens</h1></div>
+  <div class="title-row">
+    <h1>api tokens</h1>
+    <button class="button" type="button" data-open-dialog="new-token" aria-haspopup="dialog" aria-controls="new-token">{{template "icon" "plus"}}new token</button>
+  </div>
   <p class="muted">create credentials for scripts and integrations. each token starts with only the permissions you select.</p>
   {{with .Notice}}{{template "success" .}}{{end}}
-  <details{{if .Problems}} open{{end}}>
-    <summary class="token-disclosure">create token</summary>
+  <dialog id="new-token" aria-labelledby="new-token-heading"{{if .Problems}} data-open-on-load{{end}}>
+    <h2 id="new-token-heading">create token</h2>
     <form class="form" method="post" action="/admin/api-tokens">
       <div class="field">
         <label for="token-name">name</label>
-        <input id="token-name" name="name" value="{{.Name}}" autocomplete="off" maxlength="80" required{{if index .Problems "name"}} aria-invalid="true" aria-describedby="token-name-problem"{{end}}>
+        <input id="token-name" name="name" value="{{.Name}}" autocomplete="off" maxlength="80" required autofocus{{if index .Problems "name"}} aria-invalid="true" aria-describedby="token-name-problem"{{end}}>
         {{with index .Problems "name"}}<p class="problem" id="token-name-problem">{{.}}</p>{{end}}
       </div>
       <div class="field">
@@ -64,9 +67,12 @@
         {{with index .Problems "lifetime"}}<p class="problem" id="token-lifetime-problem">{{.}}</p>{{end}}
       </div>
       {{template "token-permissions" .}}
-      <div class="actions"><button class="button" type="submit">create token</button></div>
+      <div class="actions">
+        <button class="button" type="submit">create token</button>
+        <button class="button quiet" type="button" data-close-dialog>cancel</button>
+      </div>
     </form>
-  </details>
+  </dialog>
 
   <h2 class="group-title">tokens</h2>
   <div class="group">
