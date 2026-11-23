@@ -38,7 +38,7 @@
 {{end}}
 
 <section aria-labelledby="components-heading">
-  <h2 id="components-heading">components</h2>
+  <h2 class="title-ruled" id="components-heading">components</h2>
   {{if .Components}}
   <ul class="components">
     {{range .Components}}
@@ -84,7 +84,7 @@
 </section>
 
 <section aria-labelledby="history-heading">
-  <div class="title-row">
+  <div class="title-row title-ruled">
     <h2 id="history-heading">past incidents</h2>
     <a class="meta" href="/s/{{.Project.Slug}}/history{{with .TZ}}?tz={{.}}{{end}}">incident history</a>
   </div>
