@@ -133,6 +133,7 @@ tbody th { font-weight: var(--weight-medium); }
 .target { overflow-wrap: anywhere; color: var(--muted); }
 td time { white-space: nowrap; }
 .cell-note { display: block; overflow-wrap: anywhere; }
+code { font-family: var(--font-mono); font-size: var(--text-sm); }
 
 /* state: a word, a colour and a shape together */
 .state { display: inline-flex; align-items: center; gap: var(--space-1-5); white-space: nowrap; font-size: var(--text-ui); }

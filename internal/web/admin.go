@@ -1,6 +1,7 @@
 package web
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"net/http"
@@ -200,8 +201,45 @@ type monitorFormPage struct {
 	Chrome   chrome
 	Project  store.Project
 	Monitor  store.Monitor
+	Kinds    []string
 	Editing  bool
 	Problems map[string]string
+	// PushURL is where a push monitor's job reports in, empty for other kinds.
+	PushURL string
+}
+
+// kindLabels names each monitor kind in the form.
+var kindLabels = map[string]string{
+	check.KindHTTP: "http or https request",
+	check.KindTCP:  "tcp port",
+	check.KindDNS:  "dns name",
+	check.KindPing: "ping",
+	check.KindPush: "push, for scheduled jobs that report in",
+}
+
+func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
+	err := s.store.RecordPush(r.Context(), r.PathValue("token"), s.now().UnixMilli())
+	if errors.Is(err, store.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// pushURL builds the address a push monitor's job must request.
+func pushURL(r *http.Request, m store.Monitor) string {
+	if m.PushToken == "" {
+		return ""
+	}
+	scheme := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	return scheme + "://" + r.Host + "/push/" + m.PushToken
 }
 
 // defaultMonitor holds the settings a new monitor starts with: a check every
@@ -245,6 +283,16 @@ func parseMonitorForm(form url.Values, m store.Monitor) (store.Monitor, map[stri
 	if m.Kind != check.KindHTTP {
 		m.Keyword = ""
 	}
+	if m.Kind == check.KindPush {
+		// The schema wants a target. A push monitor has none, so it stores its kind.
+		m.Target = check.KindPush
+		delete(problems, "target")
+		if m.PushToken == "" {
+			m.PushToken = rand.Text()
+		}
+	} else {
+		m.PushToken = ""
+	}
 	m.IntervalS = formInt(form, "interval_s", 20, 86400, problems)
 	timeoutS := formInt(form, "timeout_s", 1, 60, problems)
 	m.TimeoutMs = timeoutS * 1000
@@ -266,7 +314,7 @@ func (s *Server) handleNewMonitorForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, http.StatusOK, "monitor_form.html", monitorFormPage{
-		Chrome: chrome{Title: "new monitor", Admin: true}, Project: project, Monitor: defaultMonitor(id),
+		Chrome: chrome{Title: "new monitor", Admin: true}, Project: project, Monitor: defaultMonitor(id), Kinds: check.Kinds,
 	})
 }
 
@@ -288,15 +336,21 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 	m, problems := parseMonitorForm(r.PostForm, defaultMonitor(id))
 	if len(problems) > 0 {
 		s.render(w, r, http.StatusUnprocessableEntity, "monitor_form.html", monitorFormPage{
-			Chrome: chrome{Title: "new monitor", Admin: true}, Project: project, Monitor: m, Problems: problems,
+			Chrome: chrome{Title: "new monitor", Admin: true}, Project: project, Monitor: m, Kinds: check.Kinds, Problems: problems,
 		})
 		return
 	}
-	if _, err := s.store.CreateMonitor(r.Context(), m, s.now().UnixMilli()); err != nil {
+	monitorID, err := s.store.CreateMonitor(r.Context(), m, s.now().UnixMilli())
+	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
 	s.monitorsChanged()
+	if m.Kind == check.KindPush {
+		// Go to the monitor's page, which shows the address the job must call.
+		http.Redirect(w, r, fmt.Sprintf("/admin/monitors/%d", monitorID), http.StatusSeeOther)
+		return
+	}
 	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d", id), http.StatusSeeOther)
 }
 
@@ -321,7 +375,8 @@ func (s *Server) handleEditMonitorForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, http.StatusOK, "monitor_form.html", monitorFormPage{
-		Chrome: chrome{Title: m.Name, Admin: true}, Project: project, Monitor: m, Editing: true,
+		Chrome: chrome{Title: m.Name, Admin: true}, Project: project, Monitor: m, Kinds: check.Kinds, Editing: true,
+		PushURL: pushURL(r, m),
 	})
 }
 
@@ -338,7 +393,7 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	m, problems := parseMonitorForm(r.PostForm, current)
 	if len(problems) > 0 {
 		s.render(w, r, http.StatusUnprocessableEntity, "monitor_form.html", monitorFormPage{
-			Chrome: chrome{Title: current.Name, Admin: true}, Project: project, Monitor: m, Editing: true, Problems: problems,
+			Chrome: chrome{Title: current.Name, Admin: true}, Project: project, Monitor: m, Kinds: check.Kinds, Editing: true, Problems: problems,
 		})
 		return
 	}

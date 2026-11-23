@@ -204,10 +204,10 @@ func (s *Store) CreateMonitor(ctx context.Context, m Monitor, nowMs int64) (int6
 func (s *Store) UpdateMonitor(ctx context.Context, m Monitor) error {
 	res, err := s.db.ExecContext(ctx, `
 		update monitors set name = ?, kind = ?, target = ?, keyword = ?, interval_s = ?, timeout_ms = ?,
-			retries = ?, retry_interval_s = ?, recovery_checks = ?, paused = ?, public = ?
+			retries = ?, retry_interval_s = ?, recovery_checks = ?, paused = ?, public = ?, push_token = ?
 		where id = ?`,
 		m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries, m.RetryIntervalS,
-		m.RecoveryChecks, m.Paused, m.Public, m.ID)
+		m.RecoveryChecks, m.Paused, m.Public, m.PushToken, m.ID)
 	if err != nil {
 		return err
 	}

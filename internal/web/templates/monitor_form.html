@@ -1,6 +1,14 @@
 {{define "main"}}
 <nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">projects</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / {{if .Editing}}{{.Monitor.Name}}{{else}}new monitor{{end}}</nav>
 <h1>{{if .Editing}}edit monitor{{else}}new monitor{{end}}</h1>
+{{with .PushURL}}
+<section class="card" aria-labelledby="push-heading">
+  <h2 id="push-heading">where the job reports in</h2>
+  <p>have the job request this address each time it finishes. if no request arrives within the time between checks, the monitor goes down.</p>
+  <p><code class="target">{{.}}</code></p>
+  <p class="hint">for example: curl -fsS {{.}}</p>
+</section>
+{{end}}
 <form class="form narrow" method="post" action="{{if .Editing}}/admin/monitors/{{.Monitor.ID}}{{else}}/admin/projects/{{.Project.ID}}/monitors{{end}}">
   <div class="field">
     <label for="name">name</label>
@@ -10,14 +18,13 @@
   <div class="field">
     <label for="kind">kind</label>
     <select id="kind" name="kind">
-      <option value="http"{{if eq .Monitor.Kind "http"}} selected{{end}}>http or https request</option>
-      <option value="tcp"{{if eq .Monitor.Kind "tcp"}} selected{{end}}>tcp port</option>
+      {{range .Kinds}}<option value="{{.}}"{{if eq . $.Monitor.Kind}} selected{{end}}>{{kindLabel .}}</option>{{end}}
     </select>
   </div>
   <div class="field">
     <label for="target">target</label>
-    <input id="target" name="target" value="{{.Monitor.Target}}" required maxlength="2048" autocapitalize="none" spellcheck="false" aria-describedby="target-hint{{if index .Problems "target"}} target-problem{{end}}"{{if index .Problems "target"}} aria-invalid="true"{{end}}>
-    <p class="hint" id="target-hint">a url such as https://example.com/health, or host:port for a tcp port.</p>
+    <input id="target" name="target" value="{{if ne .Monitor.Kind "push"}}{{.Monitor.Target}}{{end}}" maxlength="2048" autocapitalize="none" spellcheck="false" aria-describedby="target-hint{{if index .Problems "target"}} target-problem{{end}}"{{if index .Problems "target"}} aria-invalid="true"{{end}}>
+    <p class="hint" id="target-hint">a url such as https://example.com/health, host:port for a tcp port, or a hostname for dns and ping. leave it empty for a push monitor.</p>
     {{with index .Problems "target"}}<p class="problem" id="target-problem">{{.}}</p>{{end}}
   </div>
   <div class="field">
@@ -28,7 +35,7 @@
   <fieldset>
     <legend>timing</legend>
     <div class="field">
-      <label for="interval_s">seconds between checks</label>
+      <label for="interval_s">seconds between checks, or between reports for a push monitor</label>
       <input id="interval_s" name="interval_s" type="number" inputmode="numeric" min="20" max="86400" value="{{.Monitor.IntervalS}}" required{{if index .Problems "interval_s"}} aria-invalid="true" aria-describedby="interval_s-problem"{{end}}>
       {{with index .Problems "interval_s"}}<p class="problem" id="interval_s-problem">{{.}}</p>{{end}}
     </div>

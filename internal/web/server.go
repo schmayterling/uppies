@@ -79,6 +79,9 @@ func (s *Server) Handler() (http.Handler, error) {
 	mux.HandleFunc("GET /s/{slug}/theme.css", s.handleTheme)
 	mux.HandleFunc("GET /s/{slug}/badge.svg", s.handleBadge)
 	mux.HandleFunc("GET /s/{slug}/images/{kind}", s.handleImage)
+	// A push monitor's job reports in here. The token in the path is the credential.
+	mux.HandleFunc("GET /push/{token}", s.handlePush)
+	mux.HandleFunc("POST /push/{token}", s.handlePush)
 	mux.HandleFunc("GET /admin/setup", s.handleSetupForm)
 	mux.HandleFunc("POST /admin/setup", s.handleSetup)
 	mux.HandleFunc("GET /admin/login", s.handleLoginForm)
@@ -111,6 +114,8 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("POST /admin/incidents/{id}/delete", s.handleDeleteIncident)
 
 	crossOrigin := http.NewCrossOriginProtection()
+	// Scheduled jobs are not browsers, and the token already proves who calls.
+	crossOrigin.AddInsecureBypassPattern("POST /push/{token}")
 	return crossOrigin.Handler(securityHeaders(limitBody(mux))), nil
 }
 
@@ -210,6 +215,13 @@ var templateFuncs = template.FuncMap{
 		return time.UnixMilli(ms).UTC().Format(time.RFC3339)
 	},
 	"contains": slices.Contains[[]int64],
+	"kindLabel": func(kind string) string {
+		return kindLabels[kind]
+	},
+	// daysUntil counts whole days from now to a time, for certificate expiry.
+	"daysUntil": func(ms int64) int {
+		return int(time.Until(time.UnixMilli(ms)).Hours() / 24)
+	},
 	"seconds": func(ms int) int {
 		return ms / 1000
 	},

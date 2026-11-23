@@ -22,7 +22,7 @@
       <tr>
         <th scope="row"><a href="/admin/monitors/{{.ID}}">{{.Name}}</a></th>
         <td><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>{{if and .LastError (eq .State "down")}}<span class="meta cell-note">{{.LastError}}</span>{{end}}</td>
-        <td class="target">{{.Target}}</td>
+        <td class="target">{{if eq .Kind "push"}}reports in{{else}}{{.Target}}{{end}}{{if .CertExpiresAtMs}}<span class="meta cell-note">certificate expires in {{daysUntil .CertExpiresAtMs}} days</span>{{end}}</td>
         <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{utc .LastCheckAtMs}}</time>{{else}}<span class="muted">not yet</span>{{end}}</td>
         <td class="number">{{if .LastCheckAtMs}}{{.LastLatencyMs}} ms{{end}}</td>
       </tr>

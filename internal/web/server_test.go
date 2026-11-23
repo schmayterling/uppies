@@ -546,3 +546,43 @@ func TestLogoAndFaviconUploads(t *testing.T) {
 		t.Errorf("favicon after removing only the logo: got %d, want 200", status)
 	}
 }
+
+func TestAPushMonitorGetsATokenThatTheJobReportsTo(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	form := url.Values{
+		"name": {"nightly backup"}, "kind": {"push"}, "interval_s": {"3600"}, "timeout_s": {"10"},
+		"retries": {"0"}, "retry_interval_s": {"60"}, "recovery_checks": {"1"},
+	}
+	resp := s.post(t, s.admin, fmt.Sprintf("/admin/projects/%d/monitors", projectID), form, nil)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("create: got %d, want 303", resp.StatusCode)
+	}
+	monitors, err := s.store.MonitorsByProject(ctx, projectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(monitors) != 1 || len(monitors[0].PushToken) < 20 {
+		t.Fatalf("got %+v, want one monitor with a long random token", monitors)
+	}
+	token := monitors[0].PushToken
+	if _, page := s.get(t, s.admin, resp.Header.Get("Location")); !strings.Contains(page, "/push/"+token) {
+		t.Error("the monitor page does not show the address the job must call")
+	}
+
+	if status, _ := s.get(t, s.anonymous, "/push/not-a-real-token"); status != http.StatusNotFound {
+		t.Errorf("unknown token: got %d, want 404", status)
+	}
+	// A scheduled job is not a browser. Its POST carries no origin and must still be accepted.
+	if resp := s.post(t, s.anonymous, "/push/"+token, nil, http.Header{"Sec-Fetch-Site": {"cross-site"}}); resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("report by POST: got %d, want 204", resp.StatusCode)
+	}
+	lastPushAtMs, err := s.store.LastPushAtMs(ctx, monitors[0].ID)
+	if err != nil || lastPushAtMs == 0 {
+		t.Fatalf("after a report: last push %d err=%v, want it recorded", lastPushAtMs, err)
+	}
+}
