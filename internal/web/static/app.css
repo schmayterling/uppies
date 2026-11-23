@@ -378,7 +378,7 @@ table.dense tbody th a.with-icon > :is(.icon, .nav-logo) {
 }
 table.dense tbody th a.with-icon + .cell-note { margin-block-start: calc(-1 * var(--space-0-5)); }
 table.dense .grip-cell { inline-size: var(--space-5); padding-inline-end: 0; }
-table.dense .grip-cell .order-grip { margin: 0; }
+table.dense td.grip-cell .order-grip { display: grid; justify-content: start; margin: 0; }
 table.dense td time { white-space: nowrap; }
 table.dense th, table.dense td { padding: var(--space-1-5) var(--space-3); vertical-align: middle; }
 table.dense tbody tr:last-child > * { border-block-end: 0; }
