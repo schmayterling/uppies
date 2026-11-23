@@ -1,0 +1,42 @@
+{{define "main"}}
+<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">projects</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / settings</nav>
+<h1>settings</h1>
+<p class="notice" role="status">{{.Notice}}</p>
+
+<section aria-labelledby="alerts-heading">
+  <h2 id="alerts-heading">alerts</h2>
+  <p class="muted">each channel gets a message when a monitor of this project goes down and when it recovers.</p>
+  {{if .Channels}}
+  <ul class="rows">
+    {{range .Channels}}
+    <li class="row">
+      <span class="channel"><strong>{{.Kind}}</strong> <span class="target">{{.URL}}</span></span>
+      <span class="actions">
+        <form method="post" action="/admin/projects/{{$.Project.ID}}/channels/{{.ID}}/test"><button class="button quiet" type="submit">send test</button></form>
+        <form method="post" action="/admin/projects/{{$.Project.ID}}/channels/{{.ID}}/delete"><button class="button quiet" type="submit">remove</button></form>
+      </span>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted">no channels yet, so nobody is told about outages.</p>
+  {{end}}
+
+  <form class="form narrow" method="post" action="/admin/projects/{{.Project.ID}}/channels">
+    <div class="field">
+      <label for="kind">kind</label>
+      <select id="kind" name="kind" aria-describedby="kind-hint">
+        {{range .ChannelKinds}}<option value="{{.}}"{{if eq . $.NewChannel.Kind}} selected{{end}}>{{.}}</option>{{end}}
+      </select>
+      <p class="hint" id="kind-hint">webhook sends json with every detail. discord and slack send one line of text to an incoming webhook.</p>
+      {{with index .Problems "kind"}}<p class="problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="url">url</label>
+      <input id="url" name="url" type="url" value="{{.NewChannel.URL}}" required maxlength="2048" autocapitalize="none" spellcheck="false"{{if index .Problems "url"}} aria-invalid="true" aria-describedby="url-problem"{{end}}>
+      {{with index .Problems "url"}}<p class="problem" id="url-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="actions"><button class="button" type="submit">add channel</button></div>
+  </form>
+</section>
+{{end}}

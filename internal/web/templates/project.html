@@ -2,7 +2,10 @@
 <nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">projects</a> / {{.Project.Name}}</nav>
 <div class="title-row">
   <h1>{{.Project.Name}}</h1>
-  <a class="button quiet" href="/s/{{.Project.Slug}}">view status page</a>
+  <span class="actions">
+    <a class="button quiet" href="/admin/projects/{{.Project.ID}}/settings">settings</a>
+    <a class="button quiet" href="/s/{{.Project.Slug}}">view status page</a>
+  </span>
 </div>
 
 <section aria-labelledby="monitors-heading">

@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"maps"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -212,5 +214,62 @@ func TestStatusPageShowsOnlyWhatIsPublic(t *testing.T) {
 	}
 	if strings.Contains(page, "10.0.0.7") {
 		t.Error("publishing the draft put the raw check error on the status page")
+	}
+}
+
+func TestAlertChannelsAreManagedFromSettings(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherID, err := s.store.CreateProject(ctx, "other", "Other", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var delivered atomic.Int32
+	chat := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		delivered.Add(1)
+	}))
+	defer chat.Close()
+	settings := fmt.Sprintf("/admin/projects/%d", projectID)
+
+	resp := s.post(t, s.anonymous, settings+"/channels", url.Values{"kind": {"slack"}, "url": {chat.URL}}, nil)
+	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/admin/login" {
+		t.Fatalf("anonymous add: got %d to %q, want 303 to /admin/login", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	resp = s.post(t, s.admin, settings+"/channels", url.Values{"kind": {"slack"}, "url": {"ftp://example.com"}}, nil)
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("add with an ftp url: got %d, want 422", resp.StatusCode)
+	}
+	resp = s.post(t, s.admin, settings+"/channels", url.Values{"kind": {"slack"}, "url": {chat.URL}}, nil)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("add: got %d, want 303", resp.StatusCode)
+	}
+	channels, err := s.store.AlertChannels(ctx, projectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(channels) != 1 {
+		t.Fatalf("got %d channel(s), want exactly the one added by the admin", len(channels))
+	}
+	channel := fmt.Sprintf("/channels/%d", channels[0].ID)
+
+	resp = s.post(t, s.admin, settings+channel+"/test", nil, nil)
+	if resp.StatusCode != http.StatusOK || delivered.Load() != 1 {
+		t.Fatalf("test alert: got %d with %d delivery, want 200 with 1", resp.StatusCode, delivered.Load())
+	}
+	resp = s.post(t, s.admin, fmt.Sprintf("/admin/projects/%d%s/delete", otherID, channel), nil, nil)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("remove through another project: got %d, want 404", resp.StatusCode)
+	}
+	resp = s.post(t, s.admin, settings+channel+"/delete", nil, nil)
+	channels, err = s.store.AlertChannels(ctx, projectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusSeeOther || len(channels) != 0 {
+		t.Fatalf("remove: got %d with %d channel(s) left, want 303 with 0", resp.StatusCode, len(channels))
 	}
 }

@@ -47,7 +47,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func()) (*Server, er
 	}
 	names := []string{
 		"index.html", "status.html", "error.html", "setup.html", "login.html", "dashboard.html",
-		"project.html", "monitor_form.html", "incident_new.html", "incident.html",
+		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html",
 	}
 	for _, name := range names {
 		page, err := template.New("base.html").Funcs(templateFuncs).
@@ -88,6 +88,10 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("POST /admin/projects", s.handleCreateProject)
 	admin("GET /admin/projects/{id}", s.handleProject)
 	admin("POST /admin/projects/{id}/delete", s.handleDeleteProject)
+	admin("GET /admin/projects/{id}/settings", s.handleSettings)
+	admin("POST /admin/projects/{id}/channels", s.handleCreateChannel)
+	admin("POST /admin/projects/{id}/channels/{channel}/delete", s.handleDeleteChannel)
+	admin("POST /admin/projects/{id}/channels/{channel}/test", s.handleTestChannel)
 	admin("GET /admin/projects/{id}/monitors/new", s.handleNewMonitorForm)
 	admin("POST /admin/projects/{id}/monitors", s.handleCreateMonitor)
 	admin("GET /admin/monitors/{id}", s.handleEditMonitorForm)
