@@ -55,7 +55,9 @@ type statusPage struct {
 	Chrome  chrome
 	Project store.Project
 	// Zone is the timezone that incident times are shown in.
-	Zone        *time.Location
+	Zone *time.Location
+	// Images maps each image kind the project has to its version.
+	Images      map[string]int64
 	Overall     overallStatus
 	BannerState string
 	BannerText  string
@@ -204,6 +206,10 @@ func (s *Server) statusPage(ctx context.Context, project store.Project) (statusP
 	if err != nil {
 		return statusPage{}, err
 	}
+	images, err := s.store.ProjectImageVersions(ctx, project.ID)
+	if err != nil {
+		return statusPage{}, err
+	}
 	zone, err := time.LoadLocation(project.Timezone)
 	if err != nil {
 		// The zone was valid when it was saved. A system without that zone falls back to UTC.
@@ -214,6 +220,7 @@ func (s *Server) statusPage(ctx context.Context, project store.Project) (statusP
 		Chrome:  chrome{Title: project.Name + " status", Unbranded: !project.ShowPoweredBy},
 		Project: project,
 		Zone:    zone,
+		Images:  images,
 	}
 	names := make(map[int64]string, len(monitors))
 	var shown []store.Monitor

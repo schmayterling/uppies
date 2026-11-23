@@ -1,12 +1,15 @@
 package web
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"html"
 	"io"
 	"log/slog"
 	"maps"
+	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -436,5 +439,110 @@ func TestStatusPageFooterTimezoneDomainAndBadge(t *testing.T) {
 	status, badge := s.get(t, s.anonymous, "/s/acme/badge.svg")
 	if status != http.StatusOK || !strings.Contains(badge, `aria-label="status: incident"`) || !strings.Contains(badge, `fill="#704600"`) {
 		t.Errorf("badge: got %d %q, want the incident state in the warning colour", status, badge)
+	}
+}
+
+// upload posts a multipart form with the given files and plain fields.
+func (s *site) upload(t *testing.T, client *http.Client, path string, files map[string][]byte, fields map[string]string) *http.Response {
+	t.Helper()
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	for field, data := range files {
+		part, err := form.CreateFormFile(field, field+".bin")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := part.Write(data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for field, value := range fields {
+		if err := form.WriteField(field, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := form.Close(); err != nil {
+		t.Fatal(err)
+	}
+	req, err := http.NewRequest(http.MethodPost, s.server.URL+path, &body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", form.FormDataContentType())
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := resp.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
+func TestLogoAndFaviconUploads(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	png, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
+	if err != nil {
+		t.Fatal(err)
+	}
+	svg := []byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><script>alert(1)</script></svg>`)
+	images := fmt.Sprintf("/admin/projects/%d/images", projectID)
+
+	if resp := s.upload(t, s.anonymous, images, map[string][]byte{"logo": png}, nil); resp.Header.Get("Location") != "/admin/login" {
+		t.Fatalf("anonymous upload: got %d to %q, want a redirect to /admin/login", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	rejected := map[string][]byte{
+		"a web page":         []byte("<html><script>alert(1)</script></html>"),
+		"a file over 512 KB": append(bytes.Clone(png), make([]byte, store.MaxImageBytes)...),
+	}
+	for name, data := range rejected {
+		if resp := s.upload(t, s.admin, images, map[string][]byte{"logo": data}, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+			t.Errorf("%s as a logo: got %d, want 422", name, resp.StatusCode)
+		}
+	}
+	if status, _ := s.get(t, s.anonymous, "/s/acme/images/logo"); status != http.StatusNotFound {
+		t.Fatalf("logo after refused uploads: got %d, want 404", status)
+	}
+
+	if resp := s.upload(t, s.admin, images, map[string][]byte{"logo": svg, "favicon": png}, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("upload: got %d, want 303", resp.StatusCode)
+	}
+	_, page := s.get(t, s.anonymous, "/s/acme")
+	for _, want := range []string{`src="/s/acme/images/logo?v=`, `<link rel="icon" href="/s/acme/images/favicon?v=`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("status page is missing %q", want)
+		}
+	}
+	resp, err := s.anonymous.Get(s.server.URL + "/s/acme/images/logo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	served, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := resp.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Header.Get("Content-Type") != "image/svg+xml" || !bytes.Equal(served, svg) {
+		t.Errorf("logo: got type %q and %d bytes, want the uploaded svg", resp.Header.Get("Content-Type"), len(served))
+	}
+	if policy := resp.Header.Get("Content-Security-Policy"); !strings.Contains(policy, "sandbox") || !strings.Contains(policy, "default-src 'none'") {
+		t.Errorf("logo policy: got %q, want a sandbox that allows nothing", policy)
+	}
+
+	if resp := s.upload(t, s.admin, images, nil, map[string]string{"remove_logo": "on"}); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("remove: got %d, want 303", resp.StatusCode)
+	}
+	if status, _ := s.get(t, s.anonymous, "/s/acme/images/logo"); status != http.StatusNotFound {
+		t.Errorf("logo after removal: got %d, want 404", status)
+	}
+	if status, _ := s.get(t, s.anonymous, "/s/acme/images/favicon"); status != http.StatusOK {
+		t.Errorf("favicon after removing only the logo: got %d, want 200", status)
 	}
 }

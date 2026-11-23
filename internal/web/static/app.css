@@ -145,7 +145,11 @@ td time { white-space: nowrap; }
 
 /* status page */
 .page-head { margin-block-end: var(--space-5); }
-.page-head h1 { color: var(--accent); }
+.page-head h1 { color: var(--accent); display: flex; align-items: center; gap: var(--space-3); }
+.logo { block-size: var(--space-6); inline-size: auto; max-inline-size: 50%; }
+.logo-preview { block-size: var(--space-7); inline-size: auto; max-inline-size: 100%; justify-self: start; }
+.favicon-preview { block-size: var(--space-6); inline-size: var(--space-6); }
+input[type="file"] { padding: var(--space-1); }
 .page-head a { color: var(--accent); }
 .banner {
   display: flex;

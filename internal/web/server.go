@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"uppies/internal/store"
@@ -77,6 +78,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	mux.HandleFunc("GET /s/{slug}", s.handleStatusPage)
 	mux.HandleFunc("GET /s/{slug}/theme.css", s.handleTheme)
 	mux.HandleFunc("GET /s/{slug}/badge.svg", s.handleBadge)
+	mux.HandleFunc("GET /s/{slug}/images/{kind}", s.handleImage)
 	mux.HandleFunc("GET /admin/setup", s.handleSetupForm)
 	mux.HandleFunc("POST /admin/setup", s.handleSetup)
 	mux.HandleFunc("GET /admin/login", s.handleLoginForm)
@@ -92,6 +94,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("POST /admin/projects/{id}/delete", s.handleDeleteProject)
 	admin("GET /admin/projects/{id}/settings", s.handleSettings)
 	admin("POST /admin/projects/{id}/settings", s.handleUpdateSettings)
+	admin("POST /admin/projects/{id}/images", s.handleUpdateImages)
 	admin("POST /admin/projects/{id}/channels", s.handleCreateChannel)
 	admin("POST /admin/projects/{id}/channels/{channel}/delete", s.handleDeleteChannel)
 	admin("POST /admin/projects/{id}/channels/{channel}/test", s.handleTestChannel)
@@ -123,7 +126,11 @@ func securityHeaders(next http.Handler) http.Handler {
 
 func limitBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, maxFormBytes)
+		limit := int64(maxFormBytes)
+		if strings.HasSuffix(r.URL.Path, "/images") {
+			limit = maxUploadBytes
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		next.ServeHTTP(w, r)
 	})
 }

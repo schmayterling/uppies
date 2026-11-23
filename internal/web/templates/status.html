@@ -1,9 +1,10 @@
 {{define "head"}}<meta http-equiv="refresh" content="60">
 {{if .Project.NoIndex}}<meta name="robots" content="noindex">{{end}}
+{{with index .Images "favicon"}}<link rel="icon" href="/s/{{$.Project.Slug}}/images/favicon?v={{.}}">{{end}}
 <link rel="stylesheet" href="/s/{{.Project.Slug}}/theme.css">{{end}}
 {{define "main"}}
 <header class="page-head">
-  <h1>{{.Project.Name}}</h1>
+  <h1>{{with index .Images "logo"}}<img class="logo" src="/s/{{$.Project.Slug}}/images/logo?v={{.}}" alt="">{{end}}{{.Project.Name}}</h1>
   {{with .Project.Tagline}}<p class="muted">{{.}}</p>{{end}}
   {{with .Project.HomepageURL}}<p><a href="{{.}}" rel="noopener">back to {{$.Project.Name}}</a></p>{{end}}
 </header>

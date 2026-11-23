@@ -25,6 +25,8 @@ type settingsPage struct {
 	ChannelKinds []string
 	Themes       []string
 	HistoryViews []int
+	// Images maps each image kind the project has to its version.
+	Images map[string]int64
 	// NewChannel holds the add-channel form's values after a failed submit.
 	NewChannel store.AlertChannel
 	Problems   map[string]string
@@ -48,6 +50,10 @@ func (s *Server) settingsPage(r *http.Request) (settingsPage, error) {
 		return page, err
 	}
 	page.Chrome = chrome{Title: page.Project.Name + " settings", Admin: true}
+	page.Images, err = s.store.ProjectImageVersions(r.Context(), id)
+	if err != nil {
+		return page, err
+	}
 	page.Channels, err = s.store.AlertChannels(r.Context(), id)
 	return page, err
 }

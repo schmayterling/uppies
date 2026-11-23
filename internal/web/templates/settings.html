@@ -75,6 +75,29 @@
   </form>
 </section>
 
+<section aria-labelledby="images-heading">
+  <h2 id="images-heading">logo and favicon</h2>
+  <form class="form narrow" method="post" action="/admin/projects/{{.Project.ID}}/images" enctype="multipart/form-data">
+    <div class="field">
+      <label for="logo">logo</label>
+      {{with index .Images "logo"}}<img class="logo-preview" src="/s/{{$.Project.Slug}}/images/logo?v={{.}}" alt="the current logo">{{end}}
+      <input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" aria-describedby="logo-hint{{if index .Problems "logo"}} logo-problem{{end}}"{{if index .Problems "logo"}} aria-invalid="true"{{end}}>
+      <p class="hint" id="logo-hint">shown next to the name on the status page. png, jpeg, webp, gif or svg, up to 512 KB.</p>
+      {{with index .Problems "logo"}}<p class="problem" id="logo-problem">{{.}}</p>{{end}}
+      {{if index .Images "logo"}}<label class="check"><input type="checkbox" name="remove_logo"> remove the current logo.</label>{{end}}
+    </div>
+    <div class="field">
+      <label for="favicon">favicon</label>
+      {{with index .Images "favicon"}}<img class="favicon-preview" src="/s/{{$.Project.Slug}}/images/favicon?v={{.}}" alt="the current favicon">{{end}}
+      <input id="favicon" name="favicon" type="file" accept="image/png,image/x-icon,image/svg+xml,image/gif,image/webp,image/jpeg" aria-describedby="favicon-hint{{if index .Problems "favicon"}} favicon-problem{{end}}"{{if index .Problems "favicon"}} aria-invalid="true"{{end}}>
+      <p class="hint" id="favicon-hint">the small icon in the browser tab. a square png, ico or svg works best, up to 512 KB.</p>
+      {{with index .Problems "favicon"}}<p class="problem" id="favicon-problem">{{.}}</p>{{end}}
+      {{if index .Images "favicon"}}<label class="check"><input type="checkbox" name="remove_favicon"> remove the current favicon.</label>{{end}}
+    </div>
+    <div class="actions"><button class="button" type="submit">save images</button></div>
+  </form>
+</section>
+
 <section aria-labelledby="badge-heading">
   <h2 id="badge-heading">badge</h2>
   <p class="muted">a small image of the current state, for a readme or another site. it lives at <a href="/s/{{.Project.Slug}}/badge.svg">/s/{{.Project.Slug}}/badge.svg</a>.</p>
