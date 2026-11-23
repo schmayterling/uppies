@@ -136,7 +136,7 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	p.FooterText = strings.TrimSpace(form.Get("footer_text"))
 	if form.Has("announcement") {
 		p.Announcement = strings.TrimSpace(strings.ReplaceAll(form.Get("announcement"), "\r", ""))
-		if utf8.RuneCountInString(p.Announcement) > announcementLimit || strings.ContainsRune(p.Announcement, 0) {
+		if !utf8.ValidString(p.Announcement) || utf8.RuneCountInString(p.Announcement) > announcementLimit || strings.ContainsRune(p.Announcement, 0) {
 			problems["announcement"] = "use up to 1000 characters of plain text."
 		}
 	}

@@ -41,8 +41,8 @@ func (s *Store) migrateBackend(ctx context.Context) error {
 	}
 
 	if s.Backend() == MariaDB {
-		// MariaDB commits DDL implicitly. Each statement is idempotent so
-		// startup can resume a partially installed schema at version 0.
+		// MariaDB commits DDL implicitly. Schema statements are idempotent so
+		// startup can resume a partially installed schema or upgrade.
 		if err := s.applyBackendSchema(ctx, s.db); err != nil {
 			return err
 		}
@@ -67,6 +67,10 @@ func (s *Store) applyBackendSchema(ctx context.Context, q queries) error {
 		Postgres: "postgres", TursoPG: "postgres",
 		MariaDB: "mariadb", TursoSQLite: "turso",
 	}[s.Backend()]
+	upgradeDialect := dialect
+	if s.Backend() == TursoPG {
+		upgradeDialect = "tursopg"
+	}
 	for version != backendSchemaVersion {
 		var filename string
 		target := backendSchemaVersion
@@ -75,7 +79,7 @@ func (s *Store) applyBackendSchema(ctx context.Context, q queries) error {
 			filename = "schema/" + dialect + ".sql"
 		case version >= 22 && version < backendSchemaVersion:
 			target = version + 1
-			filename = fmt.Sprintf("schema/v%d_%s.sql", target, dialect)
+			filename = fmt.Sprintf("schema/v%d_%s.sql", target, upgradeDialect)
 		default:
 			return fmt.Errorf("schema version %d is unsupported for %s by this build (expected %d)", version, s.Backend(), backendSchemaVersion)
 		}
