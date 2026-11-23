@@ -2,10 +2,7 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-
-	"modernc.org/sqlite"
 )
 
 // Placement puts a monitor on a status page: where in the page's list it
@@ -81,10 +78,14 @@ func (s *Store) PlacedMonitors(ctx context.Context) ([]PlacedMonitor, error) {
 // PlaceMonitor adds a monitor to the end of a status page, drawn as bars. A
 // monitor that is on the page already stays where it is.
 func (s *Store) PlaceMonitor(ctx context.Context, projectID, monitorID int64) error {
+	conflict := "on conflict (project_id, monitor_id) do nothing"
+	if s.Backend() == MariaDB {
+		conflict = "on duplicate key update position = page_monitors.position"
+	}
 	_, err := s.db.ExecContext(ctx, `
 		insert into page_monitors (project_id, monitor_id, position)
-		values (?1, ?2, (select coalesce(max(position), 0) + 1 from page_monitors where project_id = ?1))
-		on conflict (project_id, monitor_id) do nothing`, projectID, monitorID)
+		values (?, ?, (select coalesce(max(position), 0) + 1 from page_monitors where project_id = ?)) `+conflict,
+		projectID, monitorID, projectID)
 	return err
 }
 
@@ -103,7 +104,7 @@ func (s *Store) SetPlacements(ctx context.Context, projectID int64, placements [
 // order, and its monitors in theirs. A category that a placement names and
 // the list leaves out is added at the end.
 func (s *Store) SetPageLayout(ctx context.Context, projectID int64, categories []string, placements []Placement) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		if err := requireProject(ctx, tx, projectID); err != nil {
 			return err
 		}
@@ -117,28 +118,28 @@ func (s *Store) SetPageLayout(ctx context.Context, projectID int64, categories [
 		for _, p := range placements {
 			names = append(names, p.Category)
 		}
+		categoryConflict := "on conflict (project_id, name) do nothing"
+		if s.Backend() == MariaDB {
+			categoryConflict = "on duplicate key update position = page_categories.position"
+		}
 		position := 0
 		for _, name := range names {
 			if name == "" {
 				continue
 			}
 			position++
-			if _, err := tx.ExecContext(ctx, `
-				insert into page_categories (project_id, name, position) values (?, ?, ?)
-				on conflict (project_id, name) do nothing`, projectID, name, position); err != nil {
+			if _, err := tx.ExecContext(ctx,
+				"insert into page_categories (project_id, name, position) values (?, ?, ?) "+categoryConflict,
+				projectID, name, position); err != nil {
 				return err
 			}
 		}
-		insert, err := tx.PrepareContext(ctx, `
-			insert into page_monitors (project_id, monitor_id, position, category, display, graph_fill)
-			values (?, ?, ?, ?, ?, ?)`)
-		if err != nil {
-			return err
-		}
-		defer insert.Close()
 		for i, p := range placements {
-			_, err := insert.ExecContext(ctx, projectID, p.MonitorID, i+1, p.Category, displayOrDefault(p.Display), p.GraphFill)
-			if sqliteErr, ok := errors.AsType[*sqlite.Error](err); ok && sqliteErr.Code() == sqliteConstraintForeignKey {
+			_, err := tx.ExecContext(ctx, `
+				insert into page_monitors (project_id, monitor_id, position, category, display, graph_fill)
+				values (?, ?, ?, ?, ?, ?)`,
+				projectID, p.MonitorID, i+1, p.Category, displayOrDefault(p.Display), p.GraphFill)
+			if isForeignKey(err) {
 				return ErrUnknownMonitor
 			}
 			if err != nil {
@@ -149,12 +150,10 @@ func (s *Store) SetPageLayout(ctx context.Context, projectID int64, categories [
 	})
 }
 
-const sqliteConstraintForeignKey = 787 // SQLITE_CONSTRAINT_FOREIGNKEY
-
 // ErrUnknownMonitor means a monitor reference did not match an available monitor.
 var ErrUnknownMonitor = errors.New("unknown monitor")
 
-func requireProject(ctx context.Context, tx *sql.Tx, projectID int64) error {
+func requireProject(ctx context.Context, tx *transaction, projectID int64) error {
 	var exists bool
 	if err := tx.QueryRowContext(ctx, "select exists (select 1 from projects where id = ?)", projectID).Scan(&exists); err != nil {
 		return err
@@ -168,12 +167,12 @@ func requireProject(ctx context.Context, tx *sql.Tx, projectID int64) error {
 // PageLayout reads the ordered categories and placements in one snapshot.
 func (s *Store) PageLayout(ctx context.Context, projectID int64) ([]string, []Placement, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		select 0 as kind, 0 as position, '' as name, 0 as monitor_id, '' as display, '' as graph_fill from projects where id = ?1
+		select 0 as kind, 0 as position, '' as name, 0 as monitor_id, '' as display, '' as graph_fill from projects where id = ?
 		union all
-		select 1, position, name, 0, '', '' from page_categories where project_id = ?1
+		select 1, position, name, 0, '', '' from page_categories where project_id = ?
 		union all
-		select 2, position, category, monitor_id, display, graph_fill from page_monitors where project_id = ?1
-		order by kind, position, name, monitor_id`, projectID)
+		select 2, position, category, monitor_id, display, graph_fill from page_monitors where project_id = ?
+		order by kind, position, name, monitor_id`, projectID, projectID, projectID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -222,7 +221,7 @@ func (s *Store) PageCategories(ctx context.Context, projectID int64) ([]string, 
 // SetProjectOrder puts the status pages in the order of ids. A page that is
 // not named keeps its place behind the named ones.
 func (s *Store) SetProjectOrder(ctx context.Context, ids []int64) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		if _, err := tx.ExecContext(ctx, "update projects set position = position + ?", len(ids)); err != nil {
 			return err
 		}

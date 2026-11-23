@@ -73,14 +73,11 @@ func (s *Store) APIToken(ctx context.Context, id int64) (APIToken, []string, err
 func (s *Store) CreateAPIToken(
 	ctx context.Context, userID int64, name, tokenHash string, nowMs, expiresAtMs int64, permissions []string,
 ) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, `
+	return s.write(ctx, func(tx *transaction) error {
+		var id int64
+		err := tx.QueryRowContext(ctx, `
 			insert into api_tokens (user_id, name, token_hash, created_at_ms, expires_at_ms)
-			values (?, ?, ?, ?, ?)`, userID, name, tokenHash, nowMs, expiresAtMs)
-		if err != nil {
-			return err
-		}
-		id, err := res.LastInsertId()
+			values (?, ?, ?, ?, ?) returning id`, userID, name, tokenHash, nowMs, expiresAtMs).Scan(&id)
 		if err != nil {
 			return err
 		}
@@ -88,7 +85,7 @@ func (s *Store) CreateAPIToken(
 	})
 }
 
-func insertAPITokenPermissions(ctx context.Context, tx *sql.Tx, id int64, permissions []string) error {
+func insertAPITokenPermissions(ctx context.Context, tx *transaction, id int64, permissions []string) error {
 	for _, permission := range permissions {
 		if _, err := tx.ExecContext(ctx,
 			"insert into api_token_permissions (token_id, permission) values (?, ?)", id, permission); err != nil {
@@ -100,7 +97,7 @@ func insertAPITokenPermissions(ctx context.Context, tx *sql.Tx, id int64, permis
 
 // SetAPITokenPermissions replaces a live token's grants as a single change.
 func (s *Store) SetAPITokenPermissions(ctx context.Context, id, nowMs int64, permissions []string) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		var active bool
 		err := tx.QueryRowContext(ctx, `
 			select exists (select 1 from api_tokens where id = ? and revoked_at_ms is null and expires_at_ms > ?)`,

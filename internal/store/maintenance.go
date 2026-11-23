@@ -18,16 +18,14 @@ type MaintenanceWindow struct {
 
 // CreateMaintenanceWindow adds a window and returns its id.
 func (s *Store) CreateMaintenanceWindow(ctx context.Context, w MaintenanceWindow, nowMs int64) (int64, error) {
-	res, err := s.db.ExecContext(ctx, `
+	var id int64
+	err := s.db.QueryRowContext(ctx, `
 		insert into maintenance_windows (project_id, title, starts_at_ms, ends_at_ms, created_at_ms)
-		select id, ?2, ?3, ?4, ?5 from projects where id = ?1`, w.ProjectID, w.Title, w.StartsAtMs, w.EndsAtMs, nowMs)
-	if err != nil {
-		return 0, err
+		select id, ?, ?, ?, ? from projects where id = ? returning id`, w.Title, w.StartsAtMs, w.EndsAtMs, nowMs, w.ProjectID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrNotFound
 	}
-	if err := requireOneRow(res); err != nil {
-		return 0, err
-	}
-	return res.LastInsertId()
+	return id, err
 }
 
 // DeleteMaintenanceWindow removes one window of a project.
@@ -57,7 +55,7 @@ func (s *Store) MaintenanceWindow(ctx context.Context, projectID, windowID int64
 }
 
 func (s *Store) EditMaintenanceWindow(ctx context.Context, projectID, windowID int64, edit func(*MaintenanceWindow) error) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		window, err := scanMaintenanceWindow(tx.QueryRowContext(ctx, maintenanceByPageID, projectID, windowID))
 		if err != nil {
 			return err

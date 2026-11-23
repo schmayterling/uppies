@@ -17,12 +17,15 @@ const MaxImageBytes = 512 << 10
 
 // SetProjectImage stores or replaces one of a project's images.
 func (s *Store) SetProjectImage(ctx context.Context, projectID int64, kind, contentType string, data []byte, nowMs int64) error {
-	_, err := s.db.ExecContext(ctx, `
-		insert into project_images (project_id, kind, content_type, data, updated_at_ms)
-		values (?, ?, ?, ?, ?)
-		on conflict (project_id, kind) do update set
-			content_type = excluded.content_type, data = excluded.data, updated_at_ms = excluded.updated_at_ms`,
-		projectID, kind, contentType, data, nowMs)
+	blob, value := s.blobParameter(data)
+	conflict := `on conflict (project_id, kind) do update set
+		content_type = excluded.content_type, data = excluded.data, updated_at_ms = excluded.updated_at_ms`
+	if s.Backend() == MariaDB {
+		conflict = "on duplicate key update content_type = values(content_type), data = values(data), updated_at_ms = values(updated_at_ms)"
+	}
+	_, err := s.db.ExecContext(ctx,
+		"insert into project_images (project_id, kind, content_type, data, updated_at_ms) values (?, ?, ?, "+blob+", ?) "+conflict,
+		projectID, kind, contentType, value, nowMs)
 	return err
 }
 

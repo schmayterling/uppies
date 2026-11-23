@@ -16,14 +16,19 @@ func (s *Store) HasUsers(ctx context.Context) (bool, error) {
 // CreateFirstUser creates the admin account. It returns false and creates
 // nothing when an account already exists.
 func (s *Store) CreateFirstUser(ctx context.Context, username, passwordHash string, nowMs int64) (bool, error) {
-	res, err := s.db.ExecContext(ctx, `
-		insert into users (username, password_hash, created_at_ms)
-		select ?, ?, ? where not exists (select 1 from users)`, username, passwordHash, nowMs)
-	if err != nil {
-		return false, err
-	}
-	n, err := res.RowsAffected()
-	return n == 1, err
+	var created bool
+	err := s.write(ctx, func(tx *transaction) error {
+		res, err := tx.ExecContext(ctx, `
+			insert into users (username, password_hash, created_at_ms)
+			select ?, ?, ? where not exists (select 1 from users)`, username, passwordHash, nowMs)
+		if err != nil {
+			return err
+		}
+		n, err := res.RowsAffected()
+		created = n == 1
+		return err
+	})
+	return created && err == nil, err
 }
 
 // UserPasswordHash returns the id and password hash for a username, or ErrNotFound.
@@ -40,7 +45,7 @@ func (s *Store) UserPasswordHash(ctx context.Context, username string) (int64, s
 
 // CreateSession stores a session and drops the ones that have expired.
 func (s *Store) CreateSession(ctx context.Context, tokenHash string, userID, nowMs, expiresAtMs int64) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		if _, err := tx.ExecContext(ctx, "delete from sessions where expires_at_ms <= ?", nowMs); err != nil {
 			return err
 		}

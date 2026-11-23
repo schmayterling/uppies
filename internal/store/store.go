@@ -1,4 +1,4 @@
-// Package store keeps all uppies data in one SQLite file.
+// Package store keeps all Uppies data in the configured database.
 package store
 
 import (
@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-
-	_ "modernc.org/sqlite"
 )
 
 // ErrNotFound is returned when a row asked for by id or slug does not exist.
@@ -17,8 +15,17 @@ var ErrNotFound = errors.New("not found")
 
 // Store is the database handle. It is safe for concurrent use.
 type Store struct {
-	db *sql.DB
+	pool   *sql.DB
+	db     queries
+	schema int
 }
+
+func newStore(pool *sql.DB, backend Backend) *Store {
+	return &Store{pool: pool, db: queries{runner: pool, backend: backend}}
+}
+
+// Backend reports the engine backing this install.
+func (s *Store) Backend() Backend { return s.db.backend }
 
 // migrations run in order. The index of a step plus one is the schema version
 // stored in PRAGMA user_version. Never edit a step that has shipped: add one.
@@ -488,17 +495,18 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
-	s := &Store{db: db}
+	s := newStore(db, SQLite)
 	if err := s.migrate(ctx, path); err != nil {
 		closeErr := db.Close()
 		return nil, errors.Join(fmt.Errorf("migrate %s: %w", path, err), closeErr)
 	}
+	s.schema = len(migrations)
 	return s, nil
 }
 
-// Close releases the database file.
+// Close releases the database connections.
 func (s *Store) Close() error {
-	return s.db.Close()
+	return s.pool.Close()
 }
 
 func (s *Store) migrate(ctx context.Context, path string) error {
@@ -521,7 +529,7 @@ func (s *Store) migrate(ctx context.Context, path string) error {
 	// Steps that rebuild a table need foreign keys switched off, and that
 	// setting cannot change inside a transaction. So every step runs on one
 	// connection with them off, and checks them itself before it commits.
-	conn, err := s.db.Conn(ctx)
+	conn, err := s.pool.Conn(ctx)
 	if err != nil {
 		return err
 	}
@@ -579,13 +587,21 @@ func runMigration(ctx context.Context, tx *sql.Tx, step int) error {
 }
 
 // write runs fn in one transaction and commits when fn returns nil.
-func (s *Store) write(ctx context.Context, fn func(tx *sql.Tx) error) error {
-	tx, err := s.db.BeginTx(ctx, nil)
+func (s *Store) write(ctx context.Context, fn func(tx *transaction) error) error {
+	raw, err := s.pool.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	if err := fn(tx); err != nil {
-		return errors.Join(err, tx.Rollback())
+	tx := &transaction{queries{runner: raw, backend: s.Backend()}}
+	// SQLite's immediate write transaction and the single Turso connections
+	// already serialize writes. The server databases use a row lock.
+	if s.Backend() == Postgres || s.Backend() == MariaDB {
+		if _, err := tx.ExecContext(ctx, "update uppies_schema set version = version where id = 1"); err != nil {
+			return errors.Join(err, raw.Rollback())
+		}
 	}
-	return tx.Commit()
+	if err := fn(tx); err != nil {
+		return errors.Join(err, raw.Rollback())
+	}
+	return raw.Commit()
 }

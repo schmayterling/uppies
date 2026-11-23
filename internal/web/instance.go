@@ -268,7 +268,7 @@ func (s *Server) renderInstance(w http.ResponseWriter, r *http.Request, status i
 		{Label: "server uptime", Value: uptime.String()},
 		{Label: "server timezone", Value: systemZoneName()},
 		{Label: "runtime", Value: runtime.Version() + " · " + runtime.GOOS + "/" + runtime.GOARCH},
-		{Label: "database", Value: fmt.Sprintf("sqlite · schema %d", facts.Schema)},
+		{Label: "database", Value: fmt.Sprintf("%s · schema %d", s.store.Backend(), facts.Schema)},
 		{Label: "status pages", Value: strconv.Itoa(facts.StatusPages)},
 		{Label: "monitors", Value: fmt.Sprintf("%d total, %d paused", facts.Monitors, facts.Paused)},
 		{Label: "alert channels", Value: strconv.Itoa(facts.Channels)},

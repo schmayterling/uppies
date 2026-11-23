@@ -12,7 +12,7 @@ type IncidentEdit struct {
 	MonitorIDs    *[]int64
 }
 
-func requirePageIncident(ctx context.Context, tx *sql.Tx, projectID, incidentID int64) error {
+func requirePageIncident(ctx context.Context, tx *transaction, projectID, incidentID int64) error {
 	var exists bool
 	err := tx.QueryRowContext(ctx, "select exists (select 1 from incidents where project_id = ? and id = ?)",
 		projectID, incidentID).Scan(&exists)
@@ -25,7 +25,7 @@ func requirePageIncident(ctx context.Context, tx *sql.Tx, projectID, incidentID 
 	return nil
 }
 
-func requirePageMonitors(ctx context.Context, tx *sql.Tx, projectID int64, ids []int64) error {
+func requirePageMonitors(ctx context.Context, tx *transaction, projectID int64, ids []int64) error {
 	for _, id := range ids {
 		var exists bool
 		err := tx.QueryRowContext(ctx, "select exists (select 1 from page_monitors where project_id = ? and monitor_id = ?)",
@@ -43,7 +43,7 @@ func requirePageMonitors(ctx context.Context, tx *sql.Tx, projectID int64, ids [
 // CreatePageIncident rejects monitor IDs that the incident's page does not show.
 func (s *Store) CreatePageIncident(ctx context.Context, in Incident, firstUpdate string, nowMs int64) (int64, error) {
 	var id int64
-	err := s.write(ctx, func(tx *sql.Tx) error {
+	err := s.write(ctx, func(tx *transaction) error {
 		if err := requireProject(ctx, tx, in.ProjectID); err != nil {
 			return err
 		}
@@ -58,7 +58,7 @@ func (s *Store) CreatePageIncident(ctx context.Context, in Incident, firstUpdate
 }
 
 func (s *Store) EditPageIncident(ctx context.Context, projectID, incidentID int64, edit IncidentEdit) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		res, err := tx.ExecContext(ctx, `
 			update incidents set title = coalesce(?, title), impact = coalesce(?, impact)
 			where project_id = ? and id = ?`, edit.Title, edit.Impact, projectID, incidentID)
@@ -82,7 +82,7 @@ func (s *Store) EditPageIncident(ctx context.Context, projectID, incidentID int6
 }
 
 func (s *Store) AddPageIncidentUpdate(ctx context.Context, projectID, incidentID int64, status, body string, nowMs int64) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		if err := requirePageIncident(ctx, tx, projectID, incidentID); err != nil {
 			return err
 		}
@@ -91,7 +91,7 @@ func (s *Store) AddPageIncidentUpdate(ctx context.Context, projectID, incidentID
 }
 
 func (s *Store) PublishPageIncident(ctx context.Context, projectID, incidentID, nowMs int64) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		if err := requirePageIncident(ctx, tx, projectID, incidentID); err != nil {
 			return err
 		}

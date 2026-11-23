@@ -21,9 +21,9 @@ type AlertChannel struct {
 // is starts alerting it, so that adding a channel never leaves a monitor silent by accident.
 func (s *Store) CreateAlertChannel(ctx context.Context, c AlertChannel, nowMs int64) (int64, error) {
 	var id int64
-	err := s.write(ctx, func(tx *sql.Tx) error {
+	err := s.write(ctx, func(tx *transaction) error {
 		var err error
-		if id, err = insertAlertChannel(ctx, tx.ExecContext, c, nowMs); err != nil {
+		if id, err = insertAlertChannel(ctx, tx.queries, c, nowMs); err != nil {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, "insert into monitor_channels (monitor_id, channel_id) select id, ? from monitors", id)
@@ -34,15 +34,15 @@ func (s *Store) CreateAlertChannel(ctx context.Context, c AlertChannel, nowMs in
 
 // CreateUnassignedAlertChannel adds a channel without changing monitor assignments.
 func (s *Store) CreateUnassignedAlertChannel(ctx context.Context, c AlertChannel, nowMs int64) (int64, error) {
-	return insertAlertChannel(ctx, s.db.ExecContext, c, nowMs)
+	return insertAlertChannel(ctx, s.db, c, nowMs)
 }
 
-func insertAlertChannel(ctx context.Context, exec execSQL, c AlertChannel, nowMs int64) (int64, error) {
-	res, err := exec(ctx, "insert into alert_channels (kind, url, created_at_ms) values (?, ?, ?)", c.Kind, c.URL, nowMs)
-	if err != nil {
-		return 0, err
-	}
-	return res.LastInsertId()
+func insertAlertChannel(ctx context.Context, q queries, c AlertChannel, nowMs int64) (int64, error) {
+	var id int64
+	err := q.QueryRowContext(ctx,
+		"insert into alert_channels (kind, url, created_at_ms) values (?, ?, ?) returning id",
+		c.Kind, c.URL, nowMs).Scan(&id)
+	return id, err
 }
 
 func scanAlertChannel(row rowScanner) (AlertChannel, error) {
@@ -62,7 +62,7 @@ func (s *Store) AlertChannel(ctx context.Context, id int64) (AlertChannel, error
 
 // EditAlertChannel changes configuration without changing monitor assignments.
 func (s *Store) EditAlertChannel(ctx context.Context, id int64, edit func(*AlertChannel) error) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		channel, err := scanAlertChannel(tx.QueryRowContext(ctx, alertChannelByID, id))
 		if err != nil {
 			return err
@@ -145,7 +145,7 @@ func (s *Store) MonitorChannelIDs(ctx context.Context, monitorID int64) ([]int64
 
 // SetMonitorChannels replaces the channels a monitor alerts. An id that is no channel is left out.
 func (s *Store) SetMonitorChannels(ctx context.Context, monitorID int64, channelIDs []int64) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		_, err := setMonitorChannels(ctx, tx, monitorID, channelIDs)
 		return err
 	})
@@ -156,7 +156,7 @@ var ErrUnknownChannel = errors.New("unknown alert channel")
 
 // ReplaceMonitorChannels applies all requested assignments or leaves them intact.
 func (s *Store) ReplaceMonitorChannels(ctx context.Context, monitorID int64, channelIDs []int64) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		var exists bool
 		if err := tx.QueryRowContext(ctx, "select exists (select 1 from monitors where id = ?)", monitorID).Scan(&exists); err != nil {
 			return err
@@ -175,7 +175,7 @@ func (s *Store) ReplaceMonitorChannels(ctx context.Context, monitorID int64, cha
 	})
 }
 
-func setMonitorChannels(ctx context.Context, tx *sql.Tx, monitorID int64, channelIDs []int64) (int64, error) {
+func setMonitorChannels(ctx context.Context, tx *transaction, monitorID int64, channelIDs []int64) (int64, error) {
 	if _, err := tx.ExecContext(ctx, "delete from monitor_channels where monitor_id = ?", monitorID); err != nil {
 		return 0, err
 	}

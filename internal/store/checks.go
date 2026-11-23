@@ -36,7 +36,7 @@ type CheckResult struct {
 // opens or closes the monitor's draft incident.
 // It returns ErrNotFound when the monitor was deleted while the check ran.
 func (s *Store) RecordCheck(ctx context.Context, r CheckResult) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		var name string
 		err := tx.QueryRowContext(ctx, "select name from monitors where id = ?", r.MonitorID).Scan(&name)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -56,17 +56,27 @@ func (s *Store) RecordCheck(ctx context.Context, r CheckResult) error {
 		if !r.OK {
 			failures = 1
 		}
+		conflict := `on conflict (monitor_id, day_start_ms) do update set
+			checks = daily_rollups.checks + 1,
+			failures = daily_rollups.failures + excluded.failures,
+			covered_ms = daily_rollups.covered_ms + excluded.covered_ms,
+			down_ms = daily_rollups.down_ms + excluded.down_ms,
+			latency_sum_ms = daily_rollups.latency_sum_ms + excluded.latency_sum_ms,
+			latency_max_ms = case when daily_rollups.latency_max_ms > excluded.latency_max_ms
+				then daily_rollups.latency_max_ms else excluded.latency_max_ms end`
+		if s.Backend() == MariaDB {
+			conflict = `on duplicate key update
+				checks = checks + 1,
+				failures = failures + values(failures),
+				covered_ms = covered_ms + values(covered_ms),
+				down_ms = down_ms + values(down_ms),
+				latency_sum_ms = latency_sum_ms + values(latency_sum_ms),
+				latency_max_ms = greatest(latency_max_ms, values(latency_max_ms))`
+		}
 		if _, err := tx.ExecContext(ctx, `
 			insert into daily_rollups (monitor_id, day_start_ms, checks, failures, covered_ms, down_ms,
 				latency_sum_ms, latency_max_ms)
-			values (?, ?, 1, ?, ?, ?, ?, ?)
-			on conflict (monitor_id, day_start_ms) do update set
-				checks = checks + 1,
-				failures = failures + excluded.failures,
-				covered_ms = covered_ms + excluded.covered_ms,
-				down_ms = down_ms + excluded.down_ms,
-				latency_sum_ms = latency_sum_ms + excluded.latency_sum_ms,
-				latency_max_ms = max(latency_max_ms, excluded.latency_max_ms)`,
+			values (?, ?, 1, ?, ?, ?, ?, ?) `+conflict,
 			r.MonitorID, DayStartMs(r.AtMs), failures, r.CoveredMs, r.Step.DownMs, r.LatencyMs, r.LatencyMs); err != nil {
 			return err
 		}
@@ -76,11 +86,11 @@ func (s *Store) RecordCheck(ctx context.Context, r CheckResult) error {
 		if _, err := tx.ExecContext(ctx, `
 			update monitors set status = ?, fail_streak = ?, ok_streak = ?, failing_since_ms = ?,
 				last_check_at_ms = ?, last_latency_ms = ?, last_error = ?,
-				status_since_ms = case when ? then ? else status_since_ms end,
-				cert_expires_at_ms = case when ? > 0 then ? else cert_expires_at_ms end
+				status_since_ms = case when ? = 1 then ? else status_since_ms end,
+				cert_expires_at_ms = case when ? = 1 then ? else cert_expires_at_ms end
 			where id = ?`,
 			t.Status, t.FailStreak, t.OKStreak, t.FailingSinceMs, r.AtMs, r.LatencyMs, r.Error,
-			changed, r.AtMs, r.CertExpiresAtMs, r.CertExpiresAtMs, r.MonitorID); err != nil {
+			changed, r.AtMs, r.CertExpiresAtMs > 0, r.CertExpiresAtMs, r.MonitorID); err != nil {
 			return err
 		}
 		if !changed {
@@ -105,7 +115,7 @@ func (s *Store) RecordCheck(ctx context.Context, r CheckResult) error {
 
 // openDraftIncidents prepares a draft on every status page that shows the
 // monitor. A monitor on no page gets none.
-func openDraftIncidents(ctx context.Context, tx *sql.Tx, monitorName string, r CheckResult) error {
+func openDraftIncidents(ctx context.Context, tx *transaction, monitorName string, r CheckResult) error {
 	rows, err := tx.QueryContext(ctx, "select project_id from page_monitors where monitor_id = ? order by project_id", r.MonitorID)
 	if err != nil {
 		return err
@@ -131,7 +141,7 @@ func openDraftIncidents(ctx context.Context, tx *sql.Tx, monitorName string, r C
 
 // openDraftIncident prepares a private incident for a confirmed outage, so
 // that publishing it only needs a person's decision.
-func openDraftIncident(ctx context.Context, tx *sql.Tx, projectID int64, monitorName string, r CheckResult) error {
+func openDraftIncident(ctx context.Context, tx *transaction, projectID int64, monitorName string, r CheckResult) error {
 	// The raw check error can name private hosts, and this text becomes public
 	// when the draft is published. The error stays in the admin timeline.
 	const firstUpdate = "we are looking into a problem with %s."
@@ -148,7 +158,7 @@ func openDraftIncident(ctx context.Context, tx *sql.Tx, projectID int64, monitor
 
 // resolveDraftIncidents closes the unpublished incidents of a recovered
 // monitor. Published incidents stay open until a person resolves them.
-func resolveDraftIncidents(ctx context.Context, tx *sql.Tx, monitorID, nowMs int64) error {
+func resolveDraftIncidents(ctx context.Context, tx *transaction, monitorID, nowMs int64) error {
 	rows, err := tx.QueryContext(ctx, `
 		select i.id from incidents i
 		join incident_monitors im on im.incident_id = i.id
@@ -191,7 +201,7 @@ type DayRollup struct {
 func (s *Store) DailyRollups(ctx context.Context, projectID, sinceMs int64) (map[int64][]DayRollup, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		select r.monitor_id, r.day_start_ms, r.checks, r.failures, r.covered_ms, r.down_ms,
-			r.latency_sum_ms / max(r.checks, 1)
+			r.latency_sum_ms
 		from daily_rollups r
 		where r.monitor_id in (select monitor_id from page_monitors where project_id = ?) and r.day_start_ms >= ?
 		order by r.monitor_id, r.day_start_ms`, projectID, sinceMs)
@@ -203,9 +213,11 @@ func (s *Store) DailyRollups(ctx context.Context, projectID, sinceMs int64) (map
 	for rows.Next() {
 		var monitorID int64
 		var d DayRollup
-		if err := rows.Scan(&monitorID, &d.DayStartMs, &d.Checks, &d.Failures, &d.CoveredMs, &d.DownMs, &d.LatencyAvgMs); err != nil {
+		var latencySum int64
+		if err := rows.Scan(&monitorID, &d.DayStartMs, &d.Checks, &d.Failures, &d.CoveredMs, &d.DownMs, &latencySum); err != nil {
 			return nil, err
 		}
+		d.LatencyAvgMs = latencySum / max(d.Checks, 1)
 		byMonitor[monitorID] = append(byMonitor[monitorID], d)
 	}
 	return byMonitor, rows.Err()
@@ -243,8 +255,8 @@ func (s *Store) Events(ctx context.Context, projectID, beforeID int64, limit int
 	rows, err := s.db.QueryContext(ctx, `
 		select id, coalesce(project_id, 0), kind, at_ms, monitor_id, incident_id, title, detail
 		from events
-		where (project_id = ?1 or monitor_id in (select monitor_id from page_monitors where project_id = ?1)) and id < ?2
-		order by id desc limit ?3`, projectID, beforeID, limit)
+		where (project_id = ? or monitor_id in (select monitor_id from page_monitors where project_id = ?)) and id < ?
+		order by id desc limit ?`, projectID, projectID, beforeID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -305,10 +317,18 @@ func (s *Store) RecentEvents(ctx context.Context, limit int) ([]Event, error) {
 // ImportDailyRollup stores one day of history for a monitor, replacing what
 // was there. It exists for data that did not come from live checks.
 func (s *Store) ImportDailyRollup(ctx context.Context, monitorID int64, d DayRollup, latencySumMs, latencyMaxMs int64) error {
+	conflict := `on conflict (monitor_id, day_start_ms) do update set
+		checks = excluded.checks, failures = excluded.failures, covered_ms = excluded.covered_ms,
+		down_ms = excluded.down_ms, latency_sum_ms = excluded.latency_sum_ms, latency_max_ms = excluded.latency_max_ms`
+	if s.Backend() == MariaDB {
+		conflict = `on duplicate key update
+			checks = values(checks), failures = values(failures), covered_ms = values(covered_ms),
+			down_ms = values(down_ms), latency_sum_ms = values(latency_sum_ms), latency_max_ms = values(latency_max_ms)`
+	}
 	_, err := s.db.ExecContext(ctx, `
-		insert or replace into daily_rollups (monitor_id, day_start_ms, checks, failures, covered_ms, down_ms,
+		insert into daily_rollups (monitor_id, day_start_ms, checks, failures, covered_ms, down_ms,
 			latency_sum_ms, latency_max_ms)
-		values (?, ?, ?, ?, ?, ?, ?, ?)`,
+		values (?, ?, ?, ?, ?, ?, ?, ?) `+conflict,
 		monitorID, d.DayStartMs, d.Checks, d.Failures, d.CoveredMs, d.DownMs, latencySumMs, latencyMaxMs)
 	return err
 }
@@ -349,12 +369,16 @@ type CheckBucket struct {
 // CheckBuckets groups a monitor's checks since sinceMs into stretches of
 // bucketMs, oldest first. A stretch without checks is left out.
 func (s *Store) CheckBuckets(ctx context.Context, monitorID, sinceMs, bucketMs int64) ([]CheckBucket, error) {
+	bucketStart := "at_ms - at_ms % ?"
+	if s.Backend() == TursoPG {
+		bucketStart = "cast(at_ms - at_ms % cast(? as bigint) as bigint)"
+	}
 	rows, err := s.db.QueryContext(ctx, `
-		select at_ms / ?1 * ?1, count(*), sum(ok = 0),
-			coalesce(cast(avg(case when ok = 1 then latency_ms end) as integer), 0),
+		select `+bucketStart+`, count(*), sum(case when ok = 0 then 1 else 0 end),
+			sum(case when ok = 1 then latency_ms else 0 end),
 			coalesce(max(case when ok = 1 then latency_ms end), 0)
 		from checks
-		where monitor_id = ?2 and at_ms >= ?3
+		where monitor_id = ? and at_ms >= ?
 		group by 1 order by 1`, bucketMs, monitorID, sinceMs)
 	if err != nil {
 		return nil, err
@@ -363,8 +387,12 @@ func (s *Store) CheckBuckets(ctx context.Context, monitorID, sinceMs, bucketMs i
 	var buckets []CheckBucket
 	for rows.Next() {
 		var b CheckBucket
-		if err := rows.Scan(&b.StartMs, &b.Checks, &b.Failures, &b.LatencyAvgMs, &b.LatencyMaxMs); err != nil {
+		var latencySum int64
+		if err := rows.Scan(&b.StartMs, &b.Checks, &b.Failures, &latencySum, &b.LatencyMaxMs); err != nil {
 			return nil, err
+		}
+		if successful := b.Checks - b.Failures; successful > 0 {
+			b.LatencyAvgMs = latencySum / successful
 		}
 		buckets = append(buckets, b)
 	}
@@ -403,15 +431,11 @@ func (s *Store) RecentChecks(ctx context.Context, monitorID int64, limit int) ([
 // transaction. Unlike RecordCheck it touches neither the monitor's state nor
 // the daily figures: it is for history that is already counted elsewhere.
 func (s *Store) ImportChecks(ctx context.Context, monitorID int64, checks []Check) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
-		insert, err := tx.PrepareContext(ctx,
-			"insert into checks (monitor_id, at_ms, ok, latency_ms, error) values (?, ?, ?, ?, ?)")
-		if err != nil {
-			return err
-		}
-		defer insert.Close()
+	return s.write(ctx, func(tx *transaction) error {
 		for _, c := range checks {
-			if _, err := insert.ExecContext(ctx, monitorID, c.AtMs, c.OK, c.LatencyMs, c.Error); err != nil {
+			if _, err := tx.ExecContext(ctx,
+				"insert into checks (monitor_id, at_ms, ok, latency_ms, error) values (?, ?, ?, ?, ?)",
+				monitorID, c.AtMs, c.OK, c.LatencyMs, c.Error); err != nil {
 				return err
 			}
 		}
@@ -422,7 +446,7 @@ func (s *Store) ImportChecks(ctx context.Context, monitorID int64, checks []Chec
 // MonitorRollups returns one monitor's days from sinceMs on, oldest first.
 func (s *Store) MonitorRollups(ctx context.Context, monitorID, sinceMs int64) ([]DayRollup, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		select day_start_ms, checks, failures, covered_ms, down_ms, latency_sum_ms / max(checks, 1)
+		select day_start_ms, checks, failures, covered_ms, down_ms, latency_sum_ms
 		from daily_rollups where monitor_id = ? and day_start_ms >= ? order by day_start_ms`, monitorID, sinceMs)
 	if err != nil {
 		return nil, err
@@ -431,9 +455,11 @@ func (s *Store) MonitorRollups(ctx context.Context, monitorID, sinceMs int64) ([
 	var days []DayRollup
 	for rows.Next() {
 		var d DayRollup
-		if err := rows.Scan(&d.DayStartMs, &d.Checks, &d.Failures, &d.CoveredMs, &d.DownMs, &d.LatencyAvgMs); err != nil {
+		var latencySum int64
+		if err := rows.Scan(&d.DayStartMs, &d.Checks, &d.Failures, &d.CoveredMs, &d.DownMs, &latencySum); err != nil {
 			return nil, err
 		}
+		d.LatencyAvgMs = latencySum / max(d.Checks, 1)
 		days = append(days, d)
 	}
 	return days, rows.Err()

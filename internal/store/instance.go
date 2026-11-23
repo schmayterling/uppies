@@ -3,10 +3,9 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"strconv"
-
-	"modernc.org/sqlite"
 )
 
 // InstanceSettings are the settings of the whole install, as opposed to one project.
@@ -61,21 +60,18 @@ type InstanceFacts struct {
 }
 
 func (s *Store) InstanceFacts(ctx context.Context) (InstanceFacts, error) {
-	var facts InstanceFacts
+	facts := InstanceFacts{Schema: s.schema}
 	err := s.db.QueryRowContext(ctx, `
-		select (select user_version from pragma_user_version),
-			(select count(*) from projects),
-			count(*), count(*) filter (where paused = 1),
-			(select count(*) from alert_channels),
-			(select count(*) from users)
-		from monitors`).Scan(&facts.Schema, &facts.StatusPages, &facts.Monitors, &facts.Paused, &facts.Channels, &facts.Users)
+		select (select count(*) from projects), count(*), count(case when paused = 1 then 1 end),
+			(select count(*) from alert_channels), (select count(*) from users)
+		from monitors`).Scan(&facts.StatusPages, &facts.Monitors, &facts.Paused, &facts.Channels, &facts.Users)
 	return facts, err
 }
 
 // Instance returns the instance settings, with defaults for what was never saved.
 func (s *Store) Instance(ctx context.Context) (InstanceSettings, error) {
 	settings := defaultInstance
-	rows, err := s.db.QueryContext(ctx, "select key, value from instance_settings")
+	rows, err := s.db.QueryContext(ctx, "select instance_settings.key, value from instance_settings")
 	if err != nil {
 		return settings, err
 	}
@@ -122,11 +118,14 @@ func (s *Store) SaveInstance(ctx context.Context, settings InstanceSettings) err
 		"login_layout": settings.LoginLayout, "login_background": settings.LoginBackground,
 		"list_layout": settings.ListLayout, "graph_fill": settings.GraphFill,
 	}
-	return s.write(ctx, func(tx *sql.Tx) error {
+	statement := `insert into instance_settings (key, value) values (?, ?)
+		on conflict (key) do update set value = excluded.value`
+	if s.Backend() == MariaDB {
+		statement = "insert into instance_settings (`key`, value) values (?, ?) on duplicate key update value = values(value)"
+	}
+	return s.write(ctx, func(tx *transaction) error {
 		for key, value := range values {
-			if _, err := tx.ExecContext(ctx, `
-				insert into instance_settings (key, value) values (?, ?)
-				on conflict (key) do update set value = excluded.value`, key, value); err != nil {
+			if _, err := tx.ExecContext(ctx, statement, key, value); err != nil {
 				return err
 			}
 		}
@@ -169,8 +168,7 @@ func (s *Store) Users(ctx context.Context) ([]User, error) {
 func (s *Store) CreateUser(ctx context.Context, username, passwordHash string, nowMs int64) error {
 	_, err := s.db.ExecContext(ctx,
 		"insert into users (username, password_hash, created_at_ms) values (?, ?, ?)", username, passwordHash, nowMs)
-	var sqliteErr *sqlite.Error
-	if errors.As(err, &sqliteErr) && sqliteErr.Code() == sqliteConstraintUnique {
+	if isUnique(err) {
 		return ErrUsernameTaken
 	}
 	return err
@@ -179,7 +177,7 @@ func (s *Store) CreateUser(ctx context.Context, username, passwordHash string, n
 // DeleteUser removes an account and its sessions. It returns ErrLastUser
 // when it is the only account, and ErrNotFound when it does not exist.
 func (s *Store) DeleteUser(ctx context.Context, id int64) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		var count int
 		if err := tx.QueryRowContext(ctx, "select count(*) from users").Scan(&count); err != nil {
 			return err
@@ -198,7 +196,7 @@ func (s *Store) DeleteUser(ctx context.Context, id int64) error {
 // SetPassword replaces an account's password hash and ends its other sessions,
 // keeping the one that made the change.
 func (s *Store) SetPassword(ctx context.Context, userID int64, passwordHash, keepTokenHash string) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		res, err := tx.ExecContext(ctx, "update users set password_hash = ? where id = ?", passwordHash, userID)
 		if err != nil {
 			return err
@@ -241,12 +239,24 @@ func (s *Store) LogoVersions(ctx context.Context) (map[int64]int64, error) {
 
 // SetInstanceImage stores or replaces one of the install's images.
 func (s *Store) SetInstanceImage(ctx context.Context, kind, contentType string, data []byte, nowMs int64) error {
-	_, err := s.db.ExecContext(ctx, `
-		insert into instance_images (kind, content_type, data, updated_at_ms) values (?, ?, ?, ?)
-		on conflict (kind) do update set
-			content_type = excluded.content_type, data = excluded.data, updated_at_ms = excluded.updated_at_ms`,
-		kind, contentType, data, nowMs)
+	blob, value := s.blobParameter(data)
+	conflict := `on conflict (kind) do update set
+		content_type = excluded.content_type, data = excluded.data, updated_at_ms = excluded.updated_at_ms`
+	if s.Backend() == MariaDB {
+		conflict = "on duplicate key update content_type = values(content_type), data = values(data), updated_at_ms = values(updated_at_ms)"
+	}
+	_, err := s.db.ExecContext(ctx,
+		"insert into instance_images (kind, content_type, data, updated_at_ms) values (?, ?, "+blob+", ?) "+conflict,
+		kind, contentType, value, nowMs)
 	return err
+}
+
+// blobParameter uses an explicit hex decoder for TursoPG's text-form binds.
+func (s *Store) blobParameter(data []byte) (string, any) {
+	if s.Backend() == TursoPG {
+		return "unhex(?)", hex.EncodeToString(data)
+	}
+	return "?", data
 }
 
 // DeleteInstanceImage removes an image. Removing one that does not exist is not an error.

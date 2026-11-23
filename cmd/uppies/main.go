@@ -28,7 +28,8 @@ const (
 
 func main() {
 	addr := flag.String("addr", ":8080", "address to listen on")
-	dbPath := flag.String("db", "uppies.db", "path of the database file")
+	dbBackend := flag.String("db-backend", os.Getenv("UPPIES_DB_BACKEND"), "sqlite (default), postgres, mariadb, turso-sqlite, or tursopg")
+	dbPath := flag.String("db", "uppies.db", "database file for sqlite and turso-sqlite")
 	heartbeatURL := flag.String("heartbeat-url", "", "url to request every minute, so an outside service notices when uppies stops")
 	smtpAddr := flag.String("smtp-addr", "", "host:port of an smtp server for email alerts, for example smtp.example.com:587")
 	smtpFrom := flag.String("smtp-from", "", "sender address for email alerts")
@@ -41,7 +42,8 @@ func main() {
 		log.Error("uppies cannot start", "error", err)
 		os.Exit(2)
 	}
-	if err := run(*addr, *dbPath, *heartbeatURL, *demoData, mailer, log); err != nil {
+	dsn := os.Getenv("UPPIES_DATABASE_URL")
+	if err := run(*addr, store.Backend(*dbBackend), *dbPath, dsn, *heartbeatURL, *demoData, mailer, log); err != nil {
 		log.Error("uppies stopped", "error", err)
 		os.Exit(1)
 	}
@@ -70,11 +72,11 @@ func newMailer(addr, from string) (*alert.Mailer, error) {
 	}, nil
 }
 
-func run(addr, dbPath, heartbeatURL string, demoData bool, mailer *alert.Mailer, log *slog.Logger) (err error) {
+func run(addr string, backend store.Backend, dbPath, dsn, heartbeatURL string, demoData bool, mailer *alert.Mailer, log *slog.Logger) (err error) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	st, err := store.Open(ctx, dbPath)
+	st, err := store.OpenBackend(ctx, backend, dbPath, dsn)
 	if err != nil {
 		return err
 	}
@@ -118,7 +120,7 @@ func run(addr, dbPath, heartbeatURL string, demoData bool, mailer *alert.Mailer,
 	if heartbeatURL != "" {
 		go engine.Heartbeat(ctx, heartbeatURL, heartbeatEvery, log)
 	}
-	log.Info("uppies is running", "addr", addr, "db", dbPath)
+	log.Info("uppies is running", "addr", addr, "database", st.Backend())
 
 	select {
 	case <-ctx.Done():

@@ -6,8 +6,6 @@ import (
 	"database/sql"
 	"errors"
 
-	"modernc.org/sqlite"
-
 	"uppies/internal/health"
 )
 
@@ -117,21 +115,17 @@ func scanMonitor(row rowScanner) (Monitor, error) {
 // ErrSlugTaken is returned when a project slug is already in use.
 var ErrSlugTaken = errors.New("slug already in use")
 
-// sqliteConstraintUnique is SQLite's extended result code SQLITE_CONSTRAINT_UNIQUE.
-const sqliteConstraintUnique = 2067
-
 // CreateProject adds a project and returns its id, or ErrSlugTaken.
 func (s *Store) CreateProject(ctx context.Context, slug, name string, nowMs int64) (int64, error) {
-	res, err := s.db.ExecContext(ctx,
-		"insert into projects (slug, name, created_at_ms, position) values (?, ?, ?, (select coalesce(max(position), 0) + 1 from projects))", slug, name, nowMs)
-	var sqliteErr *sqlite.Error
-	if errors.As(err, &sqliteErr) && sqliteErr.Code() == sqliteConstraintUnique {
+	var id int64
+	err := s.db.QueryRowContext(ctx, `
+		insert into projects (slug, name, created_at_ms, position)
+		values (?, ?, ?, (select coalesce(max(position), 0) + 1 from projects))
+		returning id`, slug, name, nowMs).Scan(&id)
+	if isUnique(err) {
 		return 0, ErrSlugTaken
 	}
-	if err != nil {
-		return 0, err
-	}
-	return res.LastInsertId()
+	return id, err
 }
 
 // Projects lists all projects in the order the admin gave them.
@@ -190,7 +184,7 @@ func (s *Store) UpdateProject(ctx context.Context, p Project) error {
 
 // EditProject applies changes to the current settings in one transaction.
 func (s *Store) EditProject(ctx context.Context, id int64, edit func(*Project) error) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		p, err := scanProject(tx.QueryRowContext(ctx, "select "+projectColumns+" from projects where id = ?", id))
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
@@ -223,8 +217,7 @@ func updateProject(ctx context.Context, exec execSQL, p Project) error {
 		p.Name, p.Tagline, p.HomepageURL, p.AccentHue, p.Theme, p.ShowFace, p.HistoryDays, p.CustomCSS,
 		p.FooterText, p.ShowPoweredBy, p.NoIndex, p.Timezone, p.Domain, p.Surface, p.Corners, p.Font, p.Backfill,
 		p.NavLinks, p.HideQuietDays, p.GraphFill, p.NavbarBrand, p.ID)
-	var sqliteErr *sqlite.Error
-	if errors.As(err, &sqliteErr) && sqliteErr.Code() == sqliteConstraintUnique {
+	if isUnique(err) {
 		return ErrDomainTaken
 	}
 	if err != nil {
@@ -252,16 +245,15 @@ func (s *Store) DeleteProject(ctx context.Context, id int64) error {
 
 // CreateMonitor adds a monitor in the unknown state and returns its id.
 func (s *Store) CreateMonitor(ctx context.Context, m Monitor, nowMs int64) (int64, error) {
-	res, err := s.db.ExecContext(ctx, `
+	var id int64
+	err := s.db.QueryRowContext(ctx, `
 		insert into monitors (name, kind, target, keyword, interval_s, timeout_ms, retries,
 			retry_interval_s, recovery_checks, paused, push_token, status_since_ms, created_at_ms, tags, position)
-		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (select coalesce(max(position), 0) + 1 from monitors))`,
+		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (select coalesce(max(position), 0) + 1 from monitors))
+		returning id`,
 		m.Name, m.Kind, m.Target, m.Keyword, m.IntervalS, m.TimeoutMs, m.Retries,
-		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.PushToken, nowMs, nowMs, m.Tags)
-	if err != nil {
-		return 0, err
-	}
-	return res.LastInsertId()
+		m.RetryIntervalS, m.RecoveryChecks, m.Paused, m.PushToken, nowMs, nowMs, m.Tags).Scan(&id)
+	return id, err
 }
 
 // MonitorDisplays are the ways a status page can draw a monitor.
@@ -282,7 +274,7 @@ func (s *Store) UpdateMonitor(ctx context.Context, m Monitor) error {
 
 // EditMonitor preserves unspecified settings and updates only configuration.
 func (s *Store) EditMonitor(ctx context.Context, id int64, edit func(*Monitor) error) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		m, err := scanMonitor(tx.QueryRowContext(ctx, "select "+monitorColumns+" from monitors where id = ?", id))
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
@@ -353,7 +345,7 @@ func (s *Store) MonitorsAfter(ctx context.Context, after int64, limit int) ([]Mo
 // SetMonitorOrder puts the monitors in the order of ids. A monitor that is
 // not named keeps its place behind the named ones.
 func (s *Store) SetMonitorOrder(ctx context.Context, ids []int64) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	return s.write(ctx, func(tx *transaction) error {
 		if _, err := tx.ExecContext(ctx, "update monitors set position = position + ?", len(ids)); err != nil {
 			return err
 		}
