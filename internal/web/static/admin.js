@@ -69,3 +69,31 @@ document.addEventListener("click", (event) => {
     showPane(false);
   }
 });
+
+// A link to "#some-dialog" opens that dialog: on arrival from another page,
+// and on a click when the dialog is on the page already.
+function openDialogFromAddress() {
+  if (location.hash.length < 2) {
+    return;
+  }
+  const target = document.getElementById(location.hash.slice(1));
+  if (target instanceof HTMLDialogElement && !target.open) {
+    target.showModal();
+    // The address is cleaned up so that the same link works a second time.
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+}
+document.addEventListener("DOMContentLoaded", openDialogFromAddress);
+window.addEventListener("hashchange", openDialogFromAddress);
+document.addEventListener("click", (event) => {
+  const link = event.target.closest("a[href*='#']");
+  if (!link) {
+    return;
+  }
+  const url = new URL(link.href);
+  const target = url.pathname === location.pathname && document.getElementById(url.hash.slice(1));
+  if (target instanceof HTMLDialogElement) {
+    event.preventDefault();
+    target.showModal();
+  }
+});
