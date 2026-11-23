@@ -82,6 +82,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 	mux.HandleFunc("GET /theme.css", s.handleInstanceTheme)
 	mux.HandleFunc("GET /sign-in-background", s.handleSignInBackground)
+	mux.HandleFunc("GET /favicon.ico", s.handleInstanceFavicon)
 	mux.HandleFunc("GET /s/{slug}", s.handleStatusPage)
 	mux.HandleFunc("GET /s/{slug}/history", s.handleHistory)
 	mux.HandleFunc("GET /s/{slug}/theme.css", s.handleTheme)
@@ -105,6 +106,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("GET /admin/appearance", s.handleAppearance)
 	admin("POST /admin/appearance", s.handleSaveAppearance)
 	admin("POST /admin/appearance/sign-in", s.handleSaveSignInPage)
+	admin("POST /admin/appearance/favicon", s.handleSaveFavicon)
 	admin("GET /admin/instance", s.handleInstance)
 	admin("POST /admin/instance", s.handleSaveInstance)
 	admin("GET /admin/users", s.handleUsers)
@@ -158,6 +160,8 @@ func limitBody(next http.Handler) http.Handler {
 			limit = maxUploadBytes
 		case r.URL.Path == "/admin/appearance/sign-in":
 			limit = maxBackgroundUploadBytes
+		case r.URL.Path == "/admin/appearance/favicon":
+			limit = maxUploadBytes
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		next.ServeHTTP(w, r)
@@ -236,6 +240,9 @@ type chrome struct {
 	AuthBackground string
 	// AuthImage is the version of the uploaded background, or 0 when there is none.
 	AuthImage int64
+	// Favicon is the address of the install's own favicon, empty when it has
+	// none. Status pages leave it empty and link their own.
+	Favicon string
 }
 
 // nav is the admin sidebar: where you are, and every project with its state.

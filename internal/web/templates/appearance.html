@@ -33,6 +33,21 @@
   </div>
   <div class="savebar"><button class="button" type="submit">save appearance</button><a class="button quiet" href="/">preview the list</a></div>
 </form>
+<form method="post" action="/admin/appearance/favicon" enctype="multipart/form-data">
+  <h2 class="group-title">favicon</h2>
+  <div class="group">
+    <div class="srow">
+      <label class="srow-copy" for="favicon"><span>favicon</span><small>the small icon in the browser tab, on the admin pages, the sign-in page and the public list. a status page without a favicon of its own uses it too. a square png, ico or svg works best, up to 512 KB.</small></label>
+      <div class="srow-control">
+        {{with .FaviconVersion}}<img class="favicon-preview" src="/favicon.ico?v={{.}}" alt="the current favicon">{{end}}
+        <input id="favicon" name="favicon" type="file" accept="image/png,image/x-icon,image/svg+xml,image/gif,image/webp,image/jpeg"{{if index .Problems "favicon"}} aria-invalid="true"{{end}}>
+      </div>
+      {{with index .Problems "favicon"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+      {{if .FaviconVersion}}<label class="check srow-problem"><input type="checkbox" name="remove_favicon"> remove the current favicon</label>{{end}}
+    </div>
+  </div>
+  <div class="savebar"><button class="button" type="submit">save favicon</button></div>
+</form>
 <form method="post" action="/admin/appearance/sign-in" enctype="multipart/form-data">
   <h2 class="group-title">sign-in page</h2>
   <div class="group">

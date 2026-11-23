@@ -551,6 +551,53 @@ func TestLogoAndFaviconUploads(t *testing.T) {
 	}
 }
 
+func TestTheInstallHasAFaviconOfItsOwn(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	if _, err := s.store.CreateProject(ctx, "acme", "Acme", 1); err != nil {
+		t.Fatal(err)
+	}
+	png, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const save = "/admin/appearance/favicon"
+	if status, _ := s.get(t, s.anonymous, "/favicon.ico"); status != http.StatusNotFound {
+		t.Fatalf("favicon before an upload: got %d, want 404", status)
+	}
+	if _, page := s.get(t, s.admin, "/admin/appearance"); !strings.Contains(page, `name="favicon"`) || strings.Contains(page, `rel="icon"`) {
+		t.Error("appearance must offer a favicon field, and no page links a favicon before one is uploaded")
+	}
+	if resp := s.upload(t, s.anonymous, save, map[string][]byte{"favicon": png}, nil); resp.Header.Get("Location") != "/admin/login" {
+		t.Fatalf("anonymous upload: got %d to %q, want a redirect to /admin/login", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	if resp := s.upload(t, s.admin, save, map[string][]byte{"favicon": []byte("<html></html>")}, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("a web page as the favicon: got %d, want 422", resp.StatusCode)
+	}
+	if resp := s.upload(t, s.admin, save, map[string][]byte{"favicon": png}, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("upload: got %d, want 303", resp.StatusCode)
+	}
+	if status, _ := s.get(t, s.anonymous, "/favicon.ico"); status != http.StatusOK {
+		t.Errorf("favicon after the upload: got %d, want 200", status)
+	}
+	pages := map[string]*http.Client{"/admin": s.admin, "/admin/login": s.anonymous, "/": s.anonymous}
+	for path, client := range pages {
+		if _, page := s.get(t, client, path); !strings.Contains(page, `<link rel="icon" href="/favicon.ico?v=`) {
+			t.Errorf("%s does not link the favicon", path)
+		}
+	}
+	// A status page links only a favicon of its own.
+	if _, page := s.get(t, s.anonymous, "/s/acme"); strings.Contains(page, `href="/favicon.ico`) {
+		t.Error("a status page links the install's favicon")
+	}
+	if resp := s.upload(t, s.admin, save, nil, map[string]string{"remove_favicon": "on"}); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("remove: got %d, want 303", resp.StatusCode)
+	}
+	if status, _ := s.get(t, s.anonymous, "/favicon.ico"); status != http.StatusNotFound {
+		t.Errorf("favicon after removal: got %d, want 404", status)
+	}
+}
+
 func TestSignInPageLayoutAndBackgroundAreChosenInAppearance(t *testing.T) {
 	s := newSite(t)
 	png, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")

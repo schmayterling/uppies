@@ -22,7 +22,7 @@
 <ul class="index-{{.Layout}}">
   {{range .Projects}}
   <li><a class="index-item" href="/s/{{.Slug}}">
-    <span class="index-logo">{{if .LogoVersion}}<img src="/s/{{.Slug}}/images/logo?v={{.LogoVersion}}" alt="">{{else}}{{template "icon" "globe"}}{{end}}</span>
+    {{if .LogoVersion}}<span class="index-logo"><img src="/s/{{.Slug}}/images/logo?v={{.LogoVersion}}" alt=""></span>{{end}}
     <span class="index-copy"><span class="index-name">{{.Name}}</span>{{with .Tagline}}<span class="index-tagline">{{.}}</span>{{end}}</span>
     <span class="index-count meta">{{.Count}}</span>
     <span class="index-state state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>

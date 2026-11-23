@@ -226,7 +226,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page := indexPage{
-		Chrome: chrome{Title: "status", Auth: instance.ListLayout == "compact", SignInLink: true, Brand: instance.Name},
+		Chrome: chrome{Title: "status", Auth: instance.ListLayout == "compact", SignInLink: true, Brand: instance.Name, Favicon: s.faviconAddress(r)},
 		Listed: instance.PublicList, Layout: instance.ListLayout,
 	}
 	if !instance.PublicList {

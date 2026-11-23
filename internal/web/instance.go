@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -24,8 +25,10 @@ type instancePage struct {
 	Backgrounds []string
 	// ListLayouts are the layouts of the public list of status pages.
 	ListLayouts []string
-	// BackgroundVersion is set when a sign-in background image is uploaded.
+	// BackgroundVersion is set when a sign-in background image is uploaded,
+	// and FaviconVersion when the install has a favicon.
 	BackgroundVersion int64
+	FaviconVersion    int64
 }
 
 func (s *Server) instancePage(r *http.Request, title string) (instancePage, error) {
@@ -38,7 +41,72 @@ func (s *Server) instancePage(r *http.Request, title string) (instancePage, erro
 		return page, err
 	}
 	page.BackgroundVersion, err = s.store.InstanceImageVersion(r.Context(), store.ImageLoginBackground)
+	if err != nil {
+		return page, err
+	}
+	page.FaviconVersion, err = s.store.InstanceImageVersion(r.Context(), store.ImageInstanceFavicon)
 	return page, err
+}
+
+// faviconAddress returns where the install's favicon is served, with its
+// version so that a new upload shows at once, or "" when there is none. A
+// page still has to open when this cannot be read, so a failure is logged.
+func (s *Server) faviconAddress(r *http.Request) string {
+	version, err := s.store.InstanceImageVersion(r.Context(), store.ImageInstanceFavicon)
+	if err != nil {
+		s.log.Error("read instance favicon", "path", r.URL.Path, "error", err)
+	}
+	if version == 0 {
+		return ""
+	}
+	return fmt.Sprintf("/favicon.ico?v=%d", version)
+}
+
+func (s *Server) handleSaveFavicon(w http.ResponseWriter, r *http.Request) {
+	page, err := s.instancePage(r, "appearance")
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if err := r.ParseMultipartForm(maxUploadBytes); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	data, contentType, problem, err := readUpload(r, "favicon", store.MaxImageBytes)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if problem != "" {
+		page.Problems = map[string]string{"favicon": problem}
+		s.render(w, r, http.StatusUnprocessableEntity, "appearance.html", page)
+		return
+	}
+	if data != nil {
+		err = s.store.SetInstanceImage(r.Context(), store.ImageInstanceFavicon, contentType, data, s.now().UnixMilli())
+	} else if r.PostForm.Get("remove_favicon") == "on" {
+		err = s.store.DeleteInstanceImage(r.Context(), store.ImageInstanceFavicon)
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/admin/appearance?saved=1", http.StatusSeeOther)
+}
+
+// handleInstanceFavicon serves the install's favicon. Browsers ask for this
+// address on their own, so a status page without a favicon gets it too.
+func (s *Server) handleInstanceFavicon(w http.ResponseWriter, r *http.Request) {
+	contentType, data, err := s.store.InstanceImage(r.Context(), store.ImageInstanceFavicon)
+	if errors.Is(err, store.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	s.writeImage(w, r, contentType, data)
 }
 
 // maxBackgroundUploadBytes caps the sign-in page form: one image at the size limit plus form overhead.

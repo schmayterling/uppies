@@ -75,7 +75,7 @@ func (s *Server) adminChrome(r *http.Request, title string) chrome {
 	sections := map[string]string{
 		"/admin": "overview", "/admin/appearance": "appearance", "/admin/instance": "instance", "/admin/users": "users",
 	}
-	c := chrome{Title: title, Admin: true, Nav: nav{Section: sections[r.URL.Path]}}
+	c := chrome{Title: title, Admin: true, Nav: nav{Section: sections[r.URL.Path]}, Favicon: s.faviconAddress(r)}
 	if instance, err := s.store.Instance(r.Context()); err != nil {
 		s.log.Error("load instance settings", "path", r.URL.Path, "error", err)
 	} else {
