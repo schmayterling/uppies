@@ -159,6 +159,7 @@ label.srow { cursor: pointer; }
 .srow-control form { margin: 0; }
 .srow-problem { flex-basis: 100%; }
 .srow[data-stack] { align-items: stretch; flex-direction: column; }
+.srow[data-stack] > .srow-copy { flex: none; }
 .savebar { display: flex; gap: var(--space-2); margin-block-start: var(--space-3); }
 .push-end { margin-inline-start: auto; }
 .facts { display: flex; flex-wrap: wrap; gap: var(--space-1-5) var(--space-4); margin: var(--space-2) 0 0; padding: 0; list-style: none; color: var(--muted); font-size: var(--text-sm); }
@@ -240,6 +241,7 @@ table.dense tbody th a:hover { text-decoration: underline; }
   .stat { border-inline-start: 0; border-block-start: 1px solid var(--border); }
 }
 
+.crumbs a { display: inline-block; min-block-size: var(--target-min); align-content: center; }
 .crumbs { margin-block-end: var(--space-2); }
 .title-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
 
