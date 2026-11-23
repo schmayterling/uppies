@@ -245,6 +245,9 @@ var templateFuncs = template.FuncMap{
 	"channelIcon": func(kind string) string {
 		return channelIcons[kind]
 	},
+	"displayLabel": func(display string) string {
+		return displayLabels[display]
+	},
 	"kindLabel": func(kind string) string {
 		return kindLabels[kind]
 	},

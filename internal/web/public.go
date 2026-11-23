@@ -44,6 +44,19 @@ type componentView struct {
 	Word   string
 	Days   []dayCell
 	Uptime string
+	// Display picks what is drawn under the name: "bars", "latency", "summary" or "minimal".
+	Display string
+	// Figures are the uptime numbers of the "summary" display.
+	Figures []figure
+	// Spark is the point list of the "latency" display's line, and Latency its caption.
+	Spark   string
+	Latency string
+}
+
+// figure is one labelled number.
+type figure struct {
+	Label string
+	Value string
 }
 
 type incidentView struct {
@@ -260,7 +273,19 @@ func (s *Server) statusPage(ctx context.Context, project store.Project) (statusP
 		names[m.ID] = m.Name
 		state, word := componentState(m)
 		days, uptime := uptimeStrip(rollups[m.ID], todayStartMs, project.HistoryDays)
-		page.Components = append(page.Components, componentView{Name: m.Name, State: state, Word: word, Days: days, Uptime: uptime})
+		view := componentView{Name: m.Name, State: state, Word: word, Days: days, Uptime: uptime, Display: m.Display}
+		switch m.Display {
+		case "summary":
+			for _, span := range []int{7, 30, project.HistoryDays} {
+				_, figureUptime := uptimeStrip(rollups[m.ID], todayStartMs, span)
+				view.Figures = append(view.Figures, figure{
+					Label: fmt.Sprintf("last %d days", span), Value: strings.TrimSuffix(figureUptime, " uptime"),
+				})
+			}
+		case "latency":
+			view.Spark, view.Latency = latencyLine(rollups[m.ID], todayStartMs, project.HistoryDays)
+		}
+		page.Components = append(page.Components, view)
 	}
 	for _, in := range incidents {
 		view := incidentView{Incident: in}
@@ -390,6 +415,42 @@ func uptimeStrip(rollups []store.DayRollup, todayStartMs int64, historyDays int)
 		}
 	}
 	return cells, uptimePercent(coveredMs, downMs)
+}
+
+// The latency line is drawn in a box of this size, in SVG units.
+const (
+	sparkWidth  = 300
+	sparkHeight = 32
+)
+
+// latencyLine turns daily average response times into the points of a line
+// across the last historyDays days, and a caption with the overall average.
+// Days without checks leave a gap in time but not in the line.
+func latencyLine(rollups []store.DayRollup, todayStartMs int64, historyDays int) (points, caption string) {
+	firstDayMs := todayStartMs - int64(historyDays-1)*dayMs
+	var peak, sum, days int64
+	for _, d := range rollups {
+		if d.DayStartMs >= firstDayMs && d.Checks > 0 {
+			peak = max(peak, d.LatencyAvgMs)
+			sum += d.LatencyAvgMs
+			days++
+		}
+	}
+	if days == 0 {
+		return "", "no response times yet"
+	}
+	peak = max(peak, 1)
+	var b strings.Builder
+	for _, d := range rollups {
+		if d.DayStartMs < firstDayMs || d.Checks == 0 {
+			continue
+		}
+		x := float64(d.DayStartMs-firstDayMs) / float64(dayMs) / float64(max(historyDays-1, 1)) * sparkWidth
+		// The line keeps 2 units clear of the top and bottom edges.
+		y := float64(sparkHeight-2) - float64(d.LatencyAvgMs)/float64(peak)*float64(sparkHeight-4)
+		fmt.Fprintf(&b, "%.1f,%.1f ", x, y)
+	}
+	return strings.TrimSpace(b.String()), fmt.Sprintf("%d ms on average, %d ms at most", sum/days, peak)
 }
 
 // uptimePercent formats uptime to two decimals, rounded down so that any

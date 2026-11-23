@@ -160,6 +160,7 @@ label.srow { cursor: pointer; }
 .srow-problem { flex-basis: 100%; }
 .srow[data-stack] { align-items: stretch; flex-direction: column; }
 .savebar { display: flex; gap: var(--space-2); margin-block-start: var(--space-3); }
+.push-end { margin-inline-start: auto; }
 
 /* a checkbox drawn as a switch */
 .switch { appearance: none; position: relative; inline-size: var(--switch-width); block-size: var(--switch-height); margin: 0; border-radius: var(--radius-round); background: var(--border-control); cursor: pointer; transition: background var(--motion-fast) var(--ease-out); translate: none; }
@@ -421,6 +422,10 @@ input[type="file"] { padding: var(--space-1); }
 .day-warn::after, .day-down::after { inset-block-end: calc(100% + var(--space-1-5)); }
 .strip { position: relative; }
 .table-scroll:has(.day:hover) { overflow: visible; }
+.spark { display: block; inline-size: 100%; block-size: var(--space-6); overflow: visible; }
+.spark polyline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin: 0; }
+.figures dd { margin: 0; font-size: var(--text-heading); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
 .strip-legend { display: flex; justify-content: space-between; gap: var(--space-3); margin-block-start: var(--space-1); font-variant-numeric: tabular-nums; }
 .narrow-only { display: none; }
 

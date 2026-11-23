@@ -1,86 +1,102 @@
 {{define "main"}}
-<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">projects</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / {{if .Editing}}{{.Monitor.Name}}{{else}}new monitor{{end}}</nav>
-<h1>{{if .Editing}}edit monitor{{else}}new monitor{{end}}</h1>
+<nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">overview</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / {{if .Editing}}{{.Monitor.Name}}{{else}}new monitor{{end}}</nav>
+<div class="settings">
+<h1>{{if .Editing}}{{.Monitor.Name}}{{else}}new monitor{{end}}</h1>
+{{if .Problems}}{{template "error" "the monitor was not saved. the fields with a problem are marked below."}}{{end}}
 {{with .PushURL}}
 <div class="admonition admonition-info">{{template "icon" "info"}}<div>
-  <p>have the job request this address each time it finishes. if no request arrives within the time between checks, the monitor goes down.</p>
+  <p>have the job request this address each time it finishes. if no request arrives within the time between reports, the monitor goes down.</p>
   <p><code class="target">{{.}}</code></p>
   <p class="hint">for example: curl -fsS {{.}}</p>
 </div></div>
 {{end}}
-<form class="form narrow" method="post" action="{{if .Editing}}/admin/monitors/{{.Monitor.ID}}{{else}}/admin/projects/{{.Project.ID}}/monitors{{end}}">
-  <div class="field">
-    <label for="name">name</label>
-    <input id="name" name="name" value="{{.Monitor.Name}}" required maxlength="120"{{if index .Problems "name"}} aria-invalid="true" aria-describedby="name-problem"{{end}}>
-    {{with index .Problems "name"}}<p class="problem" id="name-problem">{{.}}</p>{{end}}
+<form method="post" action="{{if .Editing}}/admin/monitors/{{.Monitor.ID}}{{else}}/admin/projects/{{.Project.ID}}/monitors{{end}}">
+  <h2 class="group-title">what to check</h2>
+  <div class="group">
+    <div class="srow">
+      <label class="srow-copy" for="name"><span>name</span><small>shown in alerts and on the status page.</small></label>
+      <div class="srow-control"><input id="name" name="name" value="{{.Monitor.Name}}" required maxlength="120"{{if index .Problems "name"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "name"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <label class="srow-copy" for="kind"><span>kind</span><small>a push monitor waits for a scheduled job to report in.</small></label>
+      <div class="srow-control"><select id="kind" name="kind">
+        {{range .Kinds}}<option value="{{.}}"{{if eq . $.Monitor.Kind}} selected{{end}}>{{kindLabel .}}</option>{{end}}
+      </select></div>
+    </div>
+    <div class="srow">
+      <label class="srow-copy" for="target"><span>target</span><small>a url such as https://example.com/health, host:port for a tcp port, or a hostname for dns and ping. leave it empty for a push monitor.</small></label>
+      <div class="srow-control"><input id="target" name="target" value="{{if ne .Monitor.Kind "push"}}{{.Monitor.Target}}{{end}}" maxlength="2048" autocapitalize="none" spellcheck="false"{{if index .Problems "target"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "target"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <label class="srow-copy" for="keyword"><span>keyword</span><small>http only. the check fails when the response does not contain this text.</small></label>
+      <div class="srow-control"><input id="keyword" name="keyword" value="{{.Monitor.Keyword}}" maxlength="200"></div>
+    </div>
   </div>
-  <div class="field">
-    <label for="kind">kind</label>
-    <select id="kind" name="kind">
-      {{range .Kinds}}<option value="{{.}}"{{if eq . $.Monitor.Kind}} selected{{end}}>{{kindLabel .}}</option>{{end}}
-    </select>
+
+  <h2 class="group-title">timing</h2>
+  <div class="group">
+    <div class="srow">
+      <label class="srow-copy" for="interval_s"><span>seconds between checks</span><small>for a push monitor, the longest time between two reports.</small></label>
+      <div class="srow-control"><input class="number-field" id="interval_s" name="interval_s" type="number" inputmode="numeric" min="20" max="86400" value="{{.Monitor.IntervalS}}" required{{if index .Problems "interval_s"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "interval_s"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <label class="srow-copy" for="timeout_s"><span>seconds to wait for an answer</span><small>a check with no answer by then counts as failed.</small></label>
+      <div class="srow-control"><input class="number-field" id="timeout_s" name="timeout_s" type="number" inputmode="numeric" min="1" max="60" value="{{seconds .Monitor.TimeoutMs}}" required{{if index .Problems "timeout_s"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "timeout_s"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <label class="srow-copy" for="retries"><span>retries before it counts as down</span><small>with 2 retries, the third failed check in a row marks the monitor down.</small></label>
+      <div class="srow-control"><input class="number-field" id="retries" name="retries" type="number" inputmode="numeric" min="0" max="10" value="{{.Monitor.Retries}}" required{{if index .Problems "retries"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "retries"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <label class="srow-copy" for="retry_interval_s"><span>seconds between retries</span><small>how soon a failed check is tried again.</small></label>
+      <div class="srow-control"><input class="number-field" id="retry_interval_s" name="retry_interval_s" type="number" inputmode="numeric" min="1" max="3600" value="{{.Monitor.RetryIntervalS}}" required{{if index .Problems "retry_interval_s"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "retry_interval_s"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow">
+      <label class="srow-copy" for="recovery_checks"><span>good checks before it counts as up</span><small>keeps a flapping service from reporting a recovery too early.</small></label>
+      <div class="srow-control"><input class="number-field" id="recovery_checks" name="recovery_checks" type="number" inputmode="numeric" min="1" max="10" value="{{.Monitor.RecoveryChecks}}" required{{if index .Problems "recovery_checks"}} aria-invalid="true"{{end}}></div>
+      {{with index .Problems "recovery_checks"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
   </div>
-  <div class="field">
-    <label for="target">target</label>
-    <input id="target" name="target" value="{{if ne .Monitor.Kind "push"}}{{.Monitor.Target}}{{end}}" maxlength="2048" autocapitalize="none" spellcheck="false" aria-describedby="target-hint{{if index .Problems "target"}} target-problem{{end}}"{{if index .Problems "target"}} aria-invalid="true"{{end}}>
-    <p class="hint" id="target-hint">a url such as https://example.com/health, host:port for a tcp port, or a hostname for dns and ping. leave it empty for a push monitor.</p>
-    {{with index .Problems "target"}}<p class="problem" id="target-problem">{{.}}</p>{{end}}
+
+  <h2 class="group-title">status page</h2>
+  <div class="group">
+    <label class="srow">
+      <span class="srow-copy"><span>show on the status page</span><small>a hidden monitor is still checked and still alerts.</small></span>
+      <span class="srow-control"><input class="switch" type="checkbox" name="public"{{if .Monitor.Public}} checked{{end}}></span>
+    </label>
+    <div class="srow">
+      <label class="srow-copy" for="display"><span>shown as</span><small>what the status page draws under the monitor's name.</small></label>
+      <div class="srow-control"><select id="display" name="display">
+        {{range .Displays}}<option value="{{.}}"{{if or (eq . $.Monitor.Display) (and (eq . "bars") (not $.Monitor.Display))}} selected{{end}}>{{displayLabel .}}</option>{{end}}
+      </select></div>
+      {{with index .Problems "display"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <label class="srow">
+      <span class="srow-copy"><span>paused</span><small>a paused monitor is not checked.</small></span>
+      <span class="srow-control"><input class="switch" type="checkbox" name="paused"{{if .Monitor.Paused}} checked{{end}}></span>
+    </label>
   </div>
-  <div class="field">
-    <label for="keyword">keyword</label>
-    <input id="keyword" name="keyword" value="{{.Monitor.Keyword}}" maxlength="200" aria-describedby="keyword-hint">
-    <p class="hint" id="keyword-hint">optional, http only. the check fails when the response does not contain this text.</p>
-  </div>
-  <fieldset>
-    <legend>timing</legend>
-    <div class="field">
-      <label for="interval_s">seconds between checks, or between reports for a push monitor</label>
-      <input id="interval_s" name="interval_s" type="number" inputmode="numeric" min="20" max="86400" value="{{.Monitor.IntervalS}}" required{{if index .Problems "interval_s"}} aria-invalid="true" aria-describedby="interval_s-problem"{{end}}>
-      {{with index .Problems "interval_s"}}<p class="problem" id="interval_s-problem">{{.}}</p>{{end}}
-    </div>
-    <div class="field">
-      <label for="timeout_s">seconds to wait for an answer</label>
-      <input id="timeout_s" name="timeout_s" type="number" inputmode="numeric" min="1" max="60" value="{{seconds .Monitor.TimeoutMs}}" required{{if index .Problems "timeout_s"}} aria-invalid="true" aria-describedby="timeout_s-problem"{{end}}>
-      {{with index .Problems "timeout_s"}}<p class="problem" id="timeout_s-problem">{{.}}</p>{{end}}
-    </div>
-    <div class="field">
-      <label for="retries">retries before it counts as down</label>
-      <input id="retries" name="retries" type="number" inputmode="numeric" min="0" max="10" value="{{.Monitor.Retries}}" required aria-describedby="retries-hint{{if index .Problems "retries"}} retries-problem{{end}}"{{if index .Problems "retries"}} aria-invalid="true"{{end}}>
-      <p class="hint" id="retries-hint">with 2 retries, the third failed check in a row marks the monitor down.</p>
-      {{with index .Problems "retries"}}<p class="problem" id="retries-problem">{{.}}</p>{{end}}
-    </div>
-    <div class="field">
-      <label for="retry_interval_s">seconds between retries</label>
-      <input id="retry_interval_s" name="retry_interval_s" type="number" inputmode="numeric" min="1" max="3600" value="{{.Monitor.RetryIntervalS}}" required{{if index .Problems "retry_interval_s"}} aria-invalid="true" aria-describedby="retry_interval_s-problem"{{end}}>
-      {{with index .Problems "retry_interval_s"}}<p class="problem" id="retry_interval_s-problem">{{.}}</p>{{end}}
-    </div>
-    <div class="field">
-      <label for="recovery_checks">good checks before it counts as up again</label>
-      <input id="recovery_checks" name="recovery_checks" type="number" inputmode="numeric" min="1" max="10" value="{{.Monitor.RecoveryChecks}}" required{{if index .Problems "recovery_checks"}} aria-invalid="true" aria-describedby="recovery_checks-problem"{{end}}>
-      {{with index .Problems "recovery_checks"}}<p class="problem" id="recovery_checks-problem">{{.}}</p>{{end}}
-    </div>
-  </fieldset>
-  <label class="check"><input type="checkbox" name="public"{{if .Monitor.Public}} checked{{end}}> show on the status page. a hidden monitor is still checked and still alerts.</label>
-  <label class="check"><input type="checkbox" name="paused"{{if .Monitor.Paused}} checked{{end}}> paused. a paused monitor is not checked.</label>
-  <div class="actions">
+  <div class="savebar">
     <button class="button" type="submit">{{if .Editing}}save monitor{{else}}add monitor{{end}}</button>
     <a class="button quiet" href="/admin/projects/{{.Project.ID}}">cancel</a>
+    {{if .Editing}}<button class="button danger push-end" type="button" data-open-dialog="delete-monitor">{{template "icon" "trash"}}delete monitor</button>{{end}}
   </div>
 </form>
-
 {{if .Editing}}
-<section aria-labelledby="danger-heading">
-  <h2 id="danger-heading">delete monitor</h2>
-  <p class="muted">removes the monitor and its history.</p>
-  <button class="button danger" type="button" data-open-dialog="delete-monitor">{{template "icon" "trash"}}delete monitor</button>
-  <dialog id="delete-monitor" aria-labelledby="delete-monitor-heading">
-    <h2 id="delete-monitor-heading">delete {{.Monitor.Name}}?</h2>
-    <p>its history is deleted with it. this cannot be undone.</p>
-    <form class="actions" method="post" action="/admin/monitors/{{.Monitor.ID}}/delete">
-      <button class="button danger" type="submit">delete monitor</button>
-      <button class="button quiet" type="button" data-close-dialog>cancel</button>
-    </form>
-  </dialog>
-</section>
+<dialog id="delete-monitor" aria-labelledby="delete-monitor-heading">
+  <h2 id="delete-monitor-heading">delete {{.Monitor.Name}}?</h2>
+  <p>its history is deleted with it. this cannot be undone.</p>
+  <form class="actions" method="post" action="/admin/monitors/{{.Monitor.ID}}/delete">
+    <button class="button danger" type="submit">delete monitor</button>
+    <button class="button quiet" type="button" data-close-dialog>cancel</button>
+  </form>
+</dialog>
 {{end}}
+</div>
 {{end}}

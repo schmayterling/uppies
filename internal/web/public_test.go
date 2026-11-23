@@ -85,3 +85,21 @@ func TestBanner(t *testing.T) {
 		})
 	}
 }
+
+func TestLatencyLine(t *testing.T) {
+	const today = int64(20_000) * dayMs
+	rollups := []store.DayRollup{
+		{DayStartMs: today - 2*dayMs, Checks: 10, LatencyAvgMs: 100},
+		{DayStartMs: today - dayMs, Checks: 0},
+		{DayStartMs: today, Checks: 10, LatencyAvgMs: 50},
+	}
+	points, caption := latencyLine(rollups, today, 3)
+	// Three days span the box of 300 by 32. The slowest day touches the top
+	// margin (y 2) and a day at half that speed sits halfway down (y 16).
+	if points != "0.0,2.0 300.0,16.0" || caption != "75 ms on average, 100 ms at most" {
+		t.Fatalf("got points %q caption %q", points, caption)
+	}
+	if points, caption := latencyLine(nil, today, 3); points != "" || caption != "no response times yet" {
+		t.Fatalf("no data: got points %q caption %q", points, caption)
+	}
+}

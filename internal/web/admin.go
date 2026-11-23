@@ -442,6 +442,7 @@ type monitorFormPage struct {
 	Project  store.Project
 	Monitor  store.Monitor
 	Kinds    []string
+	Displays []string
 	Editing  bool
 	Problems map[string]string
 	// PushURL is where a push monitor's job reports in, empty for other kinds.
@@ -455,6 +456,14 @@ var kindLabels = map[string]string{
 	check.KindDNS:  "dns name",
 	check.KindPing: "ping",
 	check.KindPush: "push, for scheduled jobs that report in",
+}
+
+// displayLabels says what each status page display shows.
+var displayLabels = map[string]string{
+	"bars":    "daily uptime bars",
+	"latency": "response time line",
+	"summary": "three uptime figures",
+	"minimal": "name and state only",
 }
 
 // kindIcons and channelIcons name the icon in static/icons.svg for each kind.
@@ -519,6 +528,12 @@ func parseMonitorForm(form url.Values, m store.Monitor) (store.Monitor, map[stri
 	m.Keyword = form.Get("keyword")
 	m.Paused = form.Get("paused") == "on"
 	m.Public = form.Get("public") == "on"
+	if display := form.Get("display"); display != "" {
+		m.Display = display
+		if !slices.Contains(store.MonitorDisplays, display) {
+			problems["display"] = "choose one of the options."
+		}
+	}
 
 	if m.Name == "" || len(m.Name) > 120 {
 		problems["name"] = "give the monitor a name of 1 to 120 characters."
@@ -562,7 +577,7 @@ func (s *Server) handleNewMonitorForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, http.StatusOK, "monitor_form.html", monitorFormPage{
-		Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: defaultMonitor(id), Kinds: check.Kinds,
+		Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: defaultMonitor(id), Kinds: check.Kinds, Displays: store.MonitorDisplays,
 	})
 }
 
@@ -584,7 +599,7 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 	m, problems := parseMonitorForm(r.PostForm, defaultMonitor(id))
 	if len(problems) > 0 {
 		s.render(w, r, http.StatusUnprocessableEntity, "monitor_form.html", monitorFormPage{
-			Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: m, Kinds: check.Kinds, Problems: problems,
+			Chrome: s.adminChrome(r, "new monitor"), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, Problems: problems,
 		})
 		return
 	}
@@ -623,7 +638,7 @@ func (s *Server) handleEditMonitorForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, http.StatusOK, "monitor_form.html", monitorFormPage{
-		Chrome: s.adminChrome(r, m.Name), Project: project, Monitor: m, Kinds: check.Kinds, Editing: true,
+		Chrome: s.adminChrome(r, m.Name), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, Editing: true,
 		PushURL: pushURL(r, m),
 	})
 }
@@ -641,7 +656,7 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	m, problems := parseMonitorForm(r.PostForm, current)
 	if len(problems) > 0 {
 		s.render(w, r, http.StatusUnprocessableEntity, "monitor_form.html", monitorFormPage{
-			Chrome: s.adminChrome(r, current.Name), Project: project, Monitor: m, Kinds: check.Kinds, Editing: true, Problems: problems,
+			Chrome: s.adminChrome(r, current.Name), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, Editing: true, Problems: problems,
 		})
 		return
 	}

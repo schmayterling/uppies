@@ -48,6 +48,18 @@
         <span class="component-name">{{.Name}}</span>
         <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
       </div>
+      {{if eq .Display "summary"}}
+      <dl class="figures">
+        {{range .Figures}}<div><dt class="meta">{{.Label}}</dt><dd>{{.Value}}</dd></div>{{end}}
+      </dl>
+      {{else if eq .Display "latency"}}
+      {{if .Spark}}<svg class="spark" viewBox="0 0 300 32" preserveAspectRatio="none" role="img" aria-label="response time over the last {{$.Project.HistoryDays}} days: {{.Latency}}"><polyline points="{{.Spark}}"/></svg>{{end}}
+      <div class="strip-legend meta">
+        <span>{{$.Project.HistoryDays}} days ago</span>
+        <span>{{.Latency}}</span>
+        <span>today</span>
+      </div>
+      {{else if ne .Display "minimal"}}
       <div class="strip" role="img" aria-label="uptime over the last {{$.Project.HistoryDays}} days: {{.Uptime}}">
         {{range .Days}}<span class="day day-{{.State}}" data-tip="{{.Label}}"></span>{{end}}
       </div>
@@ -56,6 +68,7 @@
         <span>{{.Uptime}}</span>
         <span>today</span>
       </div>
+      {{end}}
     </li>
     {{end}}
   </ul>
