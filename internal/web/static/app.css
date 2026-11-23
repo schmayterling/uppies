@@ -861,13 +861,6 @@ a.component-name { display: inline-flex; align-items: center; min-inline-size: v
 /* motion. everything that changes state eases into it, with the house
    durations. tokens.css sets them to zero for people who ask for less motion. */
 
-/* moving between pages cross-fades, and the sidebar holds still while it does.
-   a status page that reloads to a new state fades into it the same way. */
-@view-transition { navigation: auto; }
-::view-transition-old(root) { animation-duration: var(--motion-exit); }
-::view-transition-new(root) { animation-duration: var(--motion-base); animation-timing-function: var(--ease-out); }
-.sidebar { view-transition-name: sidebar; }
-
 /* controls answer a hover at once and give a little under a press */
 .button, .icon-button, .nav-item, .tabs a, .list-row, .row-link, .segmented span, .swatch, .day, .heat-cell, a {
   transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out),
@@ -902,10 +895,6 @@ dialog[open]::backdrop { opacity: 1; transition-duration: var(--motion-base); }
 /* the sidebar slides between its full width and the rail. this is the one
    place where a size is animated, since the content beside it has to follow. */
 .shell { transition: grid-template-columns var(--motion-base) var(--ease-out); }
-
-/* the first paint of a page settles in */
-@keyframes settle { from { opacity: 0; } }
-.content, .column, .auth-card { animation: settle var(--motion-base) var(--ease-out); }
 
 /* a touch screen gets form text of 16px, which also keeps ios from zooming into a field */
 @media (pointer: coarse) {

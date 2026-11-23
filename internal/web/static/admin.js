@@ -588,12 +588,14 @@ async function saveForm(form) {
 
 document.addEventListener("change", async (event) => {
   const form = event.target.closest("form[data-autosave]");
-  if (!form) {
+  // The add category button submits the name. Blurring the field on the way
+  // to the button would otherwise send the same request twice.
+  if (!form || event.target.name === "new_category") {
     return;
   }
   const saved = await saveForm(form);
   // A new file, or a monitor added to a list, changes what the page has to show.
-  if (saved && (event.target.type === "file" || ["add", "new_category"].includes(event.target.name) || event.target.name.startsWith("remove_"))) {
+  if (saved && (event.target.type === "file" || event.target.name === "add" || event.target.name.startsWith("remove_"))) {
     location.reload();
   }
 });
