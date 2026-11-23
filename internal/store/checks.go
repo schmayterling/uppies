@@ -285,3 +285,109 @@ func (s *Store) ImportDailyRollup(ctx context.Context, monitorID int64, d DayRol
 		monitorID, d.DayStartMs, d.Checks, d.Failures, d.CoveredMs, d.DownMs, latencySumMs, latencyMaxMs)
 	return err
 }
+
+// LatenciesSince returns the response times of a monitor's successful checks
+// since sinceMs, smallest first. Raw checks are pruned after two days, so the
+// list is bounded by the monitor's interval: 8640 rows at the shortest one.
+func (s *Store) LatenciesSince(ctx context.Context, monitorID, sinceMs int64) ([]int64, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		select latency_ms from checks
+		where monitor_id = ? and at_ms >= ? and ok = 1
+		order by latency_ms`, monitorID, sinceMs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var latencies []int64
+	for rows.Next() {
+		var ms int64
+		if err := rows.Scan(&ms); err != nil {
+			return nil, err
+		}
+		latencies = append(latencies, ms)
+	}
+	return latencies, rows.Err()
+}
+
+// CheckBucket sums up a monitor's checks in one stretch of time.
+type CheckBucket struct {
+	StartMs  int64
+	Checks   int64
+	Failures int64
+	// LatencyAvgMs and LatencyMaxMs cover the successful checks only. Both are 0 when every check failed.
+	LatencyAvgMs int64
+	LatencyMaxMs int64
+}
+
+// CheckBuckets groups a monitor's checks since sinceMs into stretches of
+// bucketMs, oldest first. A stretch without checks is left out.
+func (s *Store) CheckBuckets(ctx context.Context, monitorID, sinceMs, bucketMs int64) ([]CheckBucket, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		select at_ms / ?1 * ?1, count(*), sum(ok = 0),
+			coalesce(cast(avg(case when ok = 1 then latency_ms end) as integer), 0),
+			coalesce(max(case when ok = 1 then latency_ms end), 0)
+		from checks
+		where monitor_id = ?2 and at_ms >= ?3
+		group by 1 order by 1`, bucketMs, monitorID, sinceMs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var buckets []CheckBucket
+	for rows.Next() {
+		var b CheckBucket
+		if err := rows.Scan(&b.StartMs, &b.Checks, &b.Failures, &b.LatencyAvgMs, &b.LatencyMaxMs); err != nil {
+			return nil, err
+		}
+		buckets = append(buckets, b)
+	}
+	return buckets, rows.Err()
+}
+
+// Check is one stored check of a monitor.
+type Check struct {
+	AtMs      int64
+	OK        bool
+	LatencyMs int64
+	Error     string
+}
+
+// RecentChecks returns a monitor's latest checks, newest first.
+func (s *Store) RecentChecks(ctx context.Context, monitorID int64, limit int) ([]Check, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		select at_ms, ok, latency_ms, error from checks
+		where monitor_id = ? order by at_ms desc limit ?`, monitorID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var checks []Check
+	for rows.Next() {
+		var c Check
+		if err := rows.Scan(&c.AtMs, &c.OK, &c.LatencyMs, &c.Error); err != nil {
+			return nil, err
+		}
+		checks = append(checks, c)
+	}
+	return checks, rows.Err()
+}
+
+// ImportChecks stores past checks of a monitor as they are, in one
+// transaction. Unlike RecordCheck it touches neither the monitor's state nor
+// the daily figures: it is for history that is already counted elsewhere.
+func (s *Store) ImportChecks(ctx context.Context, monitorID int64, checks []Check) error {
+	return s.write(ctx, func(tx *sql.Tx) error {
+		insert, err := tx.PrepareContext(ctx,
+			"insert into checks (monitor_id, at_ms, ok, latency_ms, error) values (?, ?, ?, ?, ?)")
+		if err != nil {
+			return err
+		}
+		defer insert.Close()
+		for _, c := range checks {
+			if _, err := insert.ExecContext(ctx, monitorID, c.AtMs, c.OK, c.LatencyMs, c.Error); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}

@@ -150,6 +150,31 @@ func seedProject(ctx context.Context, st *store.Store, now time.Time, p store.Pr
 	return id, ids, nil
 }
 
+// lastDayOfChecks makes up a check every five minutes for the day before now,
+// so that the detail view of a monitor has a chart and percentiles to show.
+// The response time wobbles between 30 and 89 ms with a slow check now and
+// then, and a monitor that is down fails for its last hour. A monitor without
+// history gets no checks.
+func lastDayOfChecks(nowMs int64, spec monitorSpec) []store.Check {
+	if spec.historyDays == 0 {
+		return nil
+	}
+	const everyMs = 5 * 60_000
+	count := int(dayMs / everyMs)
+	checks := make([]store.Check, 0, count)
+	for i := count; i >= 1; i-- {
+		c := store.Check{AtMs: nowMs - int64(i)*everyMs, OK: true, LatencyMs: int64(30 + (i*37)%60)}
+		if i%45 == 0 {
+			c.LatencyMs *= 6
+		}
+		if spec.state == "down" && i <= 12 {
+			c = store.Check{AtMs: c.AtMs, Error: "no answer within 10s"}
+		}
+		checks = append(checks, c)
+	}
+	return checks
+}
+
 func seedMonitor(ctx context.Context, st *store.Store, now time.Time, projectID int64, spec monitorSpec) (int64, error) {
 	nowMs := now.UnixMilli()
 	m := store.Monitor{
@@ -179,6 +204,10 @@ func seedMonitor(ctx context.Context, st *store.Store, now time.Time, projectID 
 		if err := st.ImportDailyRollup(ctx, id, day, checks*averageMs, 180); err != nil {
 			return 0, err
 		}
+	}
+
+	if err := st.ImportChecks(ctx, id, lastDayOfChecks(nowMs, spec)); err != nil {
+		return 0, err
 	}
 
 	switch spec.state {

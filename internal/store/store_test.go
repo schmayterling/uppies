@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"uppies/internal/health"
@@ -367,6 +368,49 @@ func TestInstanceSettingsDefaultAndSave(t *testing.T) {
 	}
 	if got, err := s.Instance(ctx); err != nil || got != want {
 		t.Fatalf("after a save: got %+v err=%v, want %+v", got, err, want)
+	}
+}
+
+func TestCheckQueriesForTheDetailView(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	projectID, err := s.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitorID, err := s.CreateMonitor(ctx, newMonitor(projectID), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Two checks in the first half hour, one of them failed, and one in the second.
+	const half = int64(30 * 60 * 1000)
+	checks := []CheckResult{
+		{MonitorID: monitorID, AtMs: half + 1, OK: true, LatencyMs: 300},
+		{MonitorID: monitorID, AtMs: half + 2, OK: false, LatencyMs: 9000, Error: "timeout"},
+		{MonitorID: monitorID, AtMs: half + 3, OK: true, LatencyMs: 100},
+		{MonitorID: monitorID, AtMs: 2*half + 1, OK: true, LatencyMs: 200},
+	}
+	for _, c := range checks {
+		c.Step = health.Step{Tracker: health.Tracker{Status: health.Up}}
+		if err := s.RecordCheck(ctx, c); err != nil {
+			t.Fatal(err)
+		}
+	}
+	latencies, err := s.LatenciesSince(ctx, monitorID, 0)
+	if err != nil || !slices.Equal(latencies, []int64{100, 200, 300}) {
+		t.Fatalf("latencies: got %v err=%v, want the successful ones sorted", latencies, err)
+	}
+	buckets, err := s.CheckBuckets(ctx, monitorID, 0, half)
+	want := []CheckBucket{
+		{StartMs: half, Checks: 3, Failures: 1, LatencyAvgMs: 200, LatencyMaxMs: 300},
+		{StartMs: 2 * half, Checks: 1, LatencyAvgMs: 200, LatencyMaxMs: 200},
+	}
+	if err != nil || !slices.Equal(buckets, want) {
+		t.Fatalf("buckets: got %+v err=%v, want %+v", buckets, err, want)
+	}
+	recent, err := s.RecentChecks(ctx, monitorID, 2)
+	if err != nil || len(recent) != 2 || recent[0].AtMs != 2*half+1 || recent[1].LatencyMs != 100 {
+		t.Fatalf("recent: got %+v err=%v, want the two newest, newest first", recent, err)
 	}
 }
 

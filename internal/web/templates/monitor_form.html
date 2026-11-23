@@ -2,6 +2,29 @@
 <nav class="crumbs meta" aria-label="breadcrumb"><a href="/admin">overview</a> / <a href="/admin/projects/{{.Project.ID}}">{{.Project.Name}}</a> / {{if .Editing}}{{.Monitor.Name}}{{else}}new monitor{{end}}</nav>
 <div class="settings">
 <h1>{{if .Editing}}{{.Monitor.Name}}{{else}}new monitor{{end}}</h1>
+{{if .Editing}}
+<nav class="tabs" aria-label="monitor sections">
+  <a href="#pane-overview" data-tab="overview">overview</a><a href="#pane-settings" data-tab="settings">settings</a>
+</nav>
+<div class="pane" id="pane-overview" data-pane="overview">
+  <p class="meta"><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>{{if .Monitor.Public}} · <a href="/s/{{.Project.Slug}}/monitors/{{.Monitor.ID}}">public page</a>{{else}} · hidden from the status page{{end}}</p>
+  {{template "monitor-detail" (pair .Detail .Project.HistoryDays)}}
+  <section aria-labelledby="checks-heading">
+    <h2 id="checks-heading">latest checks</h2>
+    {{if .Checks}}
+    <div class="table-scroll"><table class="dense">
+      <thead><tr><th>time</th><th>result</th><th class="num">response time</th><th>error</th></tr></thead>
+      <tbody>
+        {{range .Checks}}<tr><td><time datetime="{{rfc3339 .AtMs}}">{{local $.Zone .AtMs}}</time></td><td>{{if .OK}}<span class="state state-ok">{{template "mark" "ok"}}ok</span>{{else}}<span class="state state-down">{{template "mark" "down"}}failed</span>{{end}}</td><td class="num">{{if .OK}}{{.LatencyMs}} ms{{end}}</td><td class="meta">{{.Error}}</td></tr>{{end}}
+      </tbody>
+    </table></div>
+    {{else}}
+    <p class="muted">no checks yet.</p>
+    {{end}}
+  </section>
+</div>
+<div class="pane" id="pane-settings" data-pane="settings">
+{{end}}
 {{if .Problems}}{{template "error" "the monitor was not saved. the fields with a problem are marked below."}}{{end}}
 {{with .PushURL}}
 <div class="admonition admonition-info">{{template "icon" "info"}}<div>
@@ -94,6 +117,7 @@
     {{if .Editing}}<button class="button danger push-end" type="button" data-open-dialog="delete-monitor">{{template "icon" "trash"}}delete monitor</button>{{end}}
   </div>
 </form>
+{{if .Editing}}</div>{{end}}
 {{if .Editing}}
 <dialog id="delete-monitor" aria-labelledby="delete-monitor-heading">
   <h2 id="delete-monitor-heading">delete {{.Monitor.Name}}?</h2>

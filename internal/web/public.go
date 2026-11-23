@@ -40,6 +40,7 @@ type dayCell struct {
 
 // componentView is one monitor as the public sees it: no target, no error text.
 type componentView struct {
+	ID     int64
 	Name   string
 	State  string
 	Word   string
@@ -390,7 +391,7 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 		state, word := componentState(m)
 		days, uptime := uptimeStrip(rollups[m.ID], todayStartMs, project.HistoryDays)
 		backfillDays(days, project.Backfill)
-		view := componentView{Name: m.Name, State: state, Word: word, Days: days, Uptime: uptime, Display: m.Display}
+		view := componentView{ID: m.ID, Name: m.Name, State: state, Word: word, Days: days, Uptime: uptime, Display: m.Display}
 		if m.Category != lastCategory {
 			view.Category, lastCategory = m.Category, m.Category
 		}

@@ -1,0 +1,31 @@
+{{define "head"}}<meta http-equiv="refresh" content="60">
+{{if .Project.NoIndex}}<meta name="robots" content="noindex">{{end}}
+{{with index .Images "favicon"}}<link rel="icon" href="/s/{{$.Project.Slug}}/images/favicon?v={{.}}">{{end}}
+<link rel="stylesheet" href="/s/{{.Project.Slug}}/theme.css">{{end}}
+{{define "main"}}
+{{template "site-bar" (pair . "monitor")}}
+<header class="page-head">
+  <p class="meta"><a href="/s/{{.Project.Slug}}{{with .TZ}}?tz={{.}}{{end}}">all components</a></p>
+  <div class="title-row">
+    <h1>{{.Monitor.Name}}</h1>
+    <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
+  </div>
+  {{with .Monitor.Category}}<p class="muted">{{.}}</p>{{end}}
+</header>
+{{template "monitor-detail" (pair .Detail .Project.HistoryDays)}}
+<section aria-labelledby="badges-heading">
+  <h2 id="badges-heading">badges</h2>
+  <p class="muted">88 by 31 images of the response time over the last 24 hours. the same numbers always give the same image.</p>
+  <ul class="badge-list">
+    {{range .Badges}}
+    <li>
+      <img class="badge88" src="/s/{{$.Project.Slug}}/monitors/{{$.Monitor.ID}}/{{.}}.svg" width="88" height="31" alt="{{.}} response time of {{$.Monitor.Name}}">
+      <code class="target">&lt;img src="{{$.Origin}}/s/{{$.Project.Slug}}/monitors/{{$.Monitor.ID}}/{{.}}.svg" width="88" height="31" alt="{{.}} response time"&gt;</code>
+    </li>
+    {{end}}
+  </ul>
+</section>
+<footer class="page-foot meta">
+  <p>times are shown in {{.ZoneName}}. this page reloads every minute.{{if .Project.ShowPoweredBy}} powered by uppies.{{end}}</p>
+</footer>
+{{end}}

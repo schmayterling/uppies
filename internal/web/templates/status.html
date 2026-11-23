@@ -44,7 +44,7 @@
     {{with .Category}}<li class="category"><h3>{{.}}</h3></li>{{end}}
     <li class="component">
       <div class="component-head">
-        <span class="component-name">{{.Name}}</span>
+        <a class="component-name" href="/s/{{$.Project.Slug}}/monitors/{{.ID}}{{with $.TZ}}?tz={{.}}{{end}}">{{.Name}}</a>
         <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
       </div>
       {{if eq .Display "summary"}}

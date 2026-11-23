@@ -475,6 +475,29 @@ type monitorFormPage struct {
 	Problems   map[string]string
 	// PushURL is where a push monitor's job reports in, empty for other kinds.
 	PushURL string
+	// The overview of an existing monitor: its state, its detail view and its
+	// latest checks, with times in the project's zone.
+	State  string
+	Word   string
+	Detail monitorDetail
+	Checks []store.Check
+	Zone   *time.Location
+}
+
+// latestChecks is how many checks the monitor overview lists.
+const latestChecks = 20
+
+// monitorOverview fills in the overview of an existing monitor.
+func (s *Server) monitorOverview(r *http.Request, page *monitorFormPage) error {
+	var err error
+	page.Zone, _ = pageZone(page.Project, "")
+	page.State, page.Word = componentState(page.Monitor)
+	page.Detail, err = s.monitorDetail(r.Context(), page.Project, page.Monitor, page.Zone)
+	if err != nil {
+		return err
+	}
+	page.Checks, err = s.store.RecentChecks(r.Context(), page.Monitor.ID, latestChecks)
+	return err
 }
 
 // kindLabels names each monitor kind in the form.
@@ -686,10 +709,15 @@ func (s *Server) handleEditMonitorForm(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "monitor_form.html", monitorFormPage{
+	page := monitorFormPage{
 		Chrome: s.adminChrome(r, m.Name), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, Categories: s.categories(r, project.ID), Editing: true,
 		PushURL: pushURL(r, m),
-	})
+	}
+	if err := s.monitorOverview(r, &page); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	s.render(w, r, http.StatusOK, "monitor_form.html", page)
 }
 
 func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
@@ -704,9 +732,14 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 	m, problems := parseMonitorForm(r.PostForm, current)
 	if len(problems) > 0 {
-		s.render(w, r, http.StatusUnprocessableEntity, "monitor_form.html", monitorFormPage{
+		page := monitorFormPage{
 			Chrome: s.adminChrome(r, current.Name), Project: project, Monitor: m, Kinds: check.Kinds, Displays: store.MonitorDisplays, Categories: s.categories(r, project.ID), Editing: true, Problems: problems,
-		})
+		}
+		if err := s.monitorOverview(r, &page); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		s.render(w, r, http.StatusUnprocessableEntity, "monitor_form.html", page)
 		return
 	}
 	if err := s.store.UpdateMonitor(r.Context(), m); err != nil {

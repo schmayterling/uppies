@@ -32,6 +32,13 @@ func TestSeedShowsEveryKindAndStateAndRefusesASecondRun(t *testing.T) {
 	}
 	seen := make(map[string]bool)
 	for _, m := range monitors {
+		// A day of checks every five minutes, so that a monitor's own page has something to chart.
+		if m.Name == "api" {
+			latencies, err := st.LatenciesSince(ctx, m.ID, now.Add(-24*time.Hour).UnixMilli())
+			if err != nil || len(latencies) < 288 {
+				t.Errorf("api: got %d checks in the last day err=%v, want at least 288", len(latencies), err)
+			}
+		}
 		seen["kind "+m.Kind] = true
 		seen["status "+string(m.Tracker.Status)] = true
 		if m.Paused {

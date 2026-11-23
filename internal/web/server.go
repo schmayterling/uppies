@@ -53,7 +53,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 	}
 	names := []string{
 		"index.html", "status.html", "error.html", "setup.html", "login.html", "dashboard.html",
-		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "appearance.html", "instance.html", "users.html",
+		"project.html", "monitor_form.html", "incident_new.html", "incident.html", "settings.html", "history.html", "monitor.html", "appearance.html", "instance.html", "users.html",
 	}
 	for _, name := range names {
 		page, err := template.New("base.html").Funcs(templateFuncs).
@@ -86,6 +86,8 @@ func (s *Server) Handler() (http.Handler, error) {
 	mux.HandleFunc("GET /s/{slug}/history", s.handleHistory)
 	mux.HandleFunc("GET /s/{slug}/theme.css", s.handleTheme)
 	mux.HandleFunc("GET /s/{slug}/badge.svg", s.handleBadge)
+	mux.HandleFunc("GET /s/{slug}/monitors/{id}", s.handleMonitorPage)
+	mux.HandleFunc("GET /s/{slug}/monitors/{id}/{badge}", s.handleMonitorBadge)
 	mux.HandleFunc("GET /s/{slug}/images/{kind}", s.handleImage)
 	// A push monitor's job reports in here. The token in the path is the credential.
 	mux.HandleFunc("GET /push/{token}", s.handlePush)
