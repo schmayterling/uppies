@@ -2,7 +2,9 @@
 package web
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"errors"
 	"html/template"
 	"io/fs"
@@ -64,9 +66,21 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 	// The sidebar can paint its icons before the external sprite loads.
 	sidebarSymbols := template.HTML(strings.Replace(string(icons), "<svg ",
 		`<svg class="sidebar-symbols" width="0" height="0" aria-hidden="true" `, 1))
-	sidebarFuncs := template.FuncMap{"sidebarSymbols": func() template.HTML { return sidebarSymbols }}
+	assets := make(map[string]string)
+	for _, name := range []string{"tokens.css", "app.css", "admin.js", "noscript.css"} {
+		data, err := staticFiles.ReadFile("static/" + name)
+		if err != nil {
+			return nil, err
+		}
+		hash := sha256.Sum256(data)
+		assets[name] = "/static/" + name + "?v=" + hex.EncodeToString(hash[:8])
+	}
+	pageAssets := template.FuncMap{
+		"sidebarSymbols": func() template.HTML { return sidebarSymbols },
+		"assetURL":       func(name string) string { return assets[name] },
+	}
 	for _, name := range names {
-		page, err := template.New("base.html").Funcs(templateFuncs).Funcs(sidebarFuncs).
+		page, err := template.New("base.html").Funcs(templateFuncs).Funcs(pageAssets).
 			ParseFS(templateFiles, "templates/base.html", "templates/"+name)
 		if err != nil {
 			return nil, err

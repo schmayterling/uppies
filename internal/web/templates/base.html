@@ -4,20 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Chrome.Title}}{{if not .Chrome.Unbranded}} · uppies{{end}}</title>
-<link rel="stylesheet" href="/static/tokens.css">
-<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="{{assetURL "tokens.css"}}">
+<link rel="stylesheet" href="{{assetURL "app.css"}}">
 {{if or .Chrome.Admin .Chrome.Auth}}<link rel="stylesheet" href="/theme.css">{{end}}
-{{if .Chrome.Admin}}<script src="/static/admin.js"></script>
-<noscript><link rel="stylesheet" href="/static/noscript.css"></noscript>{{end}}
+{{if .Chrome.Admin}}<script src="{{assetURL "admin.js"}}"></script>
+<noscript><link rel="stylesheet" href="{{assetURL "noscript.css"}}"></noscript>{{end}}
 <meta name="description" content="{{if .Chrome.Description}}{{.Chrome.Description}}{{else if .Chrome.Admin}}the admin pages of this uppies install: monitors, alerts and status pages.{{else}}{{.Chrome.Title}}, served by uppies, a self-hosted uptime monitor.{{end}}">
 <link rel="icon" href="{{or .Chrome.Favicon "/static/favicon.svg"}}">
 {{block "head" .}}{{end}}
 </head>
 {{if .Chrome.Admin}}
 <body class="admin">
+{{sidebarSymbols}}
 <a class="skip" href="#content">skip to the content</a>
 <div class="shell">
-  {{sidebarSymbols}}
   <aside class="sidebar">
     <div class="sidebar-head">
       <a class="wordmark" href="/admin" title="{{or .Chrome.Brand "uppies"}}"><span class="nav-label">{{or .Chrome.Brand "uppies"}}</span></a>
