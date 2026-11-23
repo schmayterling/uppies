@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"uppies/internal/alert"
+	"uppies/internal/demo"
 	"uppies/internal/engine"
 	"uppies/internal/store"
 	"uppies/internal/web"
@@ -31,6 +32,7 @@ func main() {
 	heartbeatURL := flag.String("heartbeat-url", "", "url to request every minute, so an outside service notices when uppies stops")
 	smtpAddr := flag.String("smtp-addr", "", "host:port of an smtp server for email alerts, for example smtp.example.com:587")
 	smtpFrom := flag.String("smtp-from", "", "sender address for email alerts")
+	demoData := flag.Bool("demo", false, "fill an empty database with demo data that shows every part of the interface")
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -39,7 +41,7 @@ func main() {
 		log.Error("uppies cannot start", "error", err)
 		os.Exit(2)
 	}
-	if err := run(*addr, *dbPath, *heartbeatURL, mailer, log); err != nil {
+	if err := run(*addr, *dbPath, *heartbeatURL, *demoData, mailer, log); err != nil {
 		log.Error("uppies stopped", "error", err)
 		os.Exit(1)
 	}
@@ -68,7 +70,7 @@ func newMailer(addr, from string) (*alert.Mailer, error) {
 	}, nil
 }
 
-func run(addr, dbPath, heartbeatURL string, mailer *alert.Mailer, log *slog.Logger) (err error) {
+func run(addr, dbPath, heartbeatURL string, demoData bool, mailer *alert.Mailer, log *slog.Logger) (err error) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -79,6 +81,17 @@ func run(addr, dbPath, heartbeatURL string, mailer *alert.Mailer, log *slog.Logg
 	defer func() {
 		err = errors.Join(err, st.Close())
 	}()
+
+	if demoData {
+		switch err := demo.Seed(ctx, st, time.Now()); {
+		case errors.Is(err, demo.ErrNotEmpty):
+			log.Warn(err.Error())
+		case err != nil:
+			return fmt.Errorf("add demo data: %w", err)
+		default:
+			log.Info("demo data added")
+		}
+	}
 
 	checks := engine.New(st, log, mailer)
 	site, err := web.New(st, log, checks.Reload, mailer)

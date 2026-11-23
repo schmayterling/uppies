@@ -271,3 +271,14 @@ func (s *Store) RecentEvents(ctx context.Context, limit int) ([]Event, error) {
 	}
 	return events, rows.Err()
 }
+
+// ImportDailyRollup stores one day of history for a monitor, replacing what
+// was there. It exists for data that did not come from live checks.
+func (s *Store) ImportDailyRollup(ctx context.Context, monitorID int64, d DayRollup, latencySumMs, latencyMaxMs int64) error {
+	_, err := s.db.ExecContext(ctx, `
+		insert or replace into daily_rollups (monitor_id, day_start_ms, checks, failures, covered_ms, down_ms,
+			latency_sum_ms, latency_max_ms)
+		values (?, ?, ?, ?, ?, ?, ?, ?)`,
+		monitorID, d.DayStartMs, d.Checks, d.Failures, d.CoveredMs, d.DownMs, latencySumMs, latencyMaxMs)
+	return err
+}
