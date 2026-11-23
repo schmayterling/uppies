@@ -250,7 +250,7 @@ func TestMonitorDetailPagesAndBadges(t *testing.T) {
 		"/s/acme/88x31.svg?show=uptime&theme=light": "uptime of Acme over 90 days: 100%",
 	} {
 		if status, image := s.get(t, s.anonymous, path); status != http.StatusOK || !strings.Contains(image, want) || !strings.Contains(image, `width="88" height="31"`) {
-			t.Errorf("%s: got %d, want an 88 by 31 image with %q", path, status, want)
+			t.Errorf("%s: got %d, want an 88x31 image with %q", path, status, want)
 		}
 	}
 	for _, path := range []string{public + "/88x31.svg?show=nonsense", "/s/acme/88x31.svg?show=p99", "/s/nowhere/88x31.svg"} {

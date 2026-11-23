@@ -11,7 +11,7 @@ import (
 	"uppies/internal/store"
 )
 
-// An 88 by 31 badge uses SVG paths and a built-in pixel font. The same
+// An 88x31 badge uses SVG paths and a built-in pixel font. The same
 // values and options produce the same SVG bytes.
 
 // badgeGlyphs is a 5 by 7 pixel font with the characters a badge needs.
@@ -183,7 +183,7 @@ func drawBadge(spec badgeSpec) string {
 	return b.String()
 }
 
-// percentileBadge draws the 88 by 31 badge of one percentile.
+// percentileBadge draws the 88x31 badge of one percentile.
 func percentileBadge(p int, sortedLatencies []int64, state string) string {
 	return drawBadge(percentileSpec(p, sortedLatencies, state))
 }

@@ -185,7 +185,7 @@ type monitorPage struct {
 	Detail   monitorDetail
 }
 
-// badgeKinds are what a component's 88 by 31 badge can show.
+// badgeKinds are what a component's 88x31 badge can show.
 var badgeKinds = []string{"status", "uptime", "bars", "line", "p50", "p90", "p95", "p99"}
 
 // badgePercentiles maps the file names of the percentile badges to their percentile.
@@ -251,7 +251,7 @@ func (s *Server) handleMonitorPage(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusOK, "monitor.html", page)
 }
 
-// handleMonitorBadge serves an 88 by 31 image of one monitor on a status
+// handleMonitorBadge serves an 88x31 image of one monitor on a status
 // page. "88x31.svg" takes what to show from the address: show=status, uptime,
 // p50, p90, p95 or p99, with days= for the uptime, and theme= and label= for
 // the look. "p90.svg", "p95.svg" and "p99.svg" are short for the percentiles.
@@ -321,7 +321,7 @@ func (s *Server) handleMonitorBadge(w http.ResponseWriter, r *http.Request) {
 	s.writeBadge(w, r, badgeOptions(spec, query))
 }
 
-// handlePageBadge serves an 88 by 31 image of a whole status page: its
+// handlePageBadge serves an 88x31 image of a whole status page: its
 // current state, or with show=uptime the uptime of everything it shows.
 func (s *Server) handlePageBadge(w http.ResponseWriter, r *http.Request) {
 	project, err := s.store.ProjectBySlug(r.Context(), r.PathValue("slug"))

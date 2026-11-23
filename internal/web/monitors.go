@@ -41,7 +41,7 @@ type monitorFormPage struct {
 	Lookback int
 	// StateIcons names the icon of the notice for each state.
 	StateIcons map[string]string
-	// Badge is the 88 by 31 badge being put together on the badges tab.
+	// Badge is the 88x31 badge being put together on the badges tab.
 	Badge badgeBuilder
 }
 
