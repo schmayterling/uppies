@@ -4,6 +4,7 @@
 if (localStorage.getItem("uppies-sidebar") === "rail") {
   document.documentElement.dataset.sidebar = "rail";
 }
+document.documentElement.classList.add("has-script");
 
 document.addEventListener("click", (event) => {
   const opener = event.target.closest("[data-open-dialog]");
@@ -13,6 +14,11 @@ document.addEventListener("click", (event) => {
   }
   if (event.target.closest("[data-close-dialog]")) {
     event.target.closest("dialog").close();
+    return;
+  }
+  const menu = event.target.closest("[data-toggle-mobile-nav]");
+  if (menu) {
+    menu.setAttribute("aria-expanded", String(menu.getAttribute("aria-expanded") === "false"));
     return;
   }
   if (event.target.closest("[data-toggle-sidebar]")) {
@@ -29,7 +35,6 @@ document.addEventListener("click", (event) => {
 
 // A form that came back with problems reopens its dialog.
 document.addEventListener("DOMContentLoaded", () => {
-  document.documentElement.classList.add("has-script");
   for (const dialog of document.querySelectorAll("dialog[data-open-on-load]")) {
     dialog.showModal();
   }

@@ -21,37 +21,40 @@
     <div class="sidebar-head">
       <a class="wordmark" href="/admin" title="{{or .Chrome.Brand "uppies"}}"><span class="nav-label">{{or .Chrome.Brand "uppies"}}</span></a>
       <button class="icon-button" type="button" data-toggle-sidebar aria-label="collapse or expand the sidebar">{{template "icon" "panel-left"}}</button>
+      <button class="button quiet sidebar-menu" type="button" data-toggle-mobile-nav aria-controls="sidebar-links" aria-expanded="false">menu{{template "icon" "chevron-down"}}</button>
     </div>
-    <nav aria-label="main">
-      <ul class="nav-list">
-        <li><a class="nav-item" href="/admin" title="overview"{{if eq .Chrome.Nav.Section "overview"}} aria-current="page"{{end}}>{{template "icon" "layout-dashboard"}}<span class="nav-label">overview</span></a></li>
-        <li><a class="nav-item" href="/admin/monitors" title="monitors"{{if eq .Chrome.Nav.Section "monitors"}} aria-current="page"{{end}}>{{template "icon" "activity"}}<span class="nav-label">monitors</span></a></li>
-        <li><a class="nav-item" href="/admin/projects" title="status pages"{{if eq .Chrome.Nav.Section "projects"}} aria-current="page"{{end}}>{{template "icon" "folder"}}<span class="nav-label">status pages</span></a></li>
-        <li><a class="nav-item" href="/admin/alerts" title="alerts"{{if eq .Chrome.Nav.Section "alerts"}} aria-current="page"{{end}}>{{template "icon" "bell"}}<span class="nav-label">alerts</span></a></li>
-        <li><a class="nav-item" href="/admin/appearance" title="appearance"{{if eq .Chrome.Nav.Section "appearance"}} aria-current="page"{{end}}>{{template "icon" "palette"}}<span class="nav-label">appearance</span></a></li>
-        <li><a class="nav-item" href="/admin/instance" title="instance"{{if eq .Chrome.Nav.Section "instance"}} aria-current="page"{{end}}>{{template "icon" "server"}}<span class="nav-label">instance</span></a></li>
-        <li><a class="nav-item" href="/admin/users" title="users"{{if eq .Chrome.Nav.Section "users"}} aria-current="page"{{end}}>{{template "icon" "users"}}<span class="nav-label">users</span></a></li>
-      </ul>
-      <h2 class="nav-heading" id="nav-projects"><span class="nav-label">status pages</span></h2>
-      <ul class="nav-list" aria-labelledby="nav-projects">
-        {{range .Chrome.Nav.Projects}}
-        <li><a class="nav-item" href="/admin/projects/{{.ID}}" title="{{.Name}}"{{if .Current}} aria-current="true"{{end}}>
-          {{if .LogoVersion}}<img class="nav-logo" src="/s/{{.Slug}}/images/logo?v={{.LogoVersion}}" alt="">{{else}}{{template "icon" "globe"}}{{end}}
-          <span class="nav-name nav-label">{{.Name}}</span>
-          {{if .Down}}<span class="nav-count nav-label state-down">{{.Down}} down</span>{{else}}<span class="nav-label state-{{.State}}">{{template "mark" .State}}</span>{{end}}
-        </a></li>
-        {{else}}
-        <li class="nav-empty nav-label">none yet</li>
-        {{end}}
-        <li><a class="nav-item nav-add" href="/admin/projects#new-project" title="new status page">{{template "icon" "plus"}}<span class="nav-label">new status page</span></a></li>
-      </ul>
-    </nav>
-    <div class="sidebar-foot">
-      <a class="nav-item" href="/" title="public list">{{template "icon" "external-link"}}<span class="nav-label">public list</span></a>
-      <form method="post" action="/admin/logout"><button class="nav-item" type="submit" title="sign out">{{template "icon" "log-out"}}<span class="nav-label">sign out</span></button></form>
+    <div class="sidebar-links" id="sidebar-links">
+      <nav aria-label="main">
+        <ul class="nav-list">
+          <li><a class="nav-item" href="/admin" title="overview"{{if eq .Chrome.Nav.Section "overview"}} aria-current="page"{{end}}>{{template "icon" "layout-dashboard"}}<span class="nav-label">overview</span></a></li>
+          <li><a class="nav-item" href="/admin/monitors" title="monitors"{{if eq .Chrome.Nav.Section "monitors"}} aria-current="page"{{end}}>{{template "icon" "activity"}}<span class="nav-label">monitors</span></a></li>
+          <li><a class="nav-item" href="/admin/projects" title="status pages"{{if eq .Chrome.Nav.Section "projects"}} aria-current="page"{{end}}>{{template "icon" "folder"}}<span class="nav-label">status pages</span></a></li>
+          <li><a class="nav-item" href="/admin/alerts" title="alerts"{{if eq .Chrome.Nav.Section "alerts"}} aria-current="page"{{end}}>{{template "icon" "bell"}}<span class="nav-label">alerts</span></a></li>
+          <li><a class="nav-item" href="/admin/appearance" title="appearance"{{if eq .Chrome.Nav.Section "appearance"}} aria-current="page"{{end}}>{{template "icon" "palette"}}<span class="nav-label">appearance</span></a></li>
+          <li><a class="nav-item" href="/admin/instance" title="instance"{{if eq .Chrome.Nav.Section "instance"}} aria-current="page"{{end}}>{{template "icon" "server"}}<span class="nav-label">instance</span></a></li>
+          <li><a class="nav-item" href="/admin/users" title="users"{{if eq .Chrome.Nav.Section "users"}} aria-current="page"{{end}}>{{template "icon" "users"}}<span class="nav-label">users</span></a></li>
+        </ul>
+        <h2 class="nav-heading" id="nav-projects"><span class="nav-label">status pages</span></h2>
+        <ul class="nav-list" aria-labelledby="nav-projects">
+          {{range .Chrome.Nav.Projects}}
+          <li><a class="nav-item" href="/admin/projects/{{.ID}}" title="{{.Name}}"{{if .Current}} aria-current="true"{{end}}>
+            {{if .LogoVersion}}<img class="nav-logo" src="/s/{{.Slug}}/images/logo?v={{.LogoVersion}}" alt="">{{else}}{{template "icon" "globe"}}{{end}}
+            <span class="nav-name nav-label">{{.Name}}</span>
+            {{if .Down}}<span class="nav-count nav-label state-down">{{.Down}} down</span>{{else}}<span class="nav-label state-{{.State}}">{{template "mark" .State}}</span>{{end}}
+          </a></li>
+          {{else}}
+          <li class="nav-empty nav-label">none yet</li>
+          {{end}}
+          <li><a class="nav-item nav-add" href="/admin/projects#new-project" title="new status page">{{template "icon" "plus"}}<span class="nav-label">new status page</span></a></li>
+        </ul>
+      </nav>
+      <div class="sidebar-foot">
+        <a class="nav-item" href="/" title="public list">{{template "icon" "external-link"}}<span class="nav-label">public list</span></a>
+        <form method="post" action="/admin/logout"><button class="nav-item" type="submit" title="sign out">{{template "icon" "log-out"}}<span class="nav-label">sign out</span></button></form>
+      </div>
     </div>
   </aside>
-  <main class="content" id="content">
+  <main class="content" id="content" tabindex="-1">
 {{block "main" .}}{{end}}
   </main>
 </div>

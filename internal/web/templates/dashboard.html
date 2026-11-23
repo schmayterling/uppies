@@ -5,7 +5,7 @@
 </div>
 
 {{if .Rows}}
-<dl class="stats" aria-label="monitors by state">
+<dl class="stats stats-overview" aria-label="monitors by state">
   <div class="stat"><dt>up</dt><dd><span class="stat-value">{{.Up}}</span> <span class="meta">of {{.Total}}</span></dd></div>
   <div class="stat"><dt>down</dt><dd><span class="stat-value{{if .Down}} state-down{{end}}">{{.Down}}</span></dd></div>
   <div class="stat"><dt>open incidents</dt><dd><span class="stat-value{{if .OpenIncidents}} state-warn{{end}}">{{.OpenIncidents}}</span></dd></div>

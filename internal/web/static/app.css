@@ -125,6 +125,8 @@ p.hint, p.muted { max-inline-size: 75ch; }
   background: var(--surface);
 }
 .sidebar-head { display: flex; align-items: center; justify-content: space-between; }
+.sidebar-head .sidebar-menu { display: none; }
+.sidebar-links { display: flex; flex: 1; flex-direction: column; gap: var(--space-4); }
 .sidebar .wordmark { display: flex; align-items: center; min-block-size: var(--row-height); padding-inline: var(--space-2); }
 
 /* collapsed, the sidebar is a rail of icons. nothing may move or wrap while
@@ -210,7 +212,7 @@ dialog .form, dialog form.actions { margin-block-start: var(--space-4); }
 .sidebar-foot form { margin: 0; }
 .content { position: relative; inline-size: 100%; max-inline-size: var(--content-wide); margin-inline: auto; padding: var(--space-5) var(--space-6) var(--space-8); }
 .content > section { margin-block-start: var(--space-6); }
-.skip { position: absolute; inset-inline-start: var(--space-2); inset-block-start: var(--space-2); padding: var(--space-1) var(--space-2); background: var(--background); translate: 0 -200%; }
+.skip { position: absolute; inset-inline-start: var(--space-2); inset-block-start: var(--space-2); z-index: 1; padding: var(--space-1) var(--space-2); background: var(--background); translate: 0 -200%; }
 .skip:focus { translate: 0 0; }
 
 /* settings: one narrow column of bordered groups. each row has its label and
@@ -369,11 +371,19 @@ table.dense tbody th a, .quiet-link { display: inline-block; min-block-size: var
   [data-sidebar="rail"] .nav-label { opacity: 1; pointer-events: auto; }
   [data-sidebar="rail"] .nav-heading::after { opacity: 0; }
   [data-sidebar="rail"] .sidebar .wordmark { position: static; visibility: visible; }
-  .shell { grid-template-columns: minmax(0, 1fr); }
-  .sidebar { position: static; block-size: auto; border-inline-end: 0; border-block-end: 1px solid var(--border); }
+  .shell { display: block; }
+  .sidebar { position: static; block-size: auto; gap: 0; padding-block: 0; border-inline-end: 0; border-block-end: 1px solid var(--border); }
+  .sidebar-head .wordmark { min-inline-size: 0; min-block-size: var(--control-height-touch); }
+  .sidebar-head .nav-label { overflow: hidden; text-overflow: ellipsis; }
+  .has-script .sidebar-head .sidebar-menu { display: inline-flex; flex: none; block-size: var(--control-height-touch); border-color: transparent; }
+  .sidebar-menu[aria-expanded="true"] .icon { rotate: 180deg; }
+  .has-script .sidebar:has(.sidebar-menu[aria-expanded="false"]) .sidebar-links { display: none; }
+  .sidebar-links { padding-block: var(--space-2) var(--space-3); }
   .content { padding: var(--space-4); }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stat { border-inline-start: 0; border-block-start: 1px solid var(--border); }
+  .stats-overview .stat:first-child { grid-column: 1 / -1; border-block-start: 0; }
+  .stats-overview .stat:nth-child(2n+3) { border-inline-start: 1px solid var(--border); }
 }
 
 .crumbs a { display: inline-block; min-block-size: var(--target-min); align-content: center; }
