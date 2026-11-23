@@ -1,7 +1,7 @@
 {{define "head"}}<link rel="stylesheet" href="/theme.css">{{end}}
 {{define "main"}}
+{{template "index-site-bar" (pair . "incidents")}}
 <header class="page-head">
-  <nav class="site-links" aria-label="site links"><a href="/status-pages">back to status pages</a></nav>
   <h1>incident history</h1>
 </header>
 {{template "index-incident-rows" .IncidentHistory}}
@@ -11,4 +11,5 @@
   {{with .IncidentHistory.Older}}<a class="button quiet" href="/incidents?before={{.}}">older incidents</a>{{end}}
 </nav>
 {{end}}
+{{template "index-footer" .}}
 {{end}}

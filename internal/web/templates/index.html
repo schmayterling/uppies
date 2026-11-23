@@ -1,20 +1,14 @@
 {{define "head"}}{{if ne .Layout "compact"}}<link rel="stylesheet" href="/theme.css">{{end}}{{end}}
 {{define "main"}}
 <h1 class="visually-hidden">status pages</h1>
+{{template "index-site-bar" (pair . "status")}}
 {{if eq .Layout "compact"}}
-{{with .NavLinks}}<nav class="site-links" aria-label="site links">{{template "nav-links" .}}</nav>{{end}}
-{{if .Listed}}{{template "pinned-announcement" (pair .Announcement .AnnouncementColor)}}{{end}}
 {{if .Projects}}
 <ul class="rows index-list">
   {{range .Projects}}<li><a class="row-link" href="/s/{{.Slug}}"><span>{{.Name}}</span><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span></a></li>{{end}}
 </ul>
 {{else}}{{template "index-empty" .}}{{end}}
 {{else}}
-<header class="site-bar">
-  <a class="site-brand" href="/">{{template "status-icon" (index .StateIcons (or .State "ok"))}}{{.Chrome.Brand}}</a>
-  <nav class="site-links" aria-label="site links">{{template "nav-links" .NavLinks}}<a href="/admin">sign in</a></nav>
-</header>
-{{if .Listed}}{{template "pinned-announcement" (pair .Announcement .AnnouncementColor)}}{{end}}
 {{if .Projects}}
 <section class="banner banner-{{.State}}" aria-label="summary">
   <p class="banner-text">{{.Summary}}</p>
@@ -34,12 +28,7 @@
 {{else}}{{template "index-empty" .}}{{end}}
 {{end}}
 {{if .Listed}}{{template "index-incidents" .IncidentHistory}}{{end}}
-{{if or .FooterText .ShowPoweredBy}}
-<footer class="page-foot meta index-footer">
-  {{with .FooterText}}<p>{{.}}</p>{{end}}
-  {{if .ShowPoweredBy}}<p>powered by uppies.</p>{{end}}
-</footer>
-{{end}}
+{{template "index-footer" .}}
 {{end}}
 
 {{define "index-empty"}}{{if .Listed}}

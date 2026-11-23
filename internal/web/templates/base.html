@@ -135,6 +135,32 @@
 
 {{define "nav-links"}}{{range .}}<a href="{{.URL}}" rel="noopener">{{.Label}}</a>{{end}}{{end}}
 
+{{define "index-site-bar"}}{{$section := .Second}}{{with .First}}
+{{if or .Listed (not .Chrome.Auth)}}
+<header class="site-bar">
+  {{if not .Chrome.Auth}}<a class="site-brand" href="/status-pages">{{template "status-icon" .StatusIcon}}{{.Chrome.Brand}}</a>{{end}}
+  <nav class="site-links" aria-label="{{.Chrome.Brand}}">
+    {{if .Listed}}
+    <a href="/status-pages"{{if eq $section "status"}} aria-current="page"{{end}}>status</a>
+    <a href="/incidents"{{if eq $section "incidents"}} aria-current="page"{{end}}>incidents</a>
+    {{template "nav-links" .NavLinks}}
+    {{end}}
+    {{if not .Chrome.Auth}}<a href="/admin">sign in</a>{{end}}
+  </nav>
+</header>
+{{end}}
+{{if .Listed}}{{template "pinned-announcement" (pair .Announcement .AnnouncementColor)}}{{end}}
+{{end}}{{end}}
+
+{{define "index-footer"}}
+{{if or .FooterText .ShowPoweredBy}}
+<footer class="page-foot meta index-footer">
+  {{with .FooterText}}<p>{{.}}</p>{{end}}
+  {{if .ShowPoweredBy}}<p>powered by uppies.</p>{{end}}
+</footer>
+{{end}}
+{{end}}
+
 {{/* the bar at the top of a status page's pages. it takes the page and the name of the current one. */}}
 {{define "site-bar"}}{{$section := .Second}}{{with .First}}<header class="site-bar">
   <a class="site-brand{{if eq .Project.NavbarBrand "icon"}} site-brand-icon{{end}}" href="{{.Chrome.BrandLink}}" aria-label="{{.Project.Name}}">

@@ -1373,9 +1373,24 @@ func TestInstancePagesAndUsers(t *testing.T) {
 		for _, want := range []string{
 			marker, "Acme", `href="/s/acme"`, "<title>acme ops status</title>", `href="https://docs.example.com/"`,
 			`<h1 class="visually-hidden">status pages</h1>`, "Reach the &lt;ops&gt; team", "powered by uppies.",
+			`href="/status-pages" aria-current="page">status</a>`, `href="/incidents">incidents</a>`,
 		} {
 			if !strings.Contains(page, want) {
 				t.Errorf("front page in the %s layout is missing %q", layout, want)
+			}
+		}
+		status, archive := s.get(t, s.anonymous, "/incidents")
+		if status != http.StatusOK {
+			t.Fatalf("incident archive: got %d, want 200", status)
+		}
+		for _, want := range []string{
+			`class="site-bar"`, `class="site-brand" href="/status-pages"`, `>acme ops</a>`,
+			`href="/status-pages">status</a>`, `href="/incidents" aria-current="page">incidents</a>`,
+			`href="https://docs.example.com/"`, "Planned work &lt;today&gt;.\nAn update will follow.",
+			`class="page-foot meta index-footer"`, "Reach the &lt;ops&gt; team", "powered by uppies.",
+		} {
+			if !strings.Contains(archive, want) {
+				t.Errorf("incident archive with list layout %s is missing %q", layout, want)
 			}
 		}
 	}

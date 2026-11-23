@@ -1,9 +1,7 @@
 package web
 
 import (
-	"bytes"
 	"fmt"
-	"html/template"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -33,18 +31,12 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 	s, err := New(st, slog.New(slog.NewTextHandler(t.Output(), nil)), nil, nil)
 	check(err)
 
-	// Exercise the handler and templates without relying on the production route registration.
-	archive, err := template.New("base.html").Funcs(templateFuncs).Funcs(template.FuncMap{
-		"assetURL":       func(name string) string { return "/static/" + name },
-		"sidebarSymbols": func() template.HTML { return "" },
-	}).ParseFS(templateFiles, "templates/base.html", "templates/index_incidents_archive.html", "templates/index_incidents.html")
+	handler, err := s.Handler()
 	check(err)
-	s.pages["index_incidents_archive.html"] = archive
-
-	getArchive := func(path string, wantStatus int) string {
+	get := func(path string, wantStatus int) string {
 		t.Helper()
 		w := httptest.NewRecorder()
-		s.handleIndexIncidents(w, httptest.NewRequest(http.MethodGet, path, nil))
+		handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
 		if w.Code != wantStatus {
 			t.Fatalf("%s: status = %d, want %d", path, w.Code, wantStatus)
 		}
@@ -73,7 +65,7 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 	instance.PublicURL = origin
 	check(st.SaveInstance(ctx, instance))
 
-	empty := getArchive("/incidents", http.StatusOK)
+	empty := get("/incidents", http.StatusOK)
 	checkHTML(empty, []string{"no published incidents to show.", "href=\"/status-pages\""}, []string{"older incidents"})
 
 	core, err := st.CreateProject(ctx, "core", "Core & Checkout", started)
@@ -104,14 +96,11 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 	create(edge, "Unpublished incident", "investigating", started+1, false)
 
 	for _, path := range []string{"/", "/status-pages?before=0.1"} {
-		history, err := s.loadIndexIncidentHistory(httptest.NewRequest(http.MethodGet, path, nil))
-		check(err)
-		if len(history.Incidents) != 5 {
-			t.Fatalf("%s: preview has %d incidents, want 5", path, len(history.Incidents))
+		page := get(path, http.StatusOK)
+		if count := strings.Count(page, `<strong class="index-name">`); count != 5 {
+			t.Fatalf("%s: preview has %d incidents, want 5", path, count)
 		}
-		var page bytes.Buffer
-		check(archive.ExecuteTemplate(&page, "index-incidents", history))
-		checkHTML(page.String(), []string{
+		checkHTML(page, []string{
 			"href=\"/incidents\">full incident history",
 			"href=\"/s/core/history?year=2026\"", "Core &amp; Checkout",
 			"href=\"/s/edge/history?year=2025\"", "Active network incident", "monitoring",
@@ -119,14 +108,14 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 	}
 
 	olderURL := fmt.Sprintf("/incidents?before=%d.%d", started, archiveBoundary)
-	first := getArchive("/incidents?before=invalid&utm_source=test", http.StatusOK)
+	first := get("/incidents?before=invalid&utm_source=test", http.StatusOK)
 	checkHTML(first, []string{
 		"href=\"" + olderURL + "\"",
 		"rel=\"canonical\" href=\"" + origin + "/incidents\"",
 		"Active network incident", "First tied incident",
 	}, []string{"Unpublished incident", "Checkout &lt;orders&gt;", "Older ongoing incident"})
 
-	older := getArchive(olderURL, http.StatusOK)
+	older := get(olderURL, http.StatusOK)
 	checkHTML(older, []string{
 		"rel=\"canonical\" href=\"" + origin + olderURL + "\"",
 		"href=\"/incidents\">newest incidents",
@@ -137,6 +126,6 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 
 	instance.PublicList = false
 	check(st.SaveInstance(ctx, instance))
-	hidden := getArchive(olderURL, http.StatusNotFound)
+	hidden := get(olderURL, http.StatusNotFound)
 	checkHTML(hidden, nil, []string{"Checkout", "Edge", "Older ongoing incident"})
 }

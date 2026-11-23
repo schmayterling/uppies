@@ -113,24 +113,28 @@ type maintenanceView struct {
 	Updates  []store.MaintenanceUpdate
 }
 
-type indexPage struct {
+// indexSite is the public branding shared by the status list and incident archive.
+type indexSite struct {
 	Chrome   chrome
-	Projects []indexProject
 	NavLinks []navLink
 	// Listed is false when the instance keeps its status pages off the front page.
-	Listed bool
-	// Layout is the instance's choice of how the list is drawn.
-	Layout            string
+	Listed            bool
+	StatusIcon        string
 	Announcement      string
 	AnnouncementColor string
 	FooterText        string
 	ShowPoweredBy     bool
-	IncidentHistory   indexIncidentHistory
+}
+
+type indexPage struct {
+	indexSite
+	Projects []indexProject
+	// Layout is the instance's choice of how the list is drawn.
+	Layout          string
+	IncidentHistory indexIncidentHistory
 	// State is the worst state among the listed pages and Summary says it in a sentence.
 	State   string
 	Summary string
-	// StateIcons names the round icon for each state.
-	StateIcons map[string]string
 }
 
 // indexProject is one status page in the public list, with its state in one word.
@@ -227,37 +231,39 @@ func (s *Server) handlePublicList(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	placed, err := s.store.PlacedMonitors(r.Context())
+	ctx := r.Context()
+	instance, err := s.store.Instance(ctx)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	counted := make(map[int64][]store.Monitor)
-	for _, m := range placed {
-		if !m.ExcludeFromStatus {
-			counted[m.ProjectID] = append(counted[m.ProjectID], m.Monitor)
+	page := indexPage{Layout: instance.ListLayout}
+	if instance.PublicList {
+		page.Projects, err = s.indexRows(ctx, projects, s.now().UnixMilli(), page.Layout == "rows")
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		logos, err := s.store.LogoVersions(ctx)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		for i := range page.Projects {
+			page.Projects[i].LogoVersion = logos[page.Projects[i].ID]
+		}
+		page.IncidentHistory, err = s.loadIndexIncidentHistory(r)
+		if err != nil {
+			s.fail(w, r, err)
+			return
 		}
 	}
-	instance, err := s.store.Instance(r.Context())
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	logos, err := s.store.LogoVersions(r.Context())
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	page := indexPage{
-		Chrome: chrome{
-			Title: instance.Name + " status", Unbranded: true, Auth: instance.ListLayout == "compact",
-			SignInLink: true, Brand: instance.Name, Favicon: s.faviconAddress(r.Context()),
-			Description: "Service status and incident history for " + instance.Name + ".",
-		},
-		Listed: instance.PublicList, Layout: instance.ListLayout, StateIcons: listIcons,
-		Announcement: instance.ListAnnouncement, AnnouncementColor: instance.ListAnnouncementColor,
-		FooterText: instance.ListFooterText, ShowPoweredBy: instance.ListShowPoweredBy,
-	}
+	page.State, page.Summary = indexSummary(page.Projects)
+	page.indexSite = s.newIndexSite(ctx, instance, page.State, instance.Name+" status",
+		"Service status and incident history for "+instance.Name+".")
+	page.Chrome.Auth = page.Layout == "compact"
+	page.Chrome.SignInLink = true
+
 	canonical := publicOrigin(r, instance.PublicURL)
 	canonical.Path = "/"
 	for _, p := range projects {
@@ -266,49 +272,65 @@ func (s *Server) handlePublicList(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	if instance.PublicList {
-		page.NavLinks, _ = parseNavLinks(instance.NavLinks)
-		page.IncidentHistory, err = s.loadIndexIncidentHistory(r)
-		if err != nil {
-			s.fail(w, r, err)
-			return
+	noIndex := !instance.PublicList || (canonical.Path != "/" && instance.PublicURL == "")
+	page.Chrome.setPublicMetadata(canonical, instance.Name, noIndex)
+	s.render(w, r, http.StatusOK, "index.html", page)
+}
+
+func (s *Server) newIndexSite(ctx context.Context, instance store.InstanceSettings, state, title, description string) indexSite {
+	site := indexSite{
+		Chrome: chrome{Title: title, Description: description, Unbranded: true, Brand: instance.Name, Favicon: s.faviconAddress(ctx)},
+		Listed: instance.PublicList, StatusIcon: listIcons[state],
+		Announcement: instance.ListAnnouncement, AnnouncementColor: instance.ListAnnouncementColor,
+		FooterText: instance.ListFooterText, ShowPoweredBy: instance.ListShowPoweredBy,
+	}
+	if site.Listed {
+		site.NavLinks, _ = parseNavLinks(instance.NavLinks)
+	}
+	return site
+}
+
+// indexRows uses the same monitor coverage for the homepage list and the archive's status icon.
+func (s *Server) indexRows(ctx context.Context, projects []store.Project, nowMs int64, showUptime bool) ([]indexProject, error) {
+	if len(projects) == 0 {
+		return nil, nil
+	}
+	placed, err := s.store.PlacedMonitors(ctx)
+	if err != nil {
+		return nil, err
+	}
+	counted := make(map[int64][]store.Monitor)
+	for _, m := range placed {
+		if !m.ExcludeFromStatus {
+			counted[m.ProjectID] = append(counted[m.ProjectID], m.Monitor)
 		}
-	} else {
-		projects = nil
+	}
+	maintenance, err := s.store.ActiveMaintenanceCoverage(ctx, nowMs, 0)
+	if err != nil {
+		return nil, err
 	}
 	var rollups map[int64][]store.DayRollup
-	var maintenance map[int64]store.MaintenanceCoverage
-	nowMs := s.now().UnixMilli()
-	if len(projects) > 0 {
-		maintenance, err = s.store.ActiveMaintenanceCoverage(r.Context(), nowMs, 0)
-		if err != nil {
-			s.fail(w, r, err)
-			return
-		}
-	}
 	todayStartMs := store.DayStartMs(nowMs)
-	if page.Layout == "rows" && len(projects) > 0 {
+	if showUptime {
 		var longest int
 		for _, p := range projects {
 			longest = max(longest, p.HistoryDays)
 		}
-		rollups, err = s.store.AllDailyRollups(r.Context(), todayStartMs-int64(longest-1)*dayMs)
+		rollups, err = s.store.AllDailyRollups(ctx, todayStartMs-int64(longest-1)*dayMs)
 		if err != nil {
-			s.fail(w, r, err)
-			return
+			return nil, err
 		}
 	}
+	rows := make([]indexProject, 0, len(projects))
 	for _, p := range projects {
 		monitors := counted[p.ID]
 		status, current := currentPageStatus(monitors, maintenance[p.ID], 0)
 		state := overallViews[status].state
-		row := indexProject{
-			Project: p, State: state, Word: indexWords[state], Count: upCount(current), LogoVersion: logos[p.ID],
-		}
+		row := indexProject{Project: p, State: state, Word: indexWords[state], Count: upCount(current)}
 		if status == overallMaintenance {
 			row.Word, row.Count = "under maintenance", ""
 		}
-		if page.Layout == "rows" {
+		if showUptime {
 			pageRollups := make(map[int64][]store.DayRollup, len(monitors))
 			for _, monitor := range monitors {
 				pageRollups[monitor.ID] = rollups[monitor.ID]
@@ -316,12 +338,9 @@ func (s *Server) handlePublicList(w http.ResponseWriter, r *http.Request) {
 			row.Days, row.Uptime = projectUptimeStrip(pageRollups, todayStartMs, p.HistoryDays)
 			backfillDays(row.Days, p.Backfill)
 		}
-		page.Projects = append(page.Projects, row)
+		rows = append(rows, row)
 	}
-	page.State, page.Summary = indexSummary(page.Projects)
-	noIndex := !instance.PublicList || (canonical.Path != "/" && instance.PublicURL == "")
-	page.Chrome.setPublicMetadata(canonical, instance.Name, noIndex)
-	s.render(w, r, http.StatusOK, "index.html", page)
+	return rows, nil
 }
 
 // handleTheme serves a project's look as a stylesheet. A separate file keeps

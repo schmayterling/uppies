@@ -26,7 +26,7 @@ type indexIncidentHistory struct {
 }
 
 type indexIncidentsArchivePage struct {
-	Chrome          chrome
+	indexSite
 	IncidentHistory indexIncidentHistory
 	HasCursor       bool
 }
@@ -98,12 +98,20 @@ func (s *Server) handleIndexIncidents(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	projects, err := s.store.Projects(ctx)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	rows, err := s.indexRows(ctx, projects, s.now().UnixMilli(), false)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	state, _ := indexSummary(rows)
 	page := indexIncidentsArchivePage{
-		Chrome: chrome{
-			Title: instance.Name + " incident history", Unbranded: true,
-			Favicon:     s.faviconAddress(ctx),
-			Description: "Incident history across the status pages for " + instance.Name + ".",
-		},
+		indexSite: s.newIndexSite(ctx, instance, state, instance.Name+" incident history",
+			"Incident history across the status pages for "+instance.Name+"."),
 		IncidentHistory: history,
 		HasCursor:       before.ID != 0,
 	}
