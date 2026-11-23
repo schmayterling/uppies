@@ -12,6 +12,8 @@ import (
 type InstanceSettings struct {
 	// Name is shown in the admin sidebar and on the public list of status pages.
 	Name string
+	// NavLinks holds the links shown on the public list.
+	NavLinks string
 	// Theme and AccentHue style the admin pages: "auto", "light" or "dark", and a hue from 0 to 360.
 	Theme     string
 	AccentHue int
@@ -84,6 +86,8 @@ func (s *Store) Instance(ctx context.Context) (InstanceSettings, error) {
 		switch key {
 		case "name":
 			settings.Name = value
+		case "nav_links":
+			settings.NavLinks = value
 		case "theme":
 			settings.Theme = value
 		case "accent_hue":
@@ -113,7 +117,7 @@ func (s *Store) SaveInstance(ctx context.Context, settings InstanceSettings) err
 		publicList = "1"
 	}
 	values := map[string]string{
-		"name": settings.Name, "theme": settings.Theme,
+		"name": settings.Name, "nav_links": settings.NavLinks, "theme": settings.Theme,
 		"accent_hue": strconv.Itoa(settings.AccentHue), "public_list": publicList,
 		"login_layout": settings.LoginLayout, "login_background": settings.LoginBackground,
 		"list_layout": settings.ListLayout, "graph_fill": settings.GraphFill,

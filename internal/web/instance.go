@@ -290,8 +290,19 @@ func (s *Server) handleSaveInstance(w http.ResponseWriter, r *http.Request) {
 	}
 	page.Instance.Name = strings.TrimSpace(r.PostForm.Get("name"))
 	page.Instance.PublicList = r.PostForm.Get("public_list") == "on"
+	page.Problems = make(map[string]string)
 	if page.Instance.Name == "" || len(page.Instance.Name) > 60 {
-		page.Problems = map[string]string{"name": "give the instance a name of 1 to 60 characters."}
+		page.Problems["name"] = "give the site a name of 1 to 60 characters."
+	}
+	if r.PostForm.Has("nav_links") {
+		page.Instance.NavLinks = strings.TrimSpace(r.PostForm.Get("nav_links"))
+		if len(page.Instance.NavLinks) > 2000 {
+			page.Problems["nav_links"] = "keep the navbar links to 2000 characters."
+		} else if _, problem := parseNavLinks(page.Instance.NavLinks); problem != "" {
+			page.Problems["nav_links"] = problem
+		}
+	}
+	if len(page.Problems) > 0 {
 		s.renderInstance(w, r, http.StatusUnprocessableEntity, page)
 		return
 	}

@@ -2,6 +2,7 @@
 {{define "main"}}
 {{if eq .Layout "compact"}}
 <h1>status pages</h1>
+{{with .NavLinks}}<nav class="site-links" aria-label="site links">{{template "nav-links" .}}</nav>{{end}}
 {{if .Projects}}
 <ul class="rows index-list">
   {{range .Projects}}<li><a class="row-link" href="/s/{{.Slug}}"><span>{{.Name}}</span><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span></a></li>{{end}}
@@ -10,7 +11,7 @@
 {{else}}
 <header class="site-bar">
   <a class="site-brand" href="/">{{template "status-icon" (index .StateIcons (or .State "ok"))}}{{.Chrome.Brand}}</a>
-  <nav class="site-links" aria-label="account"><a href="/admin">sign in</a></nav>
+  <nav class="site-links" aria-label="site links">{{template "nav-links" .NavLinks}}<a href="/admin">sign in</a></nav>
 </header>
 <header class="page-head">
   <h1>status pages</h1>

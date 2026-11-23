@@ -1191,11 +1191,21 @@ func TestInstancePagesAndUsers(t *testing.T) {
 	if _, page := s.get(t, s.anonymous, "/"); !strings.Contains(page, "Acme") {
 		t.Error("the front page lists status pages by default")
 	}
+	if resp := s.post(t, s.admin, "/admin/instance", url.Values{
+		"name": {"acme ops"}, "public_list": {"on"}, "nav_links": {"docs | https://docs.example.com/"},
+	}, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("save site name and links: got %d, want 303", resp.StatusCode)
+	}
+	if resp := s.post(t, s.admin, "/admin/instance", url.Values{
+		"name": {"acme ops"}, "public_list": {"on"}, "nav_links": {"docs | javascript:alert(1)"},
+	}, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("unsafe navbar link: got %d, want 422", resp.StatusCode)
+	}
 	// The list has three layouts. Each one names the page and links to it.
 	for layout, marker := range map[string]string{"rows": `class="index-rows"`, "cards": `class="index-cards"`, "compact": `class="rows index-list"`} {
 		s.post(t, s.admin, "/admin/appearance", url.Values{"theme": {"dark"}, "accent_hue": {"25"}, "list_layout": {layout}}, nil)
 		_, page := s.get(t, s.anonymous, "/")
-		for _, want := range []string{marker, "Acme", `href="/s/acme"`} {
+		for _, want := range []string{marker, "Acme", `href="/s/acme"`, "<title>acme ops status</title>", `href="https://docs.example.com/"`} {
 			if !strings.Contains(page, want) {
 				t.Errorf("front page in the %s layout is missing %q", layout, want)
 			}
@@ -1206,7 +1216,7 @@ func TestInstancePagesAndUsers(t *testing.T) {
 	}
 	s.post(t, s.admin, "/admin/instance", url.Values{"name": {"acme ops"}}, nil)
 	_, page := s.get(t, s.anonymous, "/")
-	if strings.Contains(page, "Acme") || !strings.Contains(page, "acme ops") {
+	if strings.Contains(page, "Acme") || strings.Contains(page, "docs.example.com") || !strings.Contains(page, "acme ops") {
 		t.Error("with the public list off, the front page shows the instance name and no status page")
 	}
 

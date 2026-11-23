@@ -113,6 +113,7 @@ type maintenanceView struct {
 type indexPage struct {
 	Chrome   chrome
 	Projects []indexProject
+	NavLinks []navLink
 	// Listed is false when the instance keeps its status pages off the front page.
 	Listed bool
 	// Layout is the instance's choice of how the list is drawn.
@@ -233,10 +234,15 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page := indexPage{
-		Chrome: chrome{Title: "status", Auth: instance.ListLayout == "compact", SignInLink: true, Brand: instance.Name, Favicon: s.faviconAddress(r.Context())},
+		Chrome: chrome{
+			Title: instance.Name + " status", Unbranded: true, Auth: instance.ListLayout == "compact",
+			SignInLink: true, Brand: instance.Name, Favicon: s.faviconAddress(r.Context()),
+		},
 		Listed: instance.PublicList, Layout: instance.ListLayout, StateIcons: listIcons,
 	}
-	if !instance.PublicList {
+	if instance.PublicList {
+		page.NavLinks, _ = parseNavLinks(instance.NavLinks)
+	} else {
 		projects = nil
 	}
 	for _, p := range projects {

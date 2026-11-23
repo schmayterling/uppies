@@ -7,9 +7,14 @@
   <h2 class="group-title">general</h2>
   <div class="group">
     <div class="srow">
-      <label class="srow-copy" for="name"><span>name</span><small>shown in this sidebar and on the public list of status pages.</small></label>
+      <label class="srow-copy" for="name"><span>site name</span><small>shown in this sidebar and on the public list of status pages.</small></label>
       <div class="srow-control"><input id="name" name="name" value="{{.Instance.Name}}" required maxlength="60"{{if index .Problems "name"}} aria-invalid="true"{{end}}></div>
       {{with index .Problems "name"}}<p class="problem srow-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="srow" data-stack>
+      <label class="srow-copy" for="nav_links"><span>navbar links</span><small>one link per line. use label | https://example.com.</small></label>
+      <textarea id="nav_links" name="nav_links" rows="3" maxlength="2000" spellcheck="false" placeholder="docs | https://docs.example.com"{{if index .Problems "nav_links"}} aria-invalid="true" aria-describedby="nav-links-problem"{{end}}>{{.Instance.NavLinks}}</textarea>
+      {{with index .Problems "nav_links"}}<p class="problem srow-problem" id="nav-links-problem">{{.}}</p>{{end}}
     </div>
     <label class="srow">
       <span class="srow-copy"><span>public list</span><small>the front page lists every status page to anyone. switch it off to show only a sign-in link there.</small></span>
