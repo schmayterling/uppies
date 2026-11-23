@@ -14,20 +14,28 @@
     {{if .Category}}<form method="post" action="/admin/categories/delete"><input type="hidden" name="name" value="{{.Category}}"><button class="button quiet" type="submit">delete category</button></form>{{end}}
   </div>
   {{if .Rows}}
-  <div class="table-scroll panel"><table class="dense">
-    <thead><tr><th>monitor</th><th>state</th><th>status pages</th><th>last check</th><th class="num">latency</th></tr></thead>
+  <div class="panel table-scroll">
+  <table class="dense">
+    <thead><tr><th scope="col">monitor</th><th scope="col">state</th><th scope="col">status pages</th><th scope="col">last check</th><th scope="col" class="number">latency</th></tr></thead>
     <tbody>
       {{range .Rows}}
       <tr>
-        <td><a class="row-title with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}<span>{{.Name}}<small class="target">{{if eq .Kind "push"}}push{{else}}{{.Target}}{{end}}</small></span></a></td>
-        <td><span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>{{if eq .State "down"}}{{with .LastError}}<small class="meta">{{.}}</small>{{end}}{{end}}</td>
-        <td>{{range $i, $page := .Pages}}{{if $i}}, {{end}}<a class="quiet-link" href="/admin/projects/{{$page.ID}}">{{$page.Name}}</a>{{else}}<span class="meta">on none</span>{{end}}</td>
-        <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{utc .LastCheckAtMs}}</time>{{else}}<span class="meta">never</span>{{end}}</td>
-        <td class="num">{{if and .LastCheckAtMs (eq .State "ok")}}{{.LastLatencyMs}} ms{{end}}</td>
+        <th scope="row">
+          <a class="with-icon" href="/admin/monitors/{{.ID}}">{{template "icon" (kindIcon .Kind)}}{{.Name}}</a>
+          <span class="meta cell-note target">{{if eq .Kind "push"}}waits for the job to report in{{else}}{{.Target}}{{end}}</span>
+        </th>
+        <td>
+          <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
+          {{if and .LastError (eq .State "down")}}<span class="meta cell-note">{{.LastError}}</span>{{end}}
+        </td>
+        <td>{{range $i, $page := .Pages}}{{if $i}}, {{end}}<a class="quiet-link" href="/admin/projects/{{$page.ID}}">{{$page.Name}}</a>{{else}}<span class="muted">on none</span>{{end}}</td>
+        <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{utc .LastCheckAtMs}}</time>{{else}}<span class="muted">not yet</span>{{end}}</td>
+        <td class="number">{{if and .LastCheckAtMs (eq .State "ok") (ne .Kind "push")}}{{.LastLatencyMs}} ms{{end}}</td>
       </tr>
       {{end}}
     </tbody>
-  </table></div>
+  </table>
+  </div>
   {{else}}
   <p class="empty">no monitors in this category yet. choose it in a monitor's settings.</p>
   {{end}}

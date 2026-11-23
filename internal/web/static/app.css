@@ -65,7 +65,6 @@ strong { font-weight: var(--weight-semibold); }
   .auth-split .auth-side { border-inline-end: 0; }
 }
 .auth-brand { display: flex; align-items: center; gap: var(--space-3); margin: 0 0 var(--space-5); }
-.auth-brand .status-icon { inline-size: var(--space-6); block-size: var(--space-6); }
 .auth-brand .wordmark { font-size: var(--text-title); letter-spacing: var(--tracking-heading); }
 .auth-card .form { margin-block-start: var(--space-5); }
 .auth-card input { min-block-size: calc(var(--control-height) + var(--space-1)); }
@@ -74,7 +73,6 @@ strong { font-weight: var(--weight-semibold); }
 .auth-card h1 { margin-block-end: var(--space-1); }
 .index-list { margin-block-start: var(--space-4); }
 /* the public list as a page: one row or one card per status page */
-.site-brand .status-icon { inline-size: var(--space-6); block-size: var(--space-6); }
 .index-rows, .index-cards { list-style: none; margin: var(--space-5) 0 0; padding: 0; }
 .index-rows { border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; }
 .index-rows > li + li { border-block-start: 1px solid var(--border); }
@@ -548,16 +546,18 @@ code { font-family: var(--font-mono); font-size: var(--text-sm); }
 .banner {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   padding: var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--surface);
 }
 .banner-text { margin: 0; font-size: var(--text-title); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-heading); }
-.status-icon { flex: none; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+/* a round status icon is as tall as the text it stands beside */
+.status-icon { flex: none; inline-size: 1em; block-size: 1em; fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.banner > .status-icon, .auth-brand > .status-icon { font-size: var(--text-title); }
 .status-icon .status-dot { fill: currentColor; stroke: none; }
-.status-icon-wrench path { stroke-width: 2; }
+.status-icon-wrench path { stroke-width: 2.5; }
 .status-icon-check { color: var(--status-success); }
 .status-icon-warning { color: var(--status-warning); }
 .status-icon-cross { color: var(--status-danger); }
