@@ -590,3 +590,53 @@ func TestAPushMonitorGetsATokenThatTheJobReportsTo(t *testing.T) {
 		t.Fatalf("after a report: last push %d err=%v, want it recorded", lastPushAtMs, err)
 	}
 }
+
+func TestPlannedMaintenanceIsAnnouncedAndShownWhileRunning(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitorID, err := s.store.CreateMonitor(ctx, store.Monitor{
+		ProjectID: projectID, Name: "website", Kind: "http", Target: "https://example.com", Public: true,
+		IntervalS: 60, TimeoutMs: 5000, Retries: 2, RetryIntervalS: 20, RecoveryChecks: 2,
+	}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	healthy := health.Step{Tracker: health.Tracker{Status: health.Up}}
+	if err := s.store.RecordCheck(ctx, store.CheckResult{MonitorID: monitorID, AtMs: time.Now().UnixMilli(), OK: true, Step: healthy}); err != nil {
+		t.Fatal(err)
+	}
+	path := fmt.Sprintf("/admin/projects/%d/maintenance", projectID)
+	utc := func(at time.Time) string { return at.UTC().Format("2006-01-02T15:04") }
+	now := time.Now()
+
+	backwards := url.Values{"title": {"upgrade"}, "starts": {utc(now.Add(2 * time.Hour))}, "ends": {utc(now.Add(time.Hour))}}
+	if resp := s.post(t, s.admin, path, backwards, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("a window that ends before it starts: got %d, want 422", resp.StatusCode)
+	}
+	upcoming := url.Values{"title": {"database upgrade"}, "starts": {utc(now.Add(24 * time.Hour))}, "ends": {utc(now.Add(25 * time.Hour))}}
+	if resp := s.post(t, s.anonymous, path, upcoming, nil); resp.Header.Get("Location") != "/admin/login" {
+		t.Fatalf("anonymous: got %d, want a redirect to /admin/login", resp.StatusCode)
+	}
+	if resp := s.post(t, s.admin, path, upcoming, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("upcoming window: got %d, want 303", resp.StatusCode)
+	}
+	_, page := s.get(t, s.anonymous, "/s/acme")
+	if !strings.Contains(page, "database upgrade") || !strings.Contains(page, "everything is up.") {
+		t.Error("an upcoming window must be announced while the page still says everything is up")
+	}
+
+	running := url.Values{"title": {"network work"}, "starts": {utc(now.Add(-time.Hour))}, "ends": {utc(now.Add(time.Hour))}}
+	if resp := s.post(t, s.admin, path, running, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("running window: got %d, want 303", resp.StatusCode)
+	}
+	_, page = s.get(t, s.anonymous, "/s/acme")
+	for _, want := range []string{"planned maintenance is under way.", "under maintenance", "network work"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("status page during maintenance is missing %q", want)
+		}
+	}
+}

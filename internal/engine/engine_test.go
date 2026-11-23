@@ -225,3 +225,63 @@ func TestCertWarningDue(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckOnceRestsDuringMaintenance(t *testing.T) {
+	ctx := context.Background()
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+	st, err := store.Open(ctx, filepath.Join(t.TempDir(), "uppies.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := st.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	projectID, err := st.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitorID, err := st.CreateMonitor(ctx, store.Monitor{
+		ProjectID: projectID, Name: "api", Kind: "http", Target: server.URL,
+		IntervalS: 60, TimeoutMs: 2000, Retries: 0, RetryIntervalS: 20, RecoveryChecks: 1,
+	}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := st.Monitor(ctx, monitorID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UnixMilli()
+	window := store.MaintenanceWindow{ProjectID: projectID, Title: "database upgrade", StartsAtMs: now - 60_000, EndsAtMs: now + 60_000}
+	windowID, err := st.CreateMaintenanceWindow(ctx, window, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e := New(st, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
+	m, _, err = e.checkOnce(ctx, m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if requests.Load() != 0 || m.Tracker.Status != health.Unknown {
+		t.Fatalf("during maintenance: %d request(s) and status %s, want no check at all", requests.Load(), m.Tracker.Status)
+	}
+
+	if err := st.DeleteMaintenanceWindow(ctx, projectID, windowID); err != nil {
+		t.Fatal(err)
+	}
+	m, _, err = e.checkOnce(ctx, m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if requests.Load() != 1 || m.Tracker.Status != health.Down {
+		t.Fatalf("after maintenance: %d request(s) and status %s, want one check that finds it down", requests.Load(), m.Tracker.Status)
+	}
+}

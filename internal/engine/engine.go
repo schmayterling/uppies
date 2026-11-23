@@ -149,6 +149,14 @@ func firstDelay(m store.Monitor, now time.Time) time.Duration {
 // new state and the wait before the next check.
 func (e *Engine) checkOnce(ctx context.Context, m store.Monitor) (store.Monitor, time.Duration, error) {
 	interval := time.Duration(m.IntervalS) * time.Second
+	resting, err := e.store.InMaintenance(ctx, m.ProjectID, time.Now().UnixMilli())
+	if err != nil {
+		return m, 0, err
+	}
+	if resting {
+		// Nothing is checked during planned maintenance, so nothing alerts or counts as downtime.
+		return m, interval, nil
+	}
 	var result check.Result
 	if m.Kind == check.KindPush {
 		lastPushAtMs, err := e.store.LastPushAtMs(ctx, m.ID)
@@ -187,7 +195,7 @@ func (e *Engine) checkOnce(ctx context.Context, m store.Monitor) (store.Monitor,
 	if !result.CertExpiresAt.IsZero() {
 		certExpiresAtMs = result.CertExpiresAt.UnixMilli()
 	}
-	err := e.store.RecordCheck(ctx, store.CheckResult{
+	err = e.store.RecordCheck(ctx, store.CheckResult{
 		MonitorID: m.ID, AtMs: atMs, OK: result.OK, LatencyMs: result.Latency.Milliseconds(),
 		Error: result.Error, CoveredMs: elapsedMs, Step: step, CertExpiresAtMs: certExpiresAtMs,
 	})

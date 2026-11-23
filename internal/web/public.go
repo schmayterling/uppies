@@ -64,6 +64,13 @@ type statusPage struct {
 	Components  []componentView
 	Active      []incidentView
 	Past        []incidentView
+	// Maintenance holds the running and upcoming windows, soonest first.
+	Maintenance []maintenanceView
+}
+
+type maintenanceView struct {
+	store.MaintenanceWindow
+	Running bool
 }
 
 type indexPage struct {
@@ -156,7 +163,7 @@ var badgeColours = map[string]string{stateOK: "#236032", stateWarn: "#704600", s
 
 var badgeWords = map[overallStatus]string{
 	overallUp: "up", overallPartial: "partly down", overallDown: "down",
-	overallIncident: "incident", overallWaiting: "unknown",
+	overallIncident: "incident", overallWaiting: "unknown", overallMaintenance: "maintenance",
 }
 
 // handleBadge serves a project's current state as a small image for readmes and other sites.
@@ -247,7 +254,24 @@ func (s *Server) statusPage(ctx context.Context, project store.Project) (statusP
 			page.Active = append(page.Active, view)
 		}
 	}
+	nowMs := s.now().UnixMilli()
+	windows, err := s.store.MaintenanceWindows(ctx, project.ID, nowMs)
+	if err != nil {
+		return statusPage{}, err
+	}
+	resting := false
+	for _, w := range windows {
+		running := w.StartsAtMs <= nowMs
+		resting = resting || running
+		page.Maintenance = append(page.Maintenance, maintenanceView{MaintenanceWindow: w, Running: running})
+	}
 	page.Overall = overall(shown, len(page.Active))
+	if resting {
+		page.Overall = overallMaintenance
+		for i := range page.Components {
+			page.Components[i].State, page.Components[i].Word = stateNone, "under maintenance"
+		}
+	}
 	page.BannerState, page.BannerText = overallViews[page.Overall].state, overallViews[page.Overall].text
 	return page, nil
 }
@@ -274,14 +298,17 @@ const (
 	overallDown     overallStatus = "down"
 	overallIncident overallStatus = "incident"
 	overallWaiting  overallStatus = "waiting"
+	// overallMaintenance is set by the page, not by overall: checks rest during a window.
+	overallMaintenance overallStatus = "maintenance"
 )
 
 var overallViews = map[overallStatus]struct{ state, text string }{
-	overallUp:       {stateOK, "everything is up."},
-	overallPartial:  {stateDown, "some things are down."},
-	overallDown:     {stateDown, "everything is down."},
-	overallIncident: {stateWarn, "we're looking into a problem."},
-	overallWaiting:  {stateNone, "waiting for the first checks."},
+	overallUp:          {stateOK, "everything is up."},
+	overallPartial:     {stateDown, "some things are down."},
+	overallDown:        {stateDown, "everything is down."},
+	overallIncident:    {stateWarn, "we're looking into a problem."},
+	overallWaiting:     {stateNone, "waiting for the first checks."},
+	overallMaintenance: {stateNone, "planned maintenance is under way."},
 }
 
 // banner sums the page up in one sentence.

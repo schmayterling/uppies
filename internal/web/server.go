@@ -100,6 +100,8 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("POST /admin/projects", s.handleCreateProject)
 	admin("GET /admin/projects/{id}", s.handleProject)
 	admin("POST /admin/projects/{id}/delete", s.handleDeleteProject)
+	admin("POST /admin/projects/{id}/maintenance", s.handleCreateMaintenance)
+	admin("POST /admin/projects/{id}/maintenance/{window}/delete", s.handleDeleteMaintenance)
 	admin("GET /admin/projects/{id}/settings", s.handleSettings)
 	admin("POST /admin/projects/{id}/settings", s.handleUpdateSettings)
 	admin("POST /admin/projects/{id}/images", s.handleUpdateImages)

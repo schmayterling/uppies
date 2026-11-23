@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"uppies/internal/check"
 	"uppies/internal/store"
@@ -127,7 +128,13 @@ type projectPage struct {
 	Monitors  []monitorRow
 	Incidents []store.Incident
 	Events    []eventRow
-	OlderID   int64 // id to page the timeline from, 0 when there is nothing older
+	// Maintenance holds the running and upcoming windows.
+	Maintenance []store.MaintenanceWindow
+	Zone        *time.Location
+	// Window holds the new-window form's values after a failed submit.
+	Window   maintenanceForm
+	Problems map[string]string
+	OlderID  int64 // id to page the timeline from, 0 when there is nothing older
 }
 
 var eventWords = map[string]string{
@@ -137,41 +144,129 @@ var eventWords = map[string]string{
 	"incident_update":    "incident update",
 }
 
+// maintenanceForm holds the new-window form as typed.
+type maintenanceForm struct {
+	Title  string
+	Starts string
+	Ends   string
+}
+
+// dateTimeLayout is what a datetime-local input submits.
+const dateTimeLayout = "2006-01-02T15:04"
+
 func (s *Server) handleProject(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	page, err := s.projectPage(r)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	s.render(w, r, http.StatusOK, "project.html", page)
+}
+
+func (s *Server) handleCreateMaintenance(w http.ResponseWriter, r *http.Request) {
+	page, err := s.projectPage(r)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	form := maintenanceForm{
+		Title:  strings.TrimSpace(r.PostForm.Get("title")),
+		Starts: r.PostForm.Get("starts"),
+		Ends:   r.PostForm.Get("ends"),
+	}
+	problems := make(map[string]string)
+	if form.Title == "" || len(form.Title) > 200 {
+		problems["title"] = "give the window a title of 1 to 200 characters."
+	}
+	starts, err := time.ParseInLocation(dateTimeLayout, form.Starts, page.Zone)
+	if err != nil {
+		problems["starts"] = "choose when it starts."
+	}
+	ends, err := time.ParseInLocation(dateTimeLayout, form.Ends, page.Zone)
+	if err != nil {
+		problems["ends"] = "choose when it ends."
+	} else if !ends.After(starts) {
+		problems["ends"] = "the end must be after the start."
+	} else if !ends.After(s.now()) {
+		problems["ends"] = "the end is already in the past."
+	}
+	if len(problems) > 0 {
+		page.Window, page.Problems = form, problems
+		s.render(w, r, http.StatusUnprocessableEntity, "project.html", page)
+		return
+	}
+	window := store.MaintenanceWindow{
+		ProjectID: page.Project.ID, Title: form.Title, StartsAtMs: starts.UnixMilli(), EndsAtMs: ends.UnixMilli(),
+	}
+	if _, err := s.store.CreateMaintenanceWindow(r.Context(), window, s.now().UnixMilli()); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d#maintenance-heading", page.Project.ID), http.StatusSeeOther)
+}
+
+func (s *Server) handleDeleteMaintenance(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	project, err := s.store.ProjectByID(ctx, id)
+	windowID, err := strconv.ParseInt(r.PathValue("window"), 10, 64)
 	if err != nil {
+		s.fail(w, r, store.ErrNotFound)
+		return
+	}
+	if err := s.store.DeleteMaintenanceWindow(r.Context(), id, windowID); err != nil {
 		s.fail(w, r, err)
 		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d#maintenance-heading", id), http.StatusSeeOther)
+}
+
+func (s *Server) projectPage(r *http.Request) (projectPage, error) {
+	ctx := r.Context()
+	id, err := pathID(r)
+	if err != nil {
+		return projectPage{}, err
+	}
+	project, err := s.store.ProjectByID(ctx, id)
+	if err != nil {
+		return projectPage{}, err
 	}
 	monitors, err := s.store.MonitorsByProject(ctx, id)
 	if err != nil {
-		s.fail(w, r, err)
-		return
+		return projectPage{}, err
 	}
 	incidents, err := s.store.IncidentsByProject(ctx, id)
 	if err != nil {
-		s.fail(w, r, err)
-		return
+		return projectPage{}, err
+	}
+	windows, err := s.store.MaintenanceWindows(ctx, id, s.now().UnixMilli())
+	if err != nil {
+		return projectPage{}, err
+	}
+	zone, err := time.LoadLocation(project.Timezone)
+	if err != nil {
+		zone = time.UTC // the zone was valid when saved, so only a system without zone data lands here
 	}
 	// A missing or malformed "before" means the first page.
 	beforeID, _ := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
 	events, err := s.store.Events(ctx, id, max(beforeID, 0), timelinePageSize+1)
 	if err != nil {
-		s.fail(w, r, err)
-		return
+		return projectPage{}, err
 	}
 
 	page := projectPage{
-		Chrome:    chrome{Title: project.Name, Admin: true},
-		Project:   project,
-		Monitors:  monitorRows(monitors),
-		Incidents: incidents,
+		Chrome:      chrome{Title: project.Name, Admin: true},
+		Project:     project,
+		Monitors:    monitorRows(monitors),
+		Incidents:   incidents,
+		Maintenance: windows,
+		Zone:        zone,
 	}
 	if len(events) > timelinePageSize {
 		events = events[:timelinePageSize]
@@ -180,7 +275,7 @@ func (s *Server) handleProject(w http.ResponseWriter, r *http.Request) {
 	for _, e := range events {
 		page.Events = append(page.Events, eventRow{Event: e, Word: eventWords[e.Kind]})
 	}
-	s.render(w, r, http.StatusOK, "project.html", page)
+	return page, nil
 }
 
 func (s *Server) handleDeleteProject(w http.ResponseWriter, r *http.Request) {

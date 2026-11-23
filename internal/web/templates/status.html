@@ -24,6 +24,20 @@
 </article>
 {{end}}
 
+{{if .Maintenance}}
+<section aria-labelledby="maintenance-heading">
+  <h2 id="maintenance-heading">planned maintenance</h2>
+  <ul class="rows">
+    {{range .Maintenance}}
+    <li class="row">
+      <span>{{.Title}}{{if .Running}} <strong>now</strong>{{end}}</span>
+      <span class="meta"><time datetime="{{rfc3339 .StartsAtMs}}">{{local $.Zone .StartsAtMs}}</time> to <time datetime="{{rfc3339 .EndsAtMs}}">{{local $.Zone .EndsAtMs}}</time></span>
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{end}}
+
 <section aria-labelledby="components-heading">
   <h2 id="components-heading">components</h2>
   {{if .Components}}
