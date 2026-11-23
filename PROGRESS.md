@@ -67,6 +67,14 @@ Each line names how it was verified.
   - Month labels on the incident map, with a test.
   - The lookback length is any number of days from 7 to 365, and a backfill choice draws the days before a monitor had data as up, degraded, down or no data (schema version 9). The uptime figure only counts measured time. Verified by a handler test.
   - The rebuilt monitor form, new-incident form, project page, appearance and instance pages were measured at 1440 wide: no horizontal overflow and no control under 24 pixels tall.
+- Design round 6 (2026-11-23), from the user's feedback on the running app.
+  - Fixed: the collapsed sidebar could not be expanded (the hidden wordmark covered the toggle), the "new status page" link opened nothing (links to a dialog now open it), day tooltips were see-through, and admonitions sat flush under headings.
+  - Scroll bounce is off on pages, the sidebar, scrolling tables and dialogs.
+  - The incident timeline folds each run of quiet days into one muted line, and is paginated at 20 entries.
+  - The incident map has weekday labels, month labels and dashed outlines for days that have not happened yet.
+  - Visitors can pick the timezone a status page shows its times in, through a script-free form. New status pages start in the server's own timezone.
+  - The settings sections are real tabs that show one pane at a time and keep the open tab in the address.
+  - Checked in a browser: the toggle works in both sidebar states, the dialog link opens from the overview and from another page, and the tabs switch panes.
 - Checks run on 2026-11-23 on the admin overview:
   - Contrast, computed from the rendered colours. Dark theme: every text pairing measured is 7.4:1 or higher. Light theme: the lowest is 5.68:1 (muted headings on the sidebar). The requirement for body text is 4.5:1.
   - Script switched off: an admin page shows each dialog's form in place and hides the buttons that would open it. This needed a fix, because the dialog animation left dialogs invisible without script.
@@ -130,6 +138,8 @@ Each line names how it was verified.
 - 2026-11-23: The old `history_days` column stays in the database unused. The new `lookback_days` column replaces it, because changing a CHECK constraint means rebuilding the projects table.
 - 2026-11-23: Backfilled days say "no data" in their tooltip and never enter the uptime figure. Painting history green must not change the numbers.
 
+- 2026-11-23: A status page cannot read a visitor's clock without script, so the timezone is a choice the visitor makes, carried in the address as `tz`.
+
 ## Do not repeat
 
 - Do not put the raw check error into text that can become public. A test caught this once (`TestStatusPageShowsOnlyWhatIsPublic`).
@@ -138,6 +148,8 @@ Each line names how it was verified.
 - Chain the commit after the tests with `&&`. A commit went in once with a failing test because the chain used `;`.
 - The `git checkout <file>` mistake above happened a second time on 2026-11-23, after a test mutation in a file that also held new code. Always copy the file aside first.
 - A patch script that stops halfway must stop the commit too. Test its exit code before the commit chain. One commit (`1482684`) carries a message that claims more than it holds because of this.
+- After changing how a control is laid out, click it in every state. The sidebar toggle was measured but never clicked while collapsed, and it was broken.
+- When a form becomes a dialog, find every link that pointed at the old form. One link kept pointing at an anchor that no longer opened anything.
 - In zsh, `rm -f name*` fails when nothing matches and stops a command chain. Name the files.
 - Headless Chrome will not lay a page out narrower than about 500 pixels. For phone widths, use device metrics emulation over the DevTools protocol.
 
