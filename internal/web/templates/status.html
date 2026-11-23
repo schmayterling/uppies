@@ -49,7 +49,7 @@
         <span class="state state-{{.State}}">{{template "mark" .State}}{{.Word}}</span>
       </div>
       <div class="strip" role="img" aria-label="uptime over the last {{$.Project.HistoryDays}} days: {{.Uptime}}">
-        {{range .Days}}<span class="day day-{{.State}}" title="{{.Label}}"></span>{{end}}
+        {{range .Days}}<span class="day day-{{.State}}" data-tip="{{.Label}}"></span>{{end}}
       </div>
       <div class="strip-legend meta">
         <span class="wide-only">{{$.Project.HistoryDays}} days ago</span><span class="narrow-only">30 days ago</span>

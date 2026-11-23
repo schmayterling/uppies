@@ -27,7 +27,7 @@
           {{if and .LastError (eq .State "down")}}<span class="meta cell-note">{{.LastError}}</span>{{end}}
           {{if .CertExpiresAtMs}}<span class="meta cell-note">certificate expires in {{daysUntil .CertExpiresAtMs}} days</span>{{end}}
         </td>
-        <td><div class="strip mini" role="img" aria-label="uptime {{.Uptime}}">{{range .Days}}<span class="day day-{{.State}}" title="{{.Label}}"></span>{{end}}</div></td>
+        <td><div class="strip mini" role="img" aria-label="uptime {{.Uptime}}">{{range .Days}}<span class="day day-{{.State}}" data-tip="{{.Label}}"></span>{{end}}</div></td>
         <td class="number">{{.Uptime}}</td>
         <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{local $.Zone .LastCheckAtMs}}</time>{{else}}<span class="muted">not yet</span>{{end}}</td>
         <td class="number">{{if and .LastCheckAtMs (eq .State "ok") (ne .Kind "push")}}{{.LastLatencyMs}} ms{{end}}</td>

@@ -338,6 +338,34 @@ input[type="file"] { padding: var(--space-1); }
 .day-warn { block-size: 70%; background: var(--status-warning); }
 .day-down { block-size: 40%; background: var(--status-danger); }
 .day-none { block-size: 100%; background: var(--active); }
+/* a tooltip for each day, drawn without script. it opens on hover and on a
+   tap, and the cells near either end align it inward so it stays on screen. */
+.day { position: relative; }
+.day:hover { opacity: 0.75; }
+.day:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  inset-block-end: calc(100% + var(--space-1-5));
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  z-index: 1;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--elevated);
+  box-shadow: var(--shadow-popover);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-ui);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.day:nth-child(-n+10):hover::after { inset-inline-start: 0; translate: 0 0; }
+.day:nth-last-child(-n+10):hover::after { inset-inline-start: auto; inset-inline-end: 0; translate: 0 0; }
+.day-warn::after, .day-down::after { inset-block-end: calc(100% + var(--space-1-5)); }
+.strip { position: relative; }
+.table-scroll:has(.day:hover) { overflow: visible; }
 .strip-legend { display: flex; justify-content: space-between; gap: var(--space-3); margin-block-start: var(--space-1); font-variant-numeric: tabular-nums; }
 .narrow-only { display: none; }
 
