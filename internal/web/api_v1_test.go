@@ -75,10 +75,112 @@ func TestAPIRequiresBearerAndRechecksGrantsAndRevocation(t *testing.T) {
 		t.Fatal("method-not-allowed response lacks the Allow header")
 	}
 
+	if res := s.post(t, s.admin, "/admin/api-tokens/1/permissions", nil, nil); res.StatusCode != http.StatusSeeOther {
+		t.Fatalf("clear permissions: got %d, want 303", res.StatusCode)
+	}
+	s.api(t, http.MethodGet, collection, token, "", http.StatusForbidden)
+	if res := s.post(t, s.admin, "/admin/api-tokens/1/permissions", edit, nil); res.StatusCode != http.StatusSeeOther {
+		t.Fatalf("restore permissions: got %d, want 303", res.StatusCode)
+	}
 	if res := s.post(t, s.admin, "/admin/api-tokens/1/revoke", nil, nil); res.StatusCode != http.StatusSeeOther {
 		t.Fatalf("revoke token: got %d, want 303", res.StatusCode)
 	}
 	s.api(t, http.MethodGet, collection, token, "", http.StatusUnauthorized)
+}
+
+func TestEveryAPIRouteRequiresItsOwnGrant(t *testing.T) {
+	s := newSite(t)
+	ungranted := createAPIToken(t, s)
+	routes := []struct{ method, path string }{
+		{"GET", "/status-pages"},
+		{"POST", "/status-pages"},
+		{"GET", "/status-pages/1"},
+		{"PATCH", "/status-pages/1"},
+		{"DELETE", "/status-pages/1"},
+		{"GET", "/status-pages/1/layout"},
+		{"PUT", "/status-pages/1/layout"},
+		{"GET", "/monitors"},
+		{"POST", "/monitors"},
+		{"GET", "/monitors/1"},
+		{"PATCH", "/monitors/1"},
+		{"DELETE", "/monitors/1"},
+		{"GET", "/monitors/1/alert-channels"},
+		{"PUT", "/monitors/1/alert-channels"},
+		{"GET", "/alert-channels"},
+		{"POST", "/alert-channels"},
+		{"GET", "/alert-channels/1"},
+		{"PATCH", "/alert-channels/1"},
+		{"DELETE", "/alert-channels/1"},
+		{"GET", "/status-pages/1/maintenance"},
+		{"POST", "/status-pages/1/maintenance"},
+		{"GET", "/status-pages/1/maintenance/1"},
+		{"PATCH", "/status-pages/1/maintenance/1"},
+		{"DELETE", "/status-pages/1/maintenance/1"},
+		{"GET", "/status-pages/1/incidents"},
+		{"POST", "/status-pages/1/incidents"},
+		{"GET", "/status-pages/1/incidents/1"},
+		{"PATCH", "/status-pages/1/incidents/1"},
+		{"DELETE", "/status-pages/1/incidents/1"},
+		{"GET", "/status-pages/1/incidents/1/updates"},
+		{"POST", "/status-pages/1/incidents/1/updates"},
+		{"POST", "/status-pages/1/incidents/1/publish"},
+	}
+	for _, route := range routes {
+		t.Run(route.method+" "+route.path, func(t *testing.T) {
+			s.api(t, route.method, route.path, "", "", http.StatusUnauthorized)
+			_, body := s.api(t, route.method, route.path, ungranted, "", http.StatusForbidden)
+			if !strings.Contains(body, `"code":"insufficient_permission"`) {
+				t.Fatal("route did not return the permission error")
+			}
+		})
+	}
+}
+
+func TestAPIRejectsCrossOriginWritesAndOtherMediaTypes(t *testing.T) {
+	s := newSite(t)
+	token := createAPIToken(t, s, "status_pages:create")
+	const input = `{"name":"Private","slug":"private"}`
+	tests := []struct {
+		name, origin, mediaType, code string
+		status                        int
+	}{
+		{"cross-origin", "https://example.test", "application/json", "cross_origin", http.StatusForbidden},
+		{"plain text", "", "text/plain", "unsupported_media_type", http.StatusUnsupportedMediaType},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodPost, s.server.URL+"/api/v1/status-pages", strings.NewReader(input))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("Content-Type", tc.mediaType)
+			if tc.origin != "" {
+				req.Header.Set("Origin", tc.origin)
+			}
+			resp, err := s.anonymous.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					t.Error(err)
+				}
+			}()
+			var problem struct {
+				Error struct{ Code string }
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&problem); err != nil {
+				t.Fatal("expected a JSON error")
+			}
+			if resp.StatusCode != tc.status || problem.Error.Code != tc.code || resp.Header.Get("Access-Control-Allow-Origin") != "" {
+				t.Fatalf("got HTTP %d and code %q, want %d and %q without CORS headers", resp.StatusCode, problem.Error.Code, tc.status, tc.code)
+			}
+		})
+	}
+	if got := s.projectCount(t); got != 0 {
+		t.Fatalf("rejected requests created %d projects, want 0", got)
+	}
 }
 
 func TestAPIRejectsAnExpiredBearer(t *testing.T) {

@@ -38,6 +38,8 @@ and several planned features are missing (see "Not built yet").
   and other sites.
 - Has an admin with more than one account, its own theme, and instance
   settings such as the name and whether the status pages are listed publicly.
+- Offers a [versioned JSON API](API.md) for status pages, monitors, incidents,
+  maintenance and alert channels, with scoped API tokens.
 - Runs as one binary and stores everything in one SQLite file.
 
 ## Run it
@@ -127,8 +129,8 @@ the planned order of work.
 
 ## Not built yet
 
-Status page subscriptions, alert message templates, the REST API, the config
-file mode and checks from more than one place. [ROADMAP.md](ROADMAP.md) has
+Status page subscriptions, alert message templates, the config file mode and
+checks from more than one place. [ROADMAP.md](ROADMAP.md) has
 the full list and the order.
 
 ## License

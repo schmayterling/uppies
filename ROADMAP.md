@@ -51,9 +51,8 @@ are done. What is left is listed in `PROGRESS.md`.
 
 ## 2. Automation
 
-1. **A REST API with keys** that covers everything the admin pages do. A
-   missing API is the most upvoted complaint about the most used open source
-   monitor.
+1. **A REST API with keys.** [API v1](API.md) covers status pages, monitors,
+   incidents, maintenance and alert channels. Expand coverage as automation needs grow.
 2. **A config file** for monitors, projects and alert channels, kept in git.
    Items from the file are read-only in the admin pages.
 3. **Import from Uptime Kuma.**
