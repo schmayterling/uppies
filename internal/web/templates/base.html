@@ -59,7 +59,7 @@
 <div class="auth-art auth-art-{{or .Chrome.AuthBackground "plain"}}" aria-hidden="true">{{if and .Chrome.AuthImage (eq .Chrome.AuthBackground "image")}}<img src="/sign-in-background?v={{.Chrome.AuthImage}}" alt="">{{end}}</div>
 <div class="auth-side">
 <main class="auth-card">
-  <p class="auth-brand">{{template "face" "ok"}}<span class="wordmark">{{or .Chrome.Brand "uppies"}}</span></p>
+  <p class="auth-brand">{{template "status-icon" "check"}}<span class="wordmark">{{or .Chrome.Brand "uppies"}}</span></p>
 {{template "main" .}}
 </main>
 <p class="auth-foot meta">{{if .Chrome.SignInLink}}<a href="/admin">sign in</a>{{else}}<a href="/">view the status pages</a>{{end}}</p>
@@ -151,9 +151,13 @@
 
 {{define "mark"}}<svg class="mark mark-{{.}}" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">{{if eq . "ok"}}<circle cx="6" cy="6" r="5"/>{{else if eq . "warn"}}<path d="M6 1 11.5 11H.5Z"/>{{else if eq . "down"}}<rect x="1" y="1" width="10" height="10" rx="2"/>{{else}}<circle class="hollow" cx="6" cy="6" r="4"/>{{end}}</svg>{{end}}
 
-{{define "face"}}<svg class="face face-{{.}}" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true">
-<rect class="face-head" x="3" y="3" width="42" height="42" rx="14"/>
-{{if eq . "none"}}<path class="face-line" d="M13 21h7M28 21h7"/><path class="face-line" d="M20 31h8"/>
-{{else}}<circle class="face-eye" cx="17" cy="20" r="2.5"/><circle class="face-eye" cx="31" cy="20" r="2.5"/>
-{{if eq . "ok"}}<path class="face-line" d="M17 29q7 7 14 0"/>{{else if eq . "warn"}}<path class="face-line" d="M18 31h12"/>{{else}}<path class="face-line" d="M17 33q7 -7 14 0"/>{{end}}{{end}}
+{{/* a round status icon. it takes the icon's name: check, warning, cross, dash, wrench or slash. */}}
+{{define "status-icon"}}<svg class="status-icon status-icon-{{.}}" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true">
+<circle class="status-ring" cx="24" cy="24" r="21"/>
+{{if eq . "check"}}<path d="M15 25l6 6 12-13"/>
+{{else if eq . "warning"}}<path d="M24 13v14"/><circle class="status-dot" cx="24" cy="34" r="2"/>
+{{else if eq . "cross"}}<path d="M17 17l14 14M31 17L17 31"/>
+{{else if eq . "wrench"}}<path transform="translate(12 12)" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+{{else if eq . "slash"}}<path d="M16 32L32 16"/>
+{{else}}<path d="M16 24h16"/>{{end}}
 </svg>{{end}}

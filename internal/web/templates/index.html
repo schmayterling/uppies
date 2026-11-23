@@ -9,7 +9,7 @@
 {{else}}{{template "index-empty" .}}{{end}}
 {{else}}
 <header class="site-bar">
-  <a class="site-brand" href="/">{{template "face" (or .State "ok")}}{{.Chrome.Brand}}</a>
+  <a class="site-brand" href="/">{{template "status-icon" (index .StateIcons (or .State "ok"))}}{{.Chrome.Brand}}</a>
   <nav class="site-links" aria-label="account"><a href="/admin">sign in</a></nav>
 </header>
 <header class="page-head">

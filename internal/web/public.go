@@ -91,9 +91,11 @@ type statusPage struct {
 	Calm        bool
 	Overall     overallStatus
 	BannerState string
-	BannerText  string
-	Components  []componentView
-	Active      []incidentView
+	// BannerIcon names the round icon beside the sentence: check, warning, cross, dash, wrench or slash.
+	BannerIcon string
+	BannerText string
+	Components []componentView
+	Active     []incidentView
 	// Recent lists the last few days, today first, with the resolved incidents of each.
 	Recent []dayGroup
 	// Maintenance holds the running and upcoming windows, soonest first.
@@ -115,6 +117,8 @@ type indexPage struct {
 	// State is the worst state among the listed pages and Summary says it in a sentence.
 	State   string
 	Summary string
+	// StateIcons names the round icon for each state.
+	StateIcons map[string]string
 }
 
 // indexProject is one status page in the public list, with its state in one word.
@@ -227,7 +231,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	page := indexPage{
 		Chrome: chrome{Title: "status", Auth: instance.ListLayout == "compact", SignInLink: true, Brand: instance.Name, Favicon: s.faviconAddress(r)},
-		Listed: instance.PublicList, Layout: instance.ListLayout,
+		Listed: instance.PublicList, Layout: instance.ListLayout, StateIcons: listIcons,
 	}
 	if !instance.PublicList {
 		projects = nil
@@ -466,6 +470,11 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 		}
 	}
 	page.BannerState, page.BannerText = overallViews[page.Overall].state, overallViews[page.Overall].text
+	page.BannerIcon = overallIcons[page.Overall]
+	if len(shown) > 0 && !slices.ContainsFunc(shown, func(m store.Monitor) bool { return !m.Paused }) {
+		// Nothing is being checked, which is neither up nor waiting.
+		page.BannerIcon = "slash"
+	}
 	return page, nil
 }
 
@@ -494,6 +503,15 @@ const (
 	// overallMaintenance is set by the page, not by overall: checks rest during a window.
 	overallMaintenance overallStatus = "maintenance"
 )
+
+// overallIcons names the round icon of each overall status.
+var overallIcons = map[overallStatus]string{
+	overallUp: "check", overallPartial: "cross", overallDown: "cross", overallIncident: "warning",
+	overallWaiting: "dash", overallMaintenance: "wrench",
+}
+
+// listIcons names the round icon of the public list for the worst state among its status pages.
+var listIcons = map[string]string{stateOK: "check", stateWarn: "warning", stateDown: "cross", stateNone: "dash"}
 
 var overallViews = map[overallStatus]struct{ state, text string }{
 	overallUp:          {stateOK, "everything is up."},

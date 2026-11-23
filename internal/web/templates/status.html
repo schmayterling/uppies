@@ -10,7 +10,7 @@
 </header>
 
 <section class="banner banner-{{.BannerState}}" aria-label="current status">
-  {{if .Project.ShowFace}}{{template "face" .BannerState}}{{end}}
+  {{if .Project.ShowFace}}{{template "status-icon" .BannerIcon}}{{end}}
   <p class="banner-text">{{.BannerText}}</p>
 </section>
 
