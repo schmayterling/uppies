@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 )
 
 // AlertChannelKinds are the payload formats an alert can be sent in.
@@ -65,21 +66,87 @@ func (s *Store) MonitorChannels(ctx context.Context, monitorID int64) ([]AlertCh
 		where mc.monitor_id = ? order by c.id`, monitorID)
 }
 
+// MonitorChannelIDs returns channel IDs without loading the private destinations.
+func (s *Store) MonitorChannelIDs(ctx context.Context, monitorID int64) ([]int64, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		select mc.channel_id from monitors m left join monitor_channels mc on mc.monitor_id = m.id
+		where m.id = ? order by mc.channel_id`, monitorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		return nil, ErrNotFound
+	}
+	var ids []int64
+	for {
+		var id sql.NullInt64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		if id.Valid {
+			ids = append(ids, id.Int64)
+		}
+		if !rows.Next() {
+			return ids, rows.Err()
+		}
+	}
+}
+
 // SetMonitorChannels replaces the channels a monitor alerts. An id that is no channel is left out.
 func (s *Store) SetMonitorChannels(ctx context.Context, monitorID int64, channelIDs []int64) error {
 	return s.write(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, "delete from monitor_channels where monitor_id = ?", monitorID); err != nil {
+		_, err := setMonitorChannels(ctx, tx, monitorID, channelIDs)
+		return err
+	})
+}
+
+// ErrUnknownChannel means a requested channel reference did not match a channel.
+var ErrUnknownChannel = errors.New("unknown alert channel")
+
+// ReplaceMonitorChannels applies all requested assignments or leaves them intact.
+func (s *Store) ReplaceMonitorChannels(ctx context.Context, monitorID int64, channelIDs []int64) error {
+	return s.write(ctx, func(tx *sql.Tx) error {
+		var exists bool
+		if err := tx.QueryRowContext(ctx, "select exists (select 1 from monitors where id = ?)", monitorID).Scan(&exists); err != nil {
 			return err
 		}
-		for _, id := range channelIDs {
-			if _, err := tx.ExecContext(ctx, `
-				insert into monitor_channels (monitor_id, channel_id)
-				select ?, id from alert_channels where id = ?`, monitorID, id); err != nil {
-				return err
-			}
+		if !exists {
+			return ErrNotFound
+		}
+		count, err := setMonitorChannels(ctx, tx, monitorID, channelIDs)
+		if err != nil {
+			return err
+		}
+		if count != int64(len(channelIDs)) {
+			return ErrUnknownChannel
 		}
 		return nil
 	})
+}
+
+func setMonitorChannels(ctx context.Context, tx *sql.Tx, monitorID int64, channelIDs []int64) (int64, error) {
+	if _, err := tx.ExecContext(ctx, "delete from monitor_channels where monitor_id = ?", monitorID); err != nil {
+		return 0, err
+	}
+	var count int64
+	for _, id := range channelIDs {
+		result, err := tx.ExecContext(ctx, `
+			insert into monitor_channels (monitor_id, channel_id)
+			select ?, id from alert_channels where id = ?`, monitorID, id)
+		if err != nil {
+			return 0, err
+		}
+		n, err := result.RowsAffected()
+		if err != nil {
+			return 0, err
+		}
+		count += n
+	}
+	return count, nil
 }
 
 // DeleteAlertChannel removes a channel.

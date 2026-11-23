@@ -37,6 +37,13 @@ func (s *Server) registerAPI(mux *http.ServeMux) {
 		{"DELETE /api/v1/status-pages/{id}", pagesDelete, s.apiDeletePage},
 		{"GET /api/v1/status-pages/{id}/layout", pagesRead, s.apiReadLayout},
 		{"PUT /api/v1/status-pages/{id}/layout", pagesUpdate, s.apiWriteLayout},
+		{"GET /api/v1/monitors", monitorsRead, s.apiListMonitors},
+		{"POST /api/v1/monitors", monitorsCreate, s.apiCreateMonitor},
+		{"GET /api/v1/monitors/{id}", monitorsRead, s.apiReadMonitor},
+		{"PATCH /api/v1/monitors/{id}", monitorsUpdate, s.apiUpdateMonitor},
+		{"DELETE /api/v1/monitors/{id}", monitorsDelete, s.apiDeleteMonitor},
+		{"GET /api/v1/monitors/{id}/alert-channels", monitorsRead, s.apiReadMonitorChannels},
+		{"PUT /api/v1/monitors/{id}/alert-channels", monitorsUpdate, s.apiWriteMonitorChannels},
 	}
 	allowed := make(map[string][]string)
 	for _, route := range routes {
@@ -160,6 +167,8 @@ func (s *Server) apiFailure(w http.ResponseWriter, r *http.Request, err error) {
 		s.apiError(w, r, http.StatusNotFound, "not_found", "The requested resource was not found.")
 	case errors.Is(err, store.ErrUnknownMonitor):
 		s.apiError(w, r, http.StatusUnprocessableEntity, "unknown_monitor", "A referenced monitor is unavailable for this resource.")
+	case errors.Is(err, store.ErrUnknownChannel):
+		s.apiError(w, r, http.StatusUnprocessableEntity, "unknown_alert_channel", "A referenced alert channel does not exist.")
 	case errors.Is(err, store.ErrSlugTaken):
 		s.apiError(w, r, http.StatusConflict, "slug_taken", "Another status page uses that slug.")
 	case errors.Is(err, store.ErrDomainTaken):
@@ -222,6 +231,20 @@ func apiText(field, value string, minLen, maxLen int) error {
 func apiID(raw string) (int64, bool) {
 	id, err := strconv.ParseInt(raw, 10, 64)
 	return id, err == nil && id > 0 && strconv.FormatInt(id, 10) == raw
+}
+
+func apiIDs(field string, values []string) ([]int64, error) {
+	ids := make([]int64, 0, len(values))
+	seen := make(map[int64]bool, len(values))
+	for _, raw := range values {
+		id, ok := apiID(raw)
+		if !ok || seen[id] {
+			return nil, invalidAPIField(field, "Use distinct positive decimal IDs.")
+		}
+		seen[id] = true
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 func apiPathID(r *http.Request, name string) (int64, error) {

@@ -277,7 +277,28 @@ func displayOrDefault(display string) string {
 
 // UpdateMonitor changes a monitor's settings. Its state and history are kept.
 func (s *Store) UpdateMonitor(ctx context.Context, m Monitor) error {
-	res, err := s.db.ExecContext(ctx, `
+	return updateMonitor(ctx, s.db.ExecContext, m)
+}
+
+// EditMonitor preserves unspecified settings and updates only configuration.
+func (s *Store) EditMonitor(ctx context.Context, id int64, edit func(*Monitor) error) error {
+	return s.write(ctx, func(tx *sql.Tx) error {
+		m, err := scanMonitor(tx.QueryRowContext(ctx, "select "+monitorColumns+" from monitors where id = ?", id))
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if err := edit(&m); err != nil {
+			return err
+		}
+		return updateMonitor(ctx, tx.ExecContext, m)
+	})
+}
+
+func updateMonitor(ctx context.Context, exec execSQL, m Monitor) error {
+	res, err := exec(ctx, `
 		update monitors set name = ?, kind = ?, target = ?, keyword = ?, interval_s = ?, timeout_ms = ?,
 			retries = ?, retry_interval_s = ?, recovery_checks = ?, paused = ?, push_token = ?, tags = ?
 		where id = ?`,
@@ -322,6 +343,11 @@ func (s *Store) Monitor(ctx context.Context, id int64) (Monitor, error) {
 // Monitors lists every monitor in the order the admin gave them.
 func (s *Store) Monitors(ctx context.Context) ([]Monitor, error) {
 	return s.monitors(ctx, "select "+monitorColumns+" from monitors order by position, id")
+}
+
+// MonitorsAfter lists the next monitors in ID order.
+func (s *Store) MonitorsAfter(ctx context.Context, after int64, limit int) ([]Monitor, error) {
+	return s.monitors(ctx, "select "+monitorColumns+" from monitors where id > ? order by id limit ?", after, limit)
 }
 
 // SetMonitorOrder puts the monitors in the order of ids. A monitor that is
