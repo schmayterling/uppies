@@ -585,7 +585,7 @@ code { font-family: var(--font-mono); font-size: var(--text-sm); }
 /* the area under a graph's line: one flat tint, or a fade from the tint to nothing */
 .area { stroke: none; }
 .area-flat { fill: color-mix(in oklab, var(--accent) 20%, transparent); }
-.area-top { stop-color: var(--accent); stop-opacity: 0.35; }
+.area-top { stop-color: var(--accent); stop-opacity: 0.55; }
 .area-bottom { stop-color: var(--accent); stop-opacity: 0; }
 /* the detail view of a monitor */
 .stats-wide { grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }

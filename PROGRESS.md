@@ -96,6 +96,13 @@ Each line names how it was verified.
   - Percentiles use the nearest-rank method over the successful raw checks of the last 24 hours. Raw checks are kept for 48 hours, so a longer window would need percentiles in the daily rollups.
   - The demo seeds a check every five minutes for the last day.
   - Checked in Chromium and WebKit at 1280 and 390 wide: the link from the status page, 48 chart slots, the three badges at 88 by 31, two requests returning the same badge, the admin tabs. No overflow.
+- Design round 10 (2026-11-23).
+  - The install has a favicon of its own, uploaded under appearance and served at `/favicon.ico`. Status pages keep their own and fall back to it.
+  - The public list shows a logo only when a status page has one.
+  - A monitor's overview opens with its state as an admonition, with the last error when it is down.
+  - Graphs have a fill option: gradient, filled or none. It is set under appearance for the instance, in a status page's look settings and on a monitor, and the narrowest one that is set wins. A fresh install uses gradient.
+  - The sidebar has no divider when it is open. Collapsed, a line stands where the section's name would be.
+  - Checked in Chromium and WebKit: the gradient and the flat fill on the monitor chart, set through the appearance form, and the sidebar line in both states. The favicon, the list without logos and the admonition are covered by tests and were not rendered.
 - Checks run on 2026-11-23 on the admin overview:
   - Contrast, computed from the rendered colours. Dark theme: every text pairing measured is 7.4:1 or higher. Light theme: the lowest is 5.68:1 (muted headings on the sidebar). The requirement for body text is 4.5:1.
   - Script switched off: an admin page shows each dialog's form in place and hides the buttons that would open it. This needed a fix, because the dialog animation left dialogs invisible without script.
@@ -180,7 +187,7 @@ Each line names how it was verified.
 ## Next
 
 `ROADMAP.md` holds the planned order. The basics are done. The user wants a
-design pass on the status page and admin pages before any new feature. Nine rounds are done (see above). Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
+design pass on the status page and admin pages before any new feature. Ten rounds are done (see above). Still unchecked: a keyboard walk with real key presses, and the motion in Safari and Firefox. Work one item at a time, one signed commit per step.
 
 ## Open risks
 
