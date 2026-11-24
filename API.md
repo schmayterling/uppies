@@ -1,61 +1,58 @@
 # Uppies API v1
 
-Create an API token from **api tokens** in the signed-in admin sidebar. Give it a
-name, choose a lifetime of 30, 90, or 365 days, and select the actions it needs.
-The creation page displays the secret once. Store it where your integration
-keeps credentials. The token list shows metadata and lets any admin edit a live
-token's permissions or revoke it. Removing an admin account also removes the
-tokens it created.
+In the admin sidebar, open **api tokens**. Name the token, choose 30, 90 or
+365 days, and select its permissions. Uppies shows the secret once at
+creation. Read and write grants are separate and apply across the
+installation. An empty selection grants zero permissions. Any admin can
+edit a live token's permissions or revoke it. Those changes and expiry
+take effect on the next request. Deleting an admin also deletes its tokens.
 
-Send the token in `Authorization: Bearer <token>` on every request. Use HTTPS
-for remote access. The API authenticates the bearer header independently of
-browser sessions. Use the header for credentials and keep URLs free of tokens.
-Each endpoint requires its listed permission. Read and write are separate
-grants. An empty selection yields a token with zero permissions. Permission
-changes, expiry and revocation apply on the next request.
+Send `Authorization: Bearer <token>` with every request, including from a
+signed-in browser. Use HTTPS for remote calls. Set `UPPIES_URL` to the
+server URL and `UPPIES_API_TOKEN` to the secret. These commands require
+`status_pages:read` and `status_pages:create`, respectively.
 
 ```sh
-curl --fail-with-body \
-  -H "Authorization: Bearer $UPPIES_API_TOKEN" \
+curl --fail-with-body -H "Authorization: Bearer $UPPIES_API_TOKEN" \
   "$UPPIES_URL/api/v1/status-pages"
-```
 
-```sh
-curl --fail-with-body \
-  -H "Authorization: Bearer $UPPIES_API_TOKEN" \
+curl --fail-with-body -H "Authorization: Bearer $UPPIES_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Acme Status","slug":"acme"}' \
+  -d '{"name":"Example Status","slug":"example"}' \
   "$UPPIES_URL/api/v1/status-pages"
 ```
 
 ## Requests and responses
 
-All paths below start with `/api/v1`. IDs are positive decimal strings.
-Timestamps use RFC 3339 with a timezone on input and UTC on output. Uppies
-stores timestamps at millisecond precision. Send request objects as
-`Content-Type: application/json` with up to 64 KiB. Bodies with unknown keys,
-duplicate keys, explicit nulls, trailing values, or mismatched types receive
-`400`. Omitted fields in a PATCH keep their values. Use an empty string or array
-where a field's contract allows clearing it. HEAD uses the same permission as GET.
+Add `/api/v1` before each path below. Use positive decimal IDs without
+signs or leading zeros, and use strings for IDs in JSON. Send RFC 3339
+timestamps with an offset or `Z`. Responses use UTC, at millisecond
+precision.
 
-Collection responses have `items` and `next_after`. They use ascending ID
-order. The optional `limit` defaults to 50 and is capped at 200. Pass the
-previous response's `next_after` as the `after` query parameter to continue.
-A final or empty page returns `"next_after":null`.
+Send a single JSON object of up to 64 KiB with
+`Content-Type: application/json`. Unknown or duplicate keys, trailing
+values, wrong types and nulls produce `400 invalid_json`. PATCH changes
+supplied fields and the dependent settings described below. Use `""` or
+`[]` where a field allows clearing.
 
-```json
-{"items":[{"id":"1","kind":"webhook"}],"next_after":null}
-```
+GET returns `200`. HEAD uses the same permission as GET. Create requests
+return `201`, a `Location` header with the new API path and an object such as
+`{"id":"42"}`.
+PATCH, PUT, DELETE, and actions that end maintenance, publish an incident
+or add an update return `204`. Retrying a create or append can add another
+record.
 
-Resource creation returns `201`, a `Location` header and a JSON object with
-the created resource's `id`. Updates, deletes, publishing and appending an
-incident update return `204`. Creating a status page with an existing slug
-returns `409`. A retry of other create or append requests may create another
-record. Publishing an already public incident returns `204` with no added
-timeline event.
+### Pagination
 
-API errors use `error.code` and `error.message`, with `error.field` for
-field-specific validation. Branch on the status or code.
+Lists return `items` in ascending ID order. Use the response's
+`next_after` as the `after` query parameter. A final or empty page returns
+`"next_after":null`. Use positive decimal integers for `after` and `limit`.
+The default limit is 50, capped at 200.
+
+### Errors
+
+Check `error.code` or the HTTP status. The response includes
+`error.message` and, for a field error, `error.field`.
 
 ```json
 {"error":{"code":"invalid_field","field":"title","message":"Use text between 1 and 200 characters."}}
@@ -64,18 +61,20 @@ field-specific validation. Branch on the status or code.
 | Status | Codes |
 | --- | --- |
 | 400 | `invalid_json`, `invalid_query` |
-| 401 | `invalid_token` for a missing, invalid, expired or revoked token |
+| 401 | `invalid_token` for missing, invalid, expired or revoked tokens |
 | 403 | `insufficient_permission`, `cross_origin` |
-| 404 | `not_found` for a missing resource or a child of a different page |
-| 405 | `method_not_allowed`, with an `Allow` header |
-| 409 | `slug_taken`, `domain_taken` |
+| 404 | `not_found` for a missing path, invalid ID or resource outside the requested page |
+| 405 | `method_not_allowed`. The allowed methods are in the `Allow` header. |
+| 409 | `slug_taken`, `domain_taken`, `maintenance_not_started` |
 | 413 | `body_too_large` |
 | 415 | `unsupported_media_type` |
 | 422 | `invalid_field`, `unknown_monitor`, `unknown_alert_channel` |
 | 500 | `internal_error` |
-| 503 | `unavailable` when the request times out |
+| 503 | `unavailable` for a timeout |
 
 ## Endpoints and permissions
+
+### Status pages and layouts
 
 | Method and path | Permission |
 | --- | --- |
@@ -86,6 +85,64 @@ field-specific validation. Branch on the status or code.
 | `DELETE /status-pages/{page}` | `status_pages:delete` |
 | `GET /status-pages/{page}/layout` | `status_pages:read` |
 | `PUT /status-pages/{page}/layout` | `status_pages:update` |
+
+POST takes `name` and `slug`. Use 1 to 64 lowercase letters, digits or
+internal hyphens for `slug`. It fixes the public address at `/s/{slug}`.
+Reads return `id`, `slug` and the settings below. PATCH accepts these
+settings.
+
+| Setting | Accepted values | Default |
+| --- | --- | --- |
+| `name` | 1 to 120 characters | Required on create |
+| `tagline`, `footer_text`, `custom_css` | Up to 200, 500 and 20,000 characters, respectively | `""` |
+| `homepage_url` | HTTP(S) URL with a host, up to 2,048 characters, or `""` | `""` |
+| `nav_links` | Up to six `label \| URL` lines, 2,000 characters total. Use HTTP(S) URLs, with up to 40 bytes per label. | `""` |
+| `navbar_brand` | `icon`, `icon-name`, `name` | `icon-name` |
+| `navbar_link` | `status` for this page, `list` for the page list, `homepage` for `homepage_url` | `status` |
+| `domain` | Hostname up to 253 characters, or `""` | `""` |
+| `timezone` | Recognized timezone name up to 64 characters, such as `Asia/Manila` | `UTC` |
+| `theme` | `auto`, `light`, `dark` | `auto` |
+| `surface` | `neutral`, `paper` | `neutral` |
+| `corners` | `sharp`, `soft`, `round` | `soft` |
+| `font` | `system`, `rounded`, `serif`, `mono` | `system` |
+| `accent_hue` | Integer from 0 to 360 | 200 |
+| `history_days` | Integer from 7 to 365 | 90 |
+| `backfill` | `none`, `up`, `degraded`, `down` | `none` |
+| `graph_fill` | `gradient`, `filled`, `none`, or `""` to inherit from the instance | `""` |
+| `announcement` | Pinned plain text up to 1,000 characters. Use `""` to hide it. | `""` |
+| `announcement_color` | `blue`, `green`, `amber`, `red`, `neutral`, `accent`, or `""` for blue | `""` |
+| `show_face`, `show_powered_by` | Booleans | `true` |
+| `hide_quiet_days`, `noindex` | Booleans | `false` |
+
+Use a nonempty `homepage_url` when `navbar_link` is `homepage`.
+To clear the URL, switch the link to `status` or `list` in the same PATCH.
+
+Layout PUT replaces both arrays. Supply `categories` and `monitors` in
+display order, using `[]` to clear either. Names in `categories` must be
+distinct and 1 to 80 characters after trimming. Use each `monitor_id` at
+most once.
+`category` must match a name from the array, or be empty or omitted.
+
+```json
+{
+  "categories": ["Backend"],
+  "monitors": [{"monitor_id":"1","category":"Backend","display":"latency"}]
+}
+```
+
+`display` is `bars` by default, with `latency`, `summary` and `minimal`
+also available. An empty or omitted `graph_fill` inherits from the page.
+`exclude_from_status` defaults to `false`. Set it to `true` to show the
+monitor and omit it from the page's overall status. Layout GET returns
+the same fields.
+
+Deleting a page removes its placements, incidents and maintenance. Monitors
+and alert channels belong to the installation.
+
+### Monitors
+
+| Method and path | Permission |
+| --- | --- |
 | `GET /monitors` | `monitors:read` |
 | `POST /monitors` | `monitors:create` |
 | `GET /monitors/{monitor}` | `monitors:read` |
@@ -93,11 +150,70 @@ field-specific validation. Branch on the status or code.
 | `DELETE /monitors/{monitor}` | `monitors:delete` |
 | `GET /monitors/{monitor}/alert-channels` | `monitors:read` |
 | `PUT /monitors/{monitor}/alert-channels` | `monitors:update` |
+
+Add a monitor to a page with the layout endpoint. Deleting a monitor
+removes its history and placements.
+
+| Field | Accepted values | Default |
+| --- | --- | --- |
+| `name` | 1 to 120 characters | Required on create |
+| `tags` | Array of strings split at commas, with whitespace collapsed and case-insensitive duplicates removed. Up to 1,000 characters joined with comma-space. | `[]` |
+| `kind` | `http`, `tcp`, `dns`, `ping`, `push` | `http` |
+| `target` | Write-only, up to 2,048 characters. Required on create or kind change for checks other than push. | Omit or use `""` for push |
+| `keyword` | Write-only HTTP response text to match, up to 200 characters. Use `""` to clear it. | `""` |
+| `interval_s` | Integer from 20 to 86,400 seconds | 60 |
+| `timeout_ms` | Integer from 1,000 to 60,000 ms in whole seconds | 10,000 |
+| `retries` | Integer from 0 to 10. At 2, the third consecutive failure marks the monitor down. | 2 |
+| `retry_interval_s` | Integer from 1 to 3,600 seconds between retries | 20 |
+| `recovery_checks` | Integer from 1 to 10 consecutive successes | 2 |
+| `auto_create_incident` | `off`, `draft`, `publish` | `draft` |
+| `auto_resolve_incident` | `off`, `drafts`, `all` | `drafts` |
+| `paused` | Boolean | `false` |
+
+For HTTP targets, use an HTTP(S) URL with a host. For TCP, use `host:port`
+with a numeric port from 1 to 65,535. For DNS and ping, use a hostname or
+address without a scheme or port. Changing to a non-HTTP kind clears the
+keyword.
+
+Reads include `id`, the non-secret settings, `status` (`unknown`, `up` or
+`down`), `status_since` and nullable `last_check_at`, `last_latency_ms`,
+`last_push_at` and `cert_expires_at`.
+
+On a confirmed outage, `draft` and `publish` create an incident on each
+page showing the monitor. Sending `publish` needs both `incidents:create`
+and `incidents:publish` in addition to the monitor grant. On recovery,
+`drafts` resolves drafts from that monitor and `all` also resolves its
+published incidents. Sending `all` needs `incidents:update`. Resolve
+manual incidents and older incidents without a source by posting an
+update.
+
+New monitors start with no alert channels. The `/alert-channels`
+subresource reads or replaces assignments with `{"alert_channel_ids":["1"]}`.
+Use distinct IDs of existing channels, or an empty array to clear them.
+
+### Alert channels
+
+| Method and path | Permission |
+| --- | --- |
 | `GET /alert-channels` | `alert_channels:read` |
 | `POST /alert-channels` | `alert_channels:create` |
 | `GET /alert-channels/{channel}` | `alert_channels:read` |
 | `PATCH /alert-channels/{channel}` | `alert_channels:update` |
 | `DELETE /alert-channels/{channel}` | `alert_channels:delete` |
+
+Create a channel with `kind` (`webhook`, `discord`, `slack` or `email`)
+and a write-only `destination` of up to 2,048 characters. Use a plain
+email address or an HTTP(S) webhook URL, as appropriate. PATCH can change
+either field. Include the destination when changing the kind. Reads return
+`id` and `kind`.
+
+To use a new channel, assign it on the monitor. Editing its destination
+redirects alerts from existing assignments. Deleting it clears them.
+
+### Maintenance
+
+| Method and path | Permission |
+| --- | --- |
 | `GET /status-pages/{page}/maintenance` | `maintenance:read` |
 | `POST /status-pages/{page}/maintenance` | `maintenance:create` |
 | `GET /status-pages/{page}/maintenance/{window}` | `maintenance:read` |
@@ -106,6 +222,36 @@ field-specific validation. Branch on the status or code.
 | `POST /status-pages/{page}/maintenance/{window}/end` | `maintenance:update` |
 | `GET /status-pages/{page}/maintenance/{window}/updates` | `maintenance:read` |
 | `POST /status-pages/{page}/maintenance/{window}/updates` | `maintenance:update` |
+
+Create a window with `title` (1 to 200 characters), `starts_at` and either
+`ends_at` or `"until_further_notice":true`. A fixed end must be after the
+start and in the future when you set up the window or change its dates.
+Set `ends_at` to give an open window a fixed end. This clears
+`until_further_notice`. Include an end if you set that flag to `false`
+on an open window.
+
+Send distinct `monitor_ids` from the page to restrict the window's scope.
+Omit the field on create or use `[]` to cover all page monitors. A supplied
+list replaces the scope on PATCH. Active windows pause covered monitors'
+scheduled checks, including monitors shared across pages.
+
+Reads include past windows and return `id`, `status_page_id`,
+`all_monitors` and the settings above. An open window returns
+`"ends_at":null`. Use `all_monitors` to tell whole-page coverage from a
+scoped window whose selected monitors were removed.
+
+POST to `/end` with no body or `{}` to end an active window. An upcoming
+window returns `409 maintenance_not_started`. Ending it again returns
+`204` and keeps the recorded end.
+
+GET `/updates` returns messages with `id`, `body` and `at`. POST a
+`body` of 1 to 5,000 characters to add a message. You can read or add
+messages after the window ends. Deleting a window removes its messages.
+
+### Incidents
+
+| Method and path | Permission |
+| --- | --- |
 | `GET /status-pages/{page}/incidents` | `incidents:read` |
 | `POST /status-pages/{page}/incidents` | `incidents:create` |
 | `GET /status-pages/{page}/incidents/{incident}` | `incidents:read` |
@@ -115,140 +261,33 @@ field-specific validation. Branch on the status or code.
 | `POST /status-pages/{page}/incidents/{incident}/updates` | `incidents:update` |
 | `POST /status-pages/{page}/incidents/{incident}/publish` | `incidents:publish` |
 
-## Status pages and layouts
+Create a draft with `title` (1 to 200 characters) and `message` (1 to 5,000
+characters). The message becomes its first update. Optional fields are
+`impact` (`minor`, `major`, `critical`), `status` (`investigating`,
+`identified`, `monitoring`, `resolved`) and `monitor_ids`. They default
+to `minor`, `investigating` and `[]`.
 
-Create a page with `name` (1–120 characters) and `slug` (1–64 lowercase
-letters, digits or internal hyphens). The slug determines the public address
-at `/s/{slug}` and is fixed after creation. A new API-created page starts in
-UTC. Read responses contain `id`, `slug` and the settings below. PATCH accepts
-any subset of these settings.
+PATCH accepts `title`, `impact` and `monitor_ids`. A supplied list of
+distinct IDs from the page replaces the affected monitors.
 
-| Fields | Values |
-| --- | --- |
-| `name`, `tagline`, `footer_text`, `custom_css` | Name 1–120 characters. The others accept 0–200, 0–500 and 0–20,000 respectively. |
-| `homepage_url`, `nav_links` | An HTTP(S) URL up to 2,048 characters, and up to six lines of `label \| URL` totaling up to 2,000 characters. Empty strings clear them. |
-| `domain` | A hostname up to 253 characters, or an empty string. |
-| `timezone` | A recognized timezone name such as `Asia/Manila`. |
-| `theme`, `surface`, `corners`, `font` | `auto`, `light` or `dark`. `neutral` or `paper`. `sharp`, `soft` or `round`. `system`, `rounded`, `serif` or `mono`. |
-| `navbar_brand` | `icon`, `icon-name` or `name`. |
-| `navbar_link` | `status` (default), `list` or `homepage`. `homepage` requires a `homepage_url`. |
-| `announcement`, `announcement_color` | Pinned plain text up to 1,000 characters. An empty message hides it. Choose `blue`, `green`, `amber`, `red`, `neutral`, `accent`, or an empty string for blue. |
-| `accent_hue`, `history_days` | Integers 0–360 and 7–365 respectively. |
-| `backfill`, `graph_fill` | `none`, `up`, `degraded` or `down`. `gradient`, `filled`, `none` or an empty string to inherit. |
-| `show_face`, `hide_quiet_days`, `show_powered_by`, `noindex` | Booleans. |
+Reads include drafts. Lists return `id`, `status_page_id`, `title`,
+`impact`, `status`, `published`, `started_at` and nullable
+`resolved_at`. Detail reads also return `monitor_ids`.
 
-Layout GET and PUT use the shape below. PUT replaces the categories and
-monitor placements together. Supply both arrays and use empty arrays to
-clear them. Categories are unique, 1–80 characters, and kept in array
-order. The `monitors` array orders the placements. Each monitor ID may
-appear at most once per page. Omit `category` or use an empty string for an
-uncategorized monitor. A nonempty category must appear in `categories`.
-`display` is `bars` (default), `latency`, `summary` or `minimal`.
-`graph_fill` uses the page's options and inherits the page if empty or omitted.
-Set `exclude_from_status` to `true` to keep a monitor visible while removing
-its contribution to the overall state of this page. It defaults to `false`.
+GET `/updates` returns entries with `id`, `status`, `body` and `at`.
+POST a `status` and a `body` of 1 to 5,000 characters to add an update
+and set the incident's status. A `resolved` status sets `resolved_at` on
+create or append. Appending another status clears it and reopens the
+incident.
 
-```json
-{"categories":["Backend"],"monitors":[{"monitor_id":"1","category":"Backend","display":"latency","graph_fill":""}]}
-```
-
-Deleting a page removes its placements, incidents, maintenance windows and
-other page-specific records. Its monitors and alert channels remain available
-to the install.
-
-## Monitors
-
-Monitors belong to the install. Use the page layout endpoint to display one
-on a status page. A new monitor starts with no channel assignments.
-
-| Writable field | Values |
-| --- | --- |
-| `name` | Required on create. 1–120 characters. |
-| `tags` | Array of strings. Trims and collapses whitespace and deduplicates case-insensitively. Up to 1,000 characters joined with comma-space. Omit to preserve tags or send `[]` to clear them. |
-| `kind` | `http` (default), `tcp`, `dns`, `ping` or `push`. |
-| `target` | Write-only. Required on create and kind changes for `http`, `tcp`, `dns` and `ping`. Use an HTTP(S) URL, a host with a numeric port (1–65535), or a hostname/address respectively. Maximum 2,048 characters. Push uses an omitted or empty target. |
-| `keyword` | Write-only. HTTP response text to match, up to 200 characters. Empty clears it. |
-| `interval_s` | Integer 20–86,400. Default 60. |
-| `timeout_ms` | Integer 1,000–60,000 in whole-second increments. Default 10,000. |
-| `retries` | Additional consecutive failures after the initial failed check. Integer 0–10. Default 2, so the third failed check marks the monitor down. |
-| `retry_interval_s` | Integer 1–3,600. Default 20. |
-| `recovery_checks` | Consecutive successful checks needed to confirm recovery. Integer 1–10. Default 2. |
-| `auto_create_incident` | `off`, `draft` (default), or `publish`. On a confirmed outage, create a draft or published incident on each page showing the monitor. |
-| `auto_resolve_incident` | `off`, `drafts` (default), or `all`. On confirmed recovery, resolve drafts only or both drafts and published incidents created by this monitor. |
-| `paused` | Boolean. Default false. |
-
-Reads return the ID and non-secret settings, plus `status` (`unknown`,
-`up` or `down`), `status_since`, and nullable `last_check_at`,
-`last_latency_ms`, `last_push_at` and `cert_expires_at`. The API restricts
-raw check errors and the push reporting URL to the admin console.
-Setting `publish` also requires `incidents:create` and `incidents:publish`.
-Setting `all` also requires `incidents:update`. Omit either policy in PATCH
-to keep its current value. Manual incidents and incidents created before source
-tracking stay open until someone resolves them.
-
-The monitor's `/alert-channels` subresource reads or replaces assignments
-with `{"alert_channel_ids":["1"]}`. Each ID must be distinct and refer to
-an existing channel. An empty array clears the assignments. Deleting a
-monitor removes its history and its placements while keeping its pages.
-
-## Alert channels
-
-POST requires `kind` and `destination`. PATCH can update either and requires
-a destination if the kind changes. Kind is `webhook`, `discord`, `slack`
-or `email`. The write-only destination is an HTTP(S) webhook URL or an email
-address, up to 2,048 characters. Reads return `id` and `kind`.
-
-Channels created through the API start unassigned. Add them to monitors
-through the monitor's assignment endpoint. Updating a channel changes the
-destination for existing assignments. Deleting one removes its assignments.
-Channel configuration permissions grant control over where an install can
-send alerts.
-
-## Maintenance
-
-Maintenance windows belong to a status page. The collection includes past
-windows. POST requires a title (1–200 characters), `starts_at`, and either a
-future `ends_at` after the start or `until_further_notice: true`. Open-ended
-windows return `ends_at: null`. Send a scheduled `ends_at` to give one a fixed
-end. PATCH preserves omitted fields.
-
-Set `monitor_ids` to a list of distinct IDs on the page to scope the window.
-Omit it on create or send an empty array to cover all page monitors. Reads
-include `all_monitors`, `monitor_ids`, and `until_further_notice` alongside
-the original window fields. Removing a selected monitor does not broaden
-the scope.
-
-POST to `/end` with no body or `{}` to end a running window. An already ended
-window succeeds without changing its end. An upcoming window returns `409`.
-GET `/updates` lists dated messages (`id`, `body`, `at`), including after
-the window ends. POST a `body` of 1–5,000 characters to add an update, returning
-`204`. Deleting a window removes its updates.
-
-## Incidents
-
-Incident reads include drafts and published incidents. The collection
-returns `id`, `status_page_id`, `title`, `impact`, `status`,
-`published`, `started_at` and nullable `resolved_at`. A single incident
-also returns `monitor_ids`. Use `/updates` to read its timeline. Each
-update has `id`, `status`, `body` and `at`. Timeline content can
-include private notes or automatic draft messages.
-
-POST an incident with `title` (1–200 characters) and `message` (1–5,000
-characters) for its first update. Optional fields are `impact` (`minor`,
-`major`, `critical`), `status` (`investigating`, `identified`,
-`monitoring`, `resolved`) and `monitor_ids`. Defaults are `minor`,
-`investigating` and an empty list. The incident starts as a draft.
-
-PATCH accepts `title`, `impact` and `monitor_ids`. When supplied, monitor
-IDs replace the affected monitors. Every referenced monitor must appear on the
-incident's page. POST to `/updates` with a `status` and `body` (1–5,000
-characters) to append a timeline message and set its current status. POST to
-`/publish` to make the incident public. Omit the body or send an empty object.
+POST to `/publish` with an empty body or `{}`. Publishing exposes the
+existing timeline, including messages written while the incident was a
+draft. Repeated calls return `204` and record just one publication event.
+Deleting an incident removes its updates.
 
 ## Admin console
 
-Token management, users, instance settings, status-page image uploads, page
-and monitor list ordering, alert test delivery, push URL retrieval and
-raw check diagnostics are available through the signed-in admin console.
-Monitor check history, rollups and page event history use the existing HTML
-views.
+Use the signed-in admin console for tokens, users, instance settings, image
+uploads, global page and monitor ordering, alert tests, push URLs and raw
+check errors. Check history, rollups and page events are available in the
+HTML views.

@@ -1,81 +1,53 @@
 # Roadmap
 
-This is the planned order of work. It is a plan, not a promise, and it has no
-dates. The order comes from three questions asked of other uptime monitors:
-what their users complain about, what their users ask to customize, and what
-paid services include as standard.
+## Shipped
 
-`PROGRESS.md` says what is already built and verified.
+- Uppies checks HTTP(S), TCP, DNS and ping targets and watches scheduled jobs.
+  It warns before HTTPS certificates expire and sends alerts by email, webhook,
+  Discord or Slack. An outbound heartbeat lets another service check that
+  Uppies is running.
+- The same monitor can appear on several status pages, each with its own
+  monitor order, branding and domain settings. A page can show daily uptime
+  over 7 to 365 days. The homepage shows uptime and recent incidents across
+  pages.
+- Published incidents have dated updates and a public archive. Maintenance
+  can cover selected monitors, carry public updates and stay open until you
+  end it.
+- The admin supports multiple accounts. [API v1](API.md) uses scoped tokens.
+- Docker images are available for Linux on amd64 and arm64. SQLite is the
+  default database. Uppies also supports PostgreSQL, MariaDB, embedded Turso
+  SQLite and Turso PostgreSQL.
 
-## Done
+## Next
 
-- HTTP(S) and TCP checks with retries before down and good checks before up.
-- Status pages for several projects from one install, with a 90-day bar.
-- Incidents with dated updates, and private drafts opened by outages.
-- A timeline per project.
-- DNS and ping checks, push monitors for scheduled jobs, and certificate
-  expiry warnings.
-- Alerts by email and to a webhook, Discord or Slack, and an outside heartbeat.
-- Planned maintenance windows.
-- A Dockerfile.
-- Monitor categories and a choice of displays per monitor.
-- An incident history page with a year map and a timeline.
-- An admin with a sidebar, an overview of every monitor, dialogs and icons.
-- Status page settings: logo, favicon, tagline, homepage link, theme, accent
-  colour, days of history, timezone, footer, custom CSS, custom domain, hidden
-  monitors, no vendor name, search engine opt-out, and a badge.
+1. Publish standalone binaries.
+2. Publish an Atom feed, then add email subscriptions.
+3. Add 24-hour, 7-day and 30-day uptime views using hourly totals.
+4. Let users set alert message templates.
+5. Add password protection for status pages.
+6. Document a stable set of CSS classes for custom styles.
+7. Repeat alerts during an outage and add an independent check for Uppies'
+   own network.
 
-## Before the next features
+## Automation
 
-A design pass on the status page and the admin pages is under way. Most pages
-are done. What is left is listed in `PROGRESS.md`.
+1. Extend [API v1](API.md) to cover more admin tasks.
+2. Read monitors, status pages and alert channels from a config file kept
+   in Git. Entries managed by the file are read-only in the admin.
+3. Add an import for Uptime Kuma.
 
-## 1. Telling people what is happening
+## Teams and checks
 
-0. **Release builds**, and a published container image, so that installing
-   takes one command.
-1. **Status page subscriptions.** An Atom feed first, since it needs no mail
-   server. Email subscriptions after email alerts exist.
-2. **More history and ranges.** 24 hours, 7 days and 30 days next to the daily
-   bar, and up to 365 days. This needs hourly totals.
-3. **Alert message templates.** Changing what an alert says is the most
-   requested customization in other monitors.
-4. **A password on a status page**, for pages meant for a team or a customer.
-5. **A chosen order on the status page.** Monitors are grouped by category and
-   listed by name today.
-6. **Documented class names for custom CSS**, kept stable between releases, so
-   that a custom style survives an upgrade.
-7. **Alert quality.** Repeat an alert while something stays down, and tell an
-   outage of everything apart from uppies losing its own network, once there is
-   an independent reference to check against.
+1. Run checks from more than one location. Require a second location to
+   confirm a failure.
+2. Add two-factor sign-in, then single sign-on.
+3. Translate the public status pages.
+4. Use monitor dependencies so a shared failure sends one alert.
 
-## 2. Automation
+## Out of scope
 
-1. **A REST API with keys.** [API v1](API.md) covers status pages, monitors,
-   incidents, maintenance and alert channels. Expand coverage as automation needs grow.
-2. **A config file** for monitors, projects and alert channels, kept in git.
-   Items from the file are read-only in the admin pages.
-3. **Import from Uptime Kuma.**
-
-## 3. Growing with a team
-
-1. **Checks from more than one place.** A small probe runs checks elsewhere
-   and reports back, and a failure counts only when a second place agrees.
-2. **More than one user**, two-factor sign-in, then single sign-on.
-3. **PostgreSQL** as a second database for people who already run one. SQLite
-   stays the default.
-4. **Other languages** for the status page.
-5. **Dependencies between monitors**, so that one root failure sends one alert.
-
-## Not planned
-
-Each of these would add a large moving part, and other tools do them well.
-
-- SMS and phone calls. They need a paid carrier account. A webhook to a
-  service you already use covers it.
-- Checks that drive a real browser.
+- SMS and phone calls.
+- Browser checks, page speed scores and broken-link crawling.
 - On-call schedules and escalation chains.
-- Server metrics such as CPU, memory and disk.
-- Page speed scores and broken-link crawling.
-- Custom scripts and tracking codes on status pages. They would mean giving
-  up the rule that a status page runs no script at all.
+- Host metrics such as CPU, memory and disk.
+- Custom scripts and tracking codes on status pages.
