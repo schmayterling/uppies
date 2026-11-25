@@ -88,7 +88,10 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 		return id
 	}
 	create(edge, "Older ongoing incident", "investigating", started-time.Hour.Milliseconds(), true)
-	create(core, "Checkout <orders>", "resolved", started, true)
+	checkout := create(core, "Checkout <orders>", "resolved", started, true)
+	check(st.AddIncidentUpdate(ctx, checkout, store.IncidentUpdate{
+		Status: "resolved", Title: "Payments are back", Body: "Every **order** went through.", AtMs: started + 3*time.Hour.Milliseconds(),
+	}))
 	archiveBoundary := create(core, "First tied incident", "resolved", started, true)
 	for i := range 18 {
 		create(core, fmt.Sprintf("Tied incident %02d", i), "resolved", started, true)
@@ -106,7 +109,8 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 			"href=\"/incidents\">full incident history", ">dec 31, 2025</h3>",
 			"href=\"/s/core/history?year=2026\"", "Core &amp; Checkout",
 			"href=\"/s/edge/history?year=2025\"", "Active network incident", "monitoring",
-		}, []string{"Unpublished incident", "incident update body", "Older ongoing incident"})
+			`<div class="update-body md"><p>incident update body</p>`,
+		}, []string{"Unpublished incident", "Older ongoing incident"})
 	}
 
 	olderURL := fmt.Sprintf("/incidents?before=%d.%d", started, archiveBoundary)
@@ -123,9 +127,15 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 		"rel=\"canonical\" href=\"" + origin + olderURL + "\"",
 		"href=\"/incidents\">newest incidents",
 		"Checkout &lt;orders&gt;", "Older ongoing incident", "Earlier year incident",
-		`<strong>started</strong> <time class="meta" datetime="2025-12-31T23:30:00Z"`,
-		`<strong>resolved</strong> <time class="meta" datetime="2026-01-01T01:30:00Z"`,
-	}, []string{"First tied incident", "older incidents", "incident update body"})
+		"<strong>Payments are back</strong>", `datetime="2026-01-01T02:30:00Z"`,
+		"<p>Every <strong>order</strong> went through.</p>", `datetime="2026-01-01T01:30:00Z"`,
+	}, []string{"First tied incident", "older incidents"})
+	// The archive shows an incident's updates newest first, as a status page does.
+	_, checkoutArticle, _ := strings.Cut(older, "<h4>Checkout &lt;orders&gt;</h4>")
+	checkoutArticle, _, _ = strings.Cut(checkoutArticle, "</article>")
+	if strings.Index(checkoutArticle, "Payments are back") > strings.Index(checkoutArticle, "incident update body") {
+		t.Error("the archive must list an incident's updates newest first")
+	}
 
 	year := get("/incidents?year=2025", http.StatusOK)
 	checkHTML(year, []string{

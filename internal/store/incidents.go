@@ -239,27 +239,15 @@ func (s *Store) incidents(ctx context.Context, condition string, args ...any) ([
 		return incidents, err
 	}
 
-	selected := strings.Repeat("?, ", len(ids)-1) + "?"
-	updates, err := s.db.QueryContext(ctx, `
-		select incident_id, id, status, title, body, at_ms from incident_updates
-		where incident_id in (`+selected+`) order by at_ms desc, id desc`, ids...)
+	updates, err := s.incidentUpdates(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	defer updates.Close()
-	for updates.Next() {
-		var incidentID int64
-		var u IncidentUpdate
-		if err := updates.Scan(&incidentID, &u.ID, &u.Status, &u.Title, &u.Body, &u.AtMs); err != nil {
-			return nil, err
-		}
-		in := &incidents[position[incidentID]]
-		in.Updates = append(in.Updates, u)
-	}
-	if err := updates.Err(); err != nil {
-		return nil, err
+	for i := range incidents {
+		incidents[i].Updates = updates[incidents[i].ID]
 	}
 
+	selected := strings.Repeat("?, ", len(ids)-1) + "?"
 	links, err := s.db.QueryContext(ctx, `
 		select incident_id, monitor_id from incident_monitors
 		where incident_id in (`+selected+`) order by monitor_id`, ids...)
@@ -276,6 +264,29 @@ func (s *Store) incidents(ctx context.Context, condition string, args ...any) ([
 		in.MonitorIDs = append(in.MonitorIDs, monitorID)
 	}
 	return incidents, links.Err()
+}
+
+// incidentUpdates loads the updates of the given incidents with one query,
+// newest first, keyed by incident.
+func (s *Store) incidentUpdates(ctx context.Context, ids []any) (map[int64][]IncidentUpdate, error) {
+	selected := strings.Repeat("?, ", len(ids)-1) + "?"
+	rows, err := s.db.QueryContext(ctx, `
+		select incident_id, id, status, title, body, at_ms from incident_updates
+		where incident_id in (`+selected+`) order by at_ms desc, id desc`, ids...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	updates := make(map[int64][]IncidentUpdate, len(ids))
+	for rows.Next() {
+		var incidentID int64
+		var u IncidentUpdate
+		if err := rows.Scan(&incidentID, &u.ID, &u.Status, &u.Title, &u.Body, &u.AtMs); err != nil {
+			return nil, err
+		}
+		updates[incidentID] = append(updates[incidentID], u)
+	}
+	return updates, rows.Err()
 }
 
 // PublishedIncidentsBetween returns a project's public incidents that started
