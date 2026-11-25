@@ -1,3 +1,5 @@
+{{define "powered-by"}}powered by <a href="https://github.com/schmayterling/uppies">uppies</a>.{{end}}
+
 {{define "nav-links"}}{{range .}}<a href="{{.URL}}" rel="noopener">{{.Label}}</a>{{end}}{{end}}
 
 {{define "index-site-bar"}}{{$section := .Second}}{{with .First}}
@@ -21,7 +23,7 @@
 {{if or .FooterText .ShowPoweredBy}}
 <footer class="page-foot meta index-footer">
   {{with .FooterText}}<p>{{.}}</p>{{end}}
-  {{if .ShowPoweredBy}}<p>powered by uppies.</p>{{end}}
+  {{if .ShowPoweredBy}}<p>{{template "powered-by"}}</p>{{end}}
 </footer>
 {{end}}
 {{end}}

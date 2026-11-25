@@ -96,6 +96,6 @@
 
 <footer class="page-foot meta">
   {{with .Project.FooterText}}<p>{{.}}</p>{{end}}
-  <p>this page reloads every minute.{{if .Project.ShowPoweredBy}} powered by uppies.{{end}}</p>
+  <p>this page reloads every minute.{{if .Project.ShowPoweredBy}} {{template "powered-by"}}{{end}}</p>
 </footer>
 {{end}}

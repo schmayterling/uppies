@@ -1494,7 +1494,7 @@ func TestInstancePagesAndUsers(t *testing.T) {
 		}
 		for _, want := range []string{
 			marker, "Acme", `href="/s/acme"`, "<title>acme ops status</title>", `href="https://docs.example.com/"`,
-			`<h1 class="visually-hidden">status pages</h1>`, "Reach the &lt;ops&gt; team", "powered by uppies.",
+			`<h1 class="visually-hidden">status pages</h1>`, "Reach the &lt;ops&gt; team", `powered by <a href="https://github.com/schmayterling/uppies">uppies</a>.`,
 			`href="/status-pages" aria-current="page">status</a>`, `href="/incidents">incidents</a>`,
 		} {
 			if !strings.Contains(page, want) {
@@ -1509,7 +1509,7 @@ func TestInstancePagesAndUsers(t *testing.T) {
 			`class="site-bar"`, `class="site-brand" href="/status-pages"`, `>acme ops</a>`,
 			`href="/status-pages">status</a>`, `href="/incidents" aria-current="page">incidents</a>`,
 			`href="https://docs.example.com/"`, "Planned work &lt;today&gt;.\nAn update will follow.",
-			`class="page-foot meta index-footer"`, "Reach the &lt;ops&gt; team", "powered by uppies.",
+			`class="page-foot meta index-footer"`, "Reach the &lt;ops&gt; team", `powered by <a href="https://github.com/schmayterling/uppies">uppies</a>.`,
 		} {
 			if !strings.Contains(archive, want) {
 				t.Errorf("incident archive with list layout %s is missing %q", layout, want)
@@ -1525,7 +1525,7 @@ func TestInstancePagesAndUsers(t *testing.T) {
 		strings.Contains(page, "Planned work") || !strings.Contains(page, "acme ops") {
 		t.Error("with the public list off, the front page shows the instance name and no status page")
 	}
-	if !strings.Contains(page, "Reach the &lt;ops&gt; team") || !strings.Contains(page, "powered by uppies.") {
+	if !strings.Contains(page, "Reach the &lt;ops&gt; team") || !strings.Contains(page, `powered by <a href="https://github.com/schmayterling/uppies">uppies</a>.`) {
 		t.Error("an older form must keep the footer settings")
 	}
 	homepage := url.Values{"name": {"acme ops"}, "public_list": {"on"}, "list_show_powered_by": {"off"}}
@@ -1533,7 +1533,7 @@ func TestInstancePagesAndUsers(t *testing.T) {
 		t.Fatalf("hide the footer credit: got %d, want 303", resp.StatusCode)
 	}
 	_, page = s.get(t, s.anonymous, "/")
-	if !strings.Contains(page, "Reach the &lt;ops&gt; team") || strings.Contains(page, "powered by uppies.") {
+	if !strings.Contains(page, "Reach the &lt;ops&gt; team") || strings.Contains(page, `powered by <a href="https://github.com/schmayterling/uppies">uppies</a>.`) {
 		t.Error("hiding the credit must keep the homepage footer text")
 	}
 	if !strings.Contains(page, "Planned work &lt;today&gt;.") {
@@ -1547,7 +1547,7 @@ func TestInstancePagesAndUsers(t *testing.T) {
 	if _, page := s.get(t, s.anonymous, "/"); strings.Contains(page, "index-footer") || strings.Contains(page, "page-announcement") {
 		t.Error("an empty footer and announcement must be omitted")
 	}
-	if _, page := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(page, "powered by uppies.") {
+	if _, page := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(page, `powered by <a href="https://github.com/schmayterling/uppies">uppies</a>.`) {
 		t.Error("the homepage setting must not control the credit on a status page")
 	}
 

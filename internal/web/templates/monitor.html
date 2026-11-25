@@ -12,6 +12,6 @@
 </header>
 {{template "monitor-detail" (pair .Detail .Project.HistoryDays)}}
 <footer class="page-foot meta">
-  <p>times are shown in {{.ZoneName}}. this page reloads every minute.{{if .Project.ShowPoweredBy}} powered by uppies.{{end}}</p>
+  <p>times are shown in {{.ZoneName}}. this page reloads every minute.{{if .Project.ShowPoweredBy}} {{template "powered-by"}}{{end}}</p>
 </footer>
 {{end}}
