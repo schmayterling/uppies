@@ -3,7 +3,7 @@
 {{define "index-site-bar"}}{{$section := .Second}}{{with .First}}
 {{if or .Listed (not .Chrome.Auth)}}
 <header class="site-bar">
-  {{if not .Chrome.Auth}}<a class="site-brand" href="/status-pages">{{if .LogoVersion}}<img class="logo" src="/logo?v={{.LogoVersion}}" alt="">{{else}}{{template "status-icon" .StatusIcon}}{{end}}{{.Chrome.Brand}}</a>{{end}}
+  {{if not .Chrome.Auth}}<a class="site-brand" href="/status-pages">{{if .Chrome.Logo}}<img class="logo" src="/logo?v={{.Chrome.Logo}}" alt="">{{else}}{{template "status-icon" .StatusIcon}}{{end}}{{.Chrome.Brand}}</a>{{end}}
   <nav class="site-links" aria-label="{{.Chrome.Brand}}">
     {{if .Listed}}
     <a href="/status-pages"{{if eq $section "status"}} aria-current="page"{{end}}>status</a>

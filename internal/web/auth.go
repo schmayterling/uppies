@@ -145,6 +145,7 @@ func (s *Server) signInChrome(r *http.Request, title string) chrome {
 		return c
 	}
 	c.Brand, c.AuthLayout, c.AuthBackground = instance.Name, instance.LoginLayout, instance.LoginBackground
+	c.Logo = s.logoVersion(r.Context())
 	if c.AuthBackground != "image" {
 		return c
 	}

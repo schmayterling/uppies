@@ -325,6 +325,9 @@ type chrome struct {
 	AuthBackground string
 	// AuthImage is the version of the uploaded background, or 0 when there is none.
 	AuthImage int64
+	// Logo is the version of the install's logo, or 0 when there is none. The
+	// install's name shows it in place of the status icon.
+	Logo int64
 	// Favicon is the address of the install's own favicon, empty when it has
 	// none, in which case the built-in one is linked. A status page with a
 	// favicon of its own links that one after it, and the later link wins.

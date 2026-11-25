@@ -142,6 +142,16 @@ func (s *Server) handleInstanceFavicon(w http.ResponseWriter, r *http.Request) {
 	s.writeImage(w, r, contentType, data)
 }
 
+// logoVersion returns the version of the install's logo, or 0 when there is
+// none. A page still opens without its logo, so a failed read is only logged.
+func (s *Server) logoVersion(ctx context.Context) int64 {
+	version, err := s.store.InstanceImageVersion(ctx, store.ImageInstanceLogo)
+	if err != nil {
+		s.log.Error("read instance logo", "error", err)
+	}
+	return version
+}
+
 // handleInstanceLogo serves the logo that the public list shows beside the site name.
 func (s *Server) handleInstanceLogo(w http.ResponseWriter, r *http.Request) {
 	contentType, data, err := s.store.InstanceImage(r.Context(), store.ImageInstanceLogo)

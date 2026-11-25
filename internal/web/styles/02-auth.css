@@ -26,6 +26,8 @@
 }
 .auth-brand { display: flex; align-items: center; gap: var(--space-3); margin: 0 0 var(--space-5); }
 .auth-brand .wordmark { font-size: var(--text-title); letter-spacing: var(--tracking-heading); }
+/* the logo takes the wordmark's type size, so .logo makes it 1.5 lines of it tall */
+.auth-brand > .logo { font-size: var(--text-title); }
 .auth-card .form { margin-block-start: var(--space-5); }
 /* the sign-in form is often used on a phone, so its fields and button are touch sized for every pointer */
 .auth-card input { min-block-size: var(--control-height-touch); font-size: var(--text-body); }

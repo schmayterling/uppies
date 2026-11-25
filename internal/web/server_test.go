@@ -791,6 +791,16 @@ func TestTheInstallLogoTakesTheStatusIconsPlaceOnThePublicList(t *testing.T) {
 			t.Errorf("%s: the logo must replace the status icon, got %q", path, b)
 		}
 	}
+	signInBrand := func() string {
+		t.Helper()
+		_, page := s.get(t, s.anonymous, "/admin/login")
+		_, card, _ := strings.Cut(page, `<p class="auth-brand">`)
+		card, _, _ = strings.Cut(card, "</p>")
+		return card
+	}
+	if b := signInBrand(); !strings.Contains(b, `<img class="logo" src="/logo?v=`) || strings.Contains(b, "status-icon") {
+		t.Errorf("the sign-in page must show the logo in place of the check, got %q", b)
+	}
 	resp, err := s.anonymous.Get(s.server.URL + "/logo")
 	if err != nil {
 		t.Fatal(err)
@@ -810,6 +820,9 @@ func TestTheInstallLogoTakesTheStatusIconsPlaceOnThePublicList(t *testing.T) {
 	}
 	if b := brand("/"); !strings.Contains(b, "status-icon") {
 		t.Errorf("after removal the site name shows the status icon again, got %q", b)
+	}
+	if b := signInBrand(); !strings.Contains(b, "status-icon-check") {
+		t.Errorf("after removal the sign-in page shows the check again, got %q", b)
 	}
 }
 

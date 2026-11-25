@@ -47,7 +47,7 @@
   <h2 class="group-title">logo</h2>
   <div class="group">
     <div class="srow">
-      <label class="srow-copy" for="logo"><span>logo</span><small>shown beside the site name on the public list and the incident archive, in place of the status icon. png, jpeg, webp, gif or svg, up to 512 KB.</small></label>
+      <label class="srow-copy" for="logo"><span>logo</span><small>shown beside the site name on the public list, the incident archive and the sign-in page, in place of the status icon. png, jpeg, webp, gif or svg, up to 512 KB.</small></label>
       <div class="srow-control">
         {{with .LogoVersion}}<img class="logo-preview" src="/logo?v={{.}}" width="48" height="48" alt="the current logo">{{end}}
         <input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"{{if index .Problems "logo"}} aria-invalid="true"{{end}}>
