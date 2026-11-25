@@ -119,6 +119,7 @@ create table if not exists incident_updates (
 	status text not null check (status in ('investigating', 'identified', 'monitoring', 'resolved')),
 	body text not null check (char_length(body) between 1 and 5000),
 	at_ms bigint not null,
+	title text not null default '',
 	key incident_updates_incident (incident_id, at_ms),
 	foreign key (incident_id) references incidents(id) on delete cascade
 ) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_nopad_bin;

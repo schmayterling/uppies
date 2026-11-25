@@ -191,7 +191,7 @@ func TestRecoveryLeavesAManualDraftOpen(t *testing.T) {
 	manualID, err := s.CreateIncident(ctx, Incident{
 		ProjectID: projectID, Title: "manual draft", Impact: "minor", Status: "investigating",
 		StartedAtMs: 1, MonitorIDs: []int64{monitorID},
-	}, "investigating this independently", 1)
+	}, IncidentUpdate{Title: "Manual investigation", Body: "investigating this independently"}, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,6 +205,9 @@ func TestRecoveryLeavesAManualDraftOpen(t *testing.T) {
 	}
 	if manual.Status != "investigating" || manual.ResolvedAtMs.Valid || len(manual.Updates) != 1 {
 		t.Fatalf("recovery changed the manual incident: %+v", manual)
+	}
+	if got := manual.Updates[0].Title; got != "Manual investigation" {
+		t.Fatalf("first update title: got %q, want Manual investigation", got)
 	}
 }
 
@@ -240,8 +243,16 @@ func TestRecoveryLeavesAPublishedIncidentOpen(t *testing.T) {
 		t.Fatalf("published incident after recovery: got status=%s resolved=%v, want it left open", open.Status, open.ResolvedAtMs)
 	}
 
-	if err := s.AddIncidentUpdate(ctx, incidentID, "resolved", "a bad deploy was rolled back", 300_000); err != nil {
+	update := IncidentUpdate{Status: "resolved", Title: "Rollback complete", Body: "a bad deploy was rolled back", AtMs: 300_000}
+	if err := s.AddIncidentUpdate(ctx, incidentID, update); err != nil {
 		t.Fatal(err)
+	}
+	updates, err := s.PageIncidentUpdatesAfter(ctx, projectID, incidentID, 0, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updates) != 2 || updates[0].Title != "" || updates[1].Title != update.Title {
+		t.Fatalf("update titles: got %+v, want a blank automatic title followed by %q", updates, update.Title)
 	}
 	events, err := s.Events(ctx, projectID, 0, 10)
 	if err != nil {
@@ -259,6 +270,9 @@ func TestRecoveryLeavesAPublishedIncidentOpen(t *testing.T) {
 		if kinds[i] != want[i] {
 			t.Fatalf("timeline: got %v, want %v", kinds, want)
 		}
+	}
+	if got := events[0].Detail; got != "resolved: a bad deploy was rolled back" {
+		t.Fatalf("update event detail: got %q, want status and body", got)
 	}
 }
 
@@ -280,7 +294,7 @@ func TestAnIncidentCannotLinkAnotherProjectsMonitor(t *testing.T) {
 	id, err := s.CreateIncident(ctx, Incident{
 		ProjectID: mine, Title: "slow api", Impact: "minor", Status: "investigating",
 		Published: true, StartedAtMs: 1, MonitorIDs: []int64{theirMonitor},
-	}, "we are looking into it", 1)
+	}, IncidentUpdate{Body: "we are looking into it"}, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

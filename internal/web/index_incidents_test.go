@@ -83,7 +83,7 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 		id, err := st.CreateIncident(ctx, store.Incident{
 			ProjectID: projectID, Title: title, Impact: "major", Status: status,
 			StartedAtMs: at, Published: published,
-		}, "incident update body", at+2*time.Hour.Milliseconds())
+		}, store.IncidentUpdate{Body: "incident update body"}, at+2*time.Hour.Milliseconds())
 		check(err)
 		return id
 	}

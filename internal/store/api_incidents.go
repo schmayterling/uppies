@@ -41,7 +41,7 @@ func requirePageMonitors(ctx context.Context, tx *transaction, projectID int64, 
 }
 
 // CreatePageIncident rejects monitor IDs that the incident's page does not show.
-func (s *Store) CreatePageIncident(ctx context.Context, in Incident, firstUpdate string, nowMs int64) (int64, error) {
+func (s *Store) CreatePageIncident(ctx context.Context, in Incident, firstUpdate IncidentUpdate, nowMs int64) (int64, error) {
 	var id int64
 	err := s.write(ctx, func(tx *transaction) error {
 		if err := requireProject(ctx, tx, in.ProjectID); err != nil {
@@ -81,12 +81,12 @@ func (s *Store) EditPageIncident(ctx context.Context, projectID, incidentID int6
 	})
 }
 
-func (s *Store) AddPageIncidentUpdate(ctx context.Context, projectID, incidentID int64, status, body string, nowMs int64) error {
+func (s *Store) AddPageIncidentUpdate(ctx context.Context, projectID, incidentID int64, update IncidentUpdate) error {
 	return s.write(ctx, func(tx *transaction) error {
 		if err := requirePageIncident(ctx, tx, projectID, incidentID); err != nil {
 			return err
 		}
-		return addIncidentUpdate(ctx, tx, incidentID, status, body, nowMs)
+		return addIncidentUpdate(ctx, tx, incidentID, update)
 	})
 }
 
@@ -158,7 +158,7 @@ func (s *Store) PageIncidentsAfter(ctx context.Context, projectID, after int64, 
 func (s *Store) PageIncidentUpdatesAfter(ctx context.Context, projectID, incidentID, after int64, limit int) ([]IncidentUpdate, error) {
 	// An existing incident with no further updates returns one NULL row.
 	rows, err := s.db.QueryContext(ctx, `
-		select u.id, u.status, u.body, u.at_ms from incidents i
+		select u.id, u.status, u.title, u.body, u.at_ms from incidents i
 		left join incident_updates u on u.incident_id = i.id and u.id > ?
 		where i.project_id = ? and i.id = ? order by u.id limit ?`, after, projectID, incidentID, limit)
 	if err != nil {
@@ -174,12 +174,14 @@ func (s *Store) PageIncidentUpdatesAfter(ctx context.Context, projectID, inciden
 	var updates []IncidentUpdate
 	for {
 		var id, at sql.NullInt64
-		var status, body sql.NullString
-		if err := rows.Scan(&id, &status, &body, &at); err != nil {
+		var status, title, body sql.NullString
+		if err := rows.Scan(&id, &status, &title, &body, &at); err != nil {
 			return nil, err
 		}
 		if id.Valid {
-			updates = append(updates, IncidentUpdate{ID: id.Int64, Status: status.String, Body: body.String, AtMs: at.Int64})
+			updates = append(updates, IncidentUpdate{
+				ID: id.Int64, Status: status.String, Title: title.String, Body: body.String, AtMs: at.Int64,
+			})
 		}
 		if !rows.Next() {
 			return updates, rows.Err()

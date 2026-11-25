@@ -31,8 +31,13 @@ func TestAPIIncidentCRUDUsesPageOwnershipAndThePublicationLifecycle(t *testing.T
 		t.Fatal("the rejected incident was persisted")
 	}
 
-	s.api(t, http.MethodPost, collection, editor, `{"title":"Database unavailable","message":"Checking"}`, http.StatusCreated)
+	s.api(t, http.MethodPost, collection, editor,
+		`{"title":"Database unavailable","update_title":" Checking dependencies ","message":"Checking"}`, http.StatusCreated)
 	const path = collection + "/1"
+	_, firstUpdate := s.api(t, http.MethodGet, path+"/updates", editor, "", http.StatusOK)
+	if !strings.Contains(firstUpdate, `"title":"Checking dependencies"`) {
+		t.Error("the first update is missing its title")
+	}
 	const wrongPage = "/status-pages/2/incidents/1"
 	s.api(t, http.MethodGet, wrongPage, editor, "", http.StatusNotFound)
 	s.api(t, http.MethodPatch, wrongPage, editor, `{"title":"Wrong page"}`, http.StatusNotFound)
@@ -59,7 +64,10 @@ func TestAPIIncidentCRUDUsesPageOwnershipAndThePublicationLifecycle(t *testing.T
 			})
 		}
 	})
-	s.api(t, http.MethodPost, path+"/updates", editor, `{"status":"resolved","body":"Recovered"}`, http.StatusNoContent)
+	oversized := `{"status":"resolved","title":"` + strings.Repeat("x", 201) + `","body":"Invalid update"}`
+	s.api(t, http.MethodPost, path+"/updates", editor, oversized, http.StatusUnprocessableEntity)
+	s.api(t, http.MethodPost, path+"/updates", editor,
+		`{"status":"resolved","title":"Database back online","body":"Recovered"}`, http.StatusNoContent)
 	_, incident := s.api(t, http.MethodGet, path, editor, "", http.StatusOK)
 	for _, want := range []string{`"published":true`, `"impact":"major"`, `"monitor_ids":["1"]`, `"status":"resolved"`} {
 		if !strings.Contains(incident, want) {
@@ -67,8 +75,15 @@ func TestAPIIncidentCRUDUsesPageOwnershipAndThePublicationLifecycle(t *testing.T
 		}
 	}
 	_, updates := s.api(t, http.MethodGet, path+"/updates?after=1", editor, "", http.StatusOK)
-	if !strings.Contains(updates, `"body":"Recovered"`) || strings.Contains(updates, `"body":"Checking"`) {
+	if !strings.Contains(updates, `"title":"Database back online"`) || !strings.Contains(updates, `"body":"Recovered"`) ||
+		strings.Contains(updates, `"body":"Checking"`) {
 		t.Fatal("updates did not paginate the incident timeline")
+	}
+	_, published := s.get(t, s.anonymous, "/s/one")
+	for _, heading := range []string{"Checking dependencies", "Database back online"} {
+		if !strings.Contains(published, "<strong>"+heading+"</strong>") {
+			t.Errorf("the public timeline is missing the update heading %q", heading)
+		}
 	}
 	events, err := s.store.Events(ctx, 1, 0, 10)
 	if err != nil || len(events) != 2 {

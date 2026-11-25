@@ -33,7 +33,7 @@ func TestPublishedIncidentSummariesKeepTheirOrderAcrossPages(t *testing.T) {
 				id, err := s.CreateIncident(ctx, Incident{
 					ProjectID: projectID, Title: title, Impact: "minor", Status: status,
 					StartedAtMs: started, Published: published,
-				}, "details", started+60_000)
+				}, IncidentUpdate{Body: "details"}, started+60_000)
 				if err != nil {
 					t.Fatal(err)
 				}

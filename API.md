@@ -265,7 +265,8 @@ Create a draft with `title` (1 to 200 characters) and `message` (1 to 5,000
 characters). The message becomes its first update. Optional fields are
 `impact` (`minor`, `major`, `critical`), `status` (`investigating`,
 `identified`, `monitoring`, `resolved`) and `monitor_ids`. They default
-to `minor`, `investigating` and `[]`.
+to `minor`, `investigating` and `[]`. Use `update_title` for an optional
+first update heading of up to 200 characters.
 
 PATCH accepts `title`, `impact` and `monitor_ids`. A supplied list of
 distinct IDs from the page replaces the affected monitors.
@@ -274,11 +275,14 @@ Reads include drafts. Lists return `id`, `status_page_id`, `title`,
 `impact`, `status`, `published`, `started_at` and nullable
 `resolved_at`. Detail reads also return `monitor_ids`.
 
-GET `/updates` returns entries with `id`, `status`, `body` and `at`.
-POST a `status` and a `body` of 1 to 5,000 characters to add an update
-and set the incident's status. A `resolved` status sets `resolved_at` on
-create or append. Appending another status clears it and reopens the
-incident.
+GET `/updates` returns `id`, `status`, `body` and `at` for each update.
+It includes `title` when set. POST a `status` and a `body` of 1 to 5,000
+characters to add an update and set the incident's status. Set an optional
+`title` of up to 200 characters for its heading. A blank title uses the
+status as the heading.
+
+A `resolved` status sets `resolved_at` on create or append. Appending
+another status clears it and reopens the incident.
 
 POST to `/publish` with an empty body or `{}`. Publishing exposes the
 existing timeline, including messages written while the incident was a

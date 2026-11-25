@@ -22,7 +22,10 @@
   <ol class="panel list">
     {{range .Incident.Updates}}
     <li class="update-row">
-      <span><strong>{{.Status}}</strong> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{utc .AtMs}}</time></span>
+      <span class="update-head">
+        {{template "incident-update-heading" .}}
+        <time class="meta" datetime="{{rfc3339 .AtMs}}">{{utc .AtMs}}</time>
+      </span>
       <span class="update-body">{{.Body}}</span>
     </li>
     {{end}}
@@ -35,13 +38,19 @@
     <div class="field">
       <label for="status">status</label>
       <select id="status" name="status">
-        {{range .Statuses}}<option value="{{.}}"{{if eq . $.Incident.Status}} selected{{end}}>{{.}}</option>{{end}}
+        {{range .Statuses}}<option value="{{.}}"{{if eq . $.Update.Status}} selected{{end}}>{{.}}</option>{{end}}
       </select>
       {{with index .Problems "status"}}<p class="problem">{{.}}</p>{{end}}
     </div>
     <div class="field">
+      <label for="update-title">update title (optional)</label>
+      <input id="update-title" name="update_title" value="{{.Update.Title}}" maxlength="200"
+        {{if index .Problems "update_title"}}aria-invalid="true" aria-describedby="update-title-problem"{{end}}>
+      {{with index .Problems "update_title"}}<p class="problem" id="update-title-problem">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
       <label for="message">what changed</label>
-      <textarea id="message" name="message" rows="5" required maxlength="5000"{{if index .Problems "message"}} aria-invalid="true" aria-describedby="message-problem"{{end}}>{{.Message}}</textarea>
+      <textarea id="message" name="message" rows="5" required maxlength="5000"{{if index .Problems "message"}} aria-invalid="true" aria-describedby="message-problem"{{end}}>{{.Update.Body}}</textarea>
       {{with index .Problems "message"}}<p class="problem" id="message-problem">{{.}}</p>{{end}}
     </div>
     <div class="actions"><button class="button" type="submit">post update</button><button class="button quiet" type="button" data-close-dialog>cancel</button></div>

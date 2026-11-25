@@ -44,7 +44,7 @@ func TestLoadIndexCalendarCountsEveryPublishedIncident(t *testing.T) {
 				_, err := st.CreateIncident(ctx, store.Incident{
 					ProjectID: projectID, Title: "Incident", Impact: impact, Status: status,
 					StartedAtMs: at.UnixMilli(), Published: published,
-				}, "Incident details", at.UnixMilli())
+				}, store.IncidentUpdate{Body: "Incident details"}, at.UnixMilli())
 				check(err)
 			}
 			// The oldest incident of the day has the highest impact. It would

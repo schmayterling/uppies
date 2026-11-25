@@ -50,5 +50,18 @@
 </ol>{{end}}
 
 {{define "updates"}}<ol class="updates">
-  {{range .First}}<li class="update-{{.Status}}"><p class="update-head"><strong>{{.Status}}</strong> <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Second .AtMs}}</time></p><p class="update-body">{{.Body}}</p></li>{{end}}
+  {{range .First}}
+  <li class="update-{{.Status}}">
+    <p class="update-head">
+      {{template "incident-update-heading" .}}
+      <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Second .AtMs}}</time>
+    </p>
+    <p class="update-body">{{.Body}}</p>
+  </li>
+  {{end}}
 </ol>{{end}}
+
+{{define "incident-update-heading"}}
+<strong>{{or .Title .Status}}</strong>
+{{if .Title}}<span class="meta">{{.Status}}</span>{{end}}
+{{end}}

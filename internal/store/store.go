@@ -521,6 +521,10 @@ create table maintenance_updates (
 ) strict;
 create index maintenance_updates_window on maintenance_updates(window_id, id);
 `,
+	// Step 26 adds optional incident timeline titles.
+	`
+alter table incident_updates add column title text not null default '';
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

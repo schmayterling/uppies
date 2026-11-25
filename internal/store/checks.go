@@ -141,7 +141,7 @@ func openMonitorIncidents(ctx context.Context, tx *transaction, monitorName stri
 	// Check errors can name private hosts. Only the monitor name goes into
 	// incident text, which may be public as soon as the incident is created.
 	title := monitorName + " is down"
-	firstUpdate := fmt.Sprintf("we are looking into a problem with %s.", monitorName)
+	firstUpdate := IncidentUpdate{Body: fmt.Sprintf("we are looking into a problem with %s.", monitorName)}
 	source := sql.NullInt64{Int64: r.MonitorID, Valid: true}
 	for _, projectID := range projectIDs {
 		_, err := insertIncident(ctx, tx, Incident{
@@ -194,7 +194,8 @@ func resolveMonitorIncidents(ctx context.Context, tx *transaction, monitorID, no
 		if n == 0 {
 			continue
 		}
-		if err := appendIncidentUpdate(ctx, tx, id, "resolved", "the monitor recovered", nowMs); err != nil {
+		update := IncidentUpdate{Status: "resolved", Body: "the monitor recovered", AtMs: nowMs}
+		if err := appendIncidentUpdate(ctx, tx, id, update); err != nil {
 			return err
 		}
 	}

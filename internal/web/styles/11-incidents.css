@@ -51,7 +51,14 @@
 .updates > .update-identified::before { background: var(--status-warning); }
 .updates > .update-monitoring::before { background: var(--status-info); }
 .updates > .update-resolved::before { background: var(--status-success); }
-.update-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); margin: 0; }
+.update-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .updates .update-body { margin: var(--space-1) 0 0; }
 @media (max-width: 520px) {
   .tl-day { grid-template-columns: minmax(0, 1fr); }

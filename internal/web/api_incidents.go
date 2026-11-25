@@ -41,6 +41,7 @@ func incidentJSON(in store.Incident) apiIncident {
 type apiIncidentNote struct {
 	ID     string    `json:"id"`
 	Status string    `json:"status"`
+	Title  string    `json:"title,omitempty"`
 	Body   string    `json:"body"`
 	At     time.Time `json:"at"`
 }
@@ -48,7 +49,10 @@ type apiIncidentNote struct {
 func (u apiIncidentNote) cursor() string { return u.ID }
 
 func incidentNoteJSON(u store.IncidentUpdate) apiIncidentNote {
-	return apiIncidentNote{strconv.FormatInt(u.ID, 10), u.Status, u.Body, time.UnixMilli(u.AtMs).UTC()}
+	return apiIncidentNote{
+		ID: strconv.FormatInt(u.ID, 10), Status: u.Status, Title: u.Title, Body: u.Body,
+		At: time.UnixMilli(u.AtMs).UTC(),
+	}
 }
 
 func (s *Server) apiListIncidents(w http.ResponseWriter, r *http.Request) {
@@ -95,11 +99,12 @@ func (s *Server) apiCreateIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		Title      string   `json:"title"`
-		Impact     *string  `json:"impact"`
-		Status     *string  `json:"status"`
-		Message    string   `json:"message"`
-		MonitorIDs []string `json:"monitor_ids"`
+		Title       string   `json:"title"`
+		Impact      *string  `json:"impact"`
+		Status      *string  `json:"status"`
+		Message     string   `json:"message"`
+		UpdateTitle string   `json:"update_title"`
+		MonitorIDs  []string `json:"monitor_ids"`
 	}
 	if !s.decodeAPIJSON(w, r, &input) {
 		return
@@ -114,12 +119,19 @@ func (s *Server) apiCreateIncident(w http.ResponseWriter, r *http.Request) {
 	if input.Status != nil {
 		in.Status = *input.Status
 	}
-	firstUpdate := strings.TrimSpace(input.Message)
+	firstUpdate := store.IncidentUpdate{
+		Title: strings.TrimSpace(input.UpdateTitle),
+		Body:  strings.TrimSpace(input.Message),
+	}
 	if err := apiText("title", in.Title, 1, 200); err != nil {
 		s.apiFailure(w, r, err)
 		return
 	}
-	if err := apiText("message", firstUpdate, 1, 5000); err != nil {
+	if err := apiText("update_title", firstUpdate.Title, 0, incidentUpdateTitleLimit); err != nil {
+		s.apiFailure(w, r, err)
+		return
+	}
+	if err := apiText("message", firstUpdate.Body, 1, 5000); err != nil {
 		s.apiFailure(w, r, err)
 		return
 	}
@@ -218,21 +230,31 @@ func (s *Server) apiAddIncidentUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	var input struct {
 		Status string `json:"status"`
+		Title  string `json:"title"`
 		Body   string `json:"body"`
 	}
 	if !s.decodeAPIJSON(w, r, &input) {
 		return
 	}
-	input.Body = strings.TrimSpace(input.Body)
-	if !slices.Contains(store.IncidentStatuses, input.Status) {
+	update := store.IncidentUpdate{
+		Status: input.Status,
+		Title:  strings.TrimSpace(input.Title),
+		Body:   strings.TrimSpace(input.Body),
+		AtMs:   s.now().UnixMilli(),
+	}
+	if !slices.Contains(store.IncidentStatuses, update.Status) {
 		s.apiFailure(w, r, invalidAPIField("status", "Use a supported incident status."))
 		return
 	}
-	if err := apiText("body", input.Body, 1, 5000); err != nil {
+	if err := apiText("title", update.Title, 0, incidentUpdateTitleLimit); err != nil {
 		s.apiFailure(w, r, err)
 		return
 	}
-	if err := s.store.AddPageIncidentUpdate(r.Context(), pageID, id, input.Status, input.Body, s.now().UnixMilli()); err != nil {
+	if err := apiText("body", update.Body, 1, 5000); err != nil {
+		s.apiFailure(w, r, err)
+		return
+	}
+	if err := s.store.AddPageIncidentUpdate(r.Context(), pageID, id, update); err != nil {
 		s.apiFailure(w, r, err)
 		return
 	}

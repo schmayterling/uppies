@@ -246,14 +246,20 @@ func seedIncidents(ctx context.Context, st *store.Store, projectID int64, monito
 		ProjectID: projectID, Title: "slow sync for some notes", Impact: "minor", Status: "investigating",
 		Published: true, StartedAtMs: nowMs - 3*hourMs, MonitorIDs: []int64{monitors["api"]},
 	}
-	openID, err := st.CreateIncident(ctx, open, "some notes take longer than usual to sync. we are looking into it.", nowMs-3*hourMs)
+	openID, err := st.CreateIncident(ctx, open, store.IncidentUpdate{
+		Body: "some notes take longer than usual to sync. we are looking into it.",
+	}, nowMs-3*hourMs)
 	if err != nil {
 		return err
 	}
-	if err := st.AddIncidentUpdate(ctx, openID, "identified", "a queue worker is stuck. we are restarting it.", nowMs-2*hourMs); err != nil {
+	if err := st.AddIncidentUpdate(ctx, openID, store.IncidentUpdate{
+		Status: "identified", Body: "a queue worker is stuck. we are restarting it.", AtMs: nowMs - 2*hourMs,
+	}); err != nil {
 		return err
 	}
-	if err := st.AddIncidentUpdate(ctx, openID, "monitoring", "the queue is draining. sync times are back to normal for most people.", nowMs-hourMs); err != nil {
+	if err := st.AddIncidentUpdate(ctx, openID, store.IncidentUpdate{
+		Status: "monitoring", Body: "the queue is draining. sync times are back to normal for most people.", AtMs: nowMs - hourMs,
+	}); err != nil {
 		return err
 	}
 
@@ -261,11 +267,13 @@ func seedIncidents(ctx context.Context, st *store.Store, projectID int64, monito
 		ProjectID: projectID, Title: "website outage", Impact: "major", Status: "investigating",
 		Published: true, StartedAtMs: nowMs - 40*dayMs, MonitorIDs: []int64{monitors["website"]},
 	}
-	pastID, err := st.CreateIncident(ctx, past, "the website does not load.", nowMs-40*dayMs)
+	pastID, err := st.CreateIncident(ctx, past, store.IncidentUpdate{Body: "the website does not load."}, nowMs-40*dayMs)
 	if err != nil {
 		return err
 	}
-	if err := st.AddIncidentUpdate(ctx, pastID, "resolved", "a certificate had expired. it is renewed and we added an expiry check.", nowMs-40*dayMs+3*hourMs); err != nil {
+	if err := st.AddIncidentUpdate(ctx, pastID, store.IncidentUpdate{
+		Status: "resolved", Body: "a certificate had expired. it is renewed and we added an expiry check.", AtMs: nowMs - 40*dayMs + 3*hourMs,
+	}); err != nil {
 		return err
 	}
 
@@ -273,9 +281,13 @@ func seedIncidents(ctx context.Context, st *store.Store, projectID int64, monito
 		ProjectID: projectID, Title: "data centre power failure", Impact: "critical", Status: "investigating",
 		Published: true, StartedAtMs: nowMs - 70*dayMs,
 	}
-	criticalID, err := st.CreateIncident(ctx, critical, "everything hosted in the frankfurt data centre is unreachable.", nowMs-70*dayMs)
+	criticalID, err := st.CreateIncident(ctx, critical, store.IncidentUpdate{
+		Body: "everything hosted in the frankfurt data centre is unreachable.",
+	}, nowMs-70*dayMs)
 	if err != nil {
 		return err
 	}
-	return st.AddIncidentUpdate(ctx, criticalID, "resolved", "power is back and all services have recovered.", nowMs-70*dayMs+5*hourMs)
+	return st.AddIncidentUpdate(ctx, criticalID, store.IncidentUpdate{
+		Status: "resolved", Body: "power is back and all services have recovered.", AtMs: nowMs - 70*dayMs + 5*hourMs,
+	})
 }

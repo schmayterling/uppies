@@ -25,9 +25,17 @@
       </select></div>
       {{with index .Problems "status"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
+    <div class="srow">
+      <label class="srow-copy" for="update-title"><span>first update title</span><small>leave blank to use the status.</small></label>
+      <div class="srow-control">
+        <input id="update-title" name="update_title" value="{{.Update.Title}}" maxlength="200"
+          {{if index .Problems "update_title"}}aria-invalid="true" aria-describedby="update-title-problem"{{end}}>
+      </div>
+      {{with index .Problems "update_title"}}<p class="problem srow-problem" id="update-title-problem">{{.}}</p>{{end}}
+    </div>
     <div class="srow" data-stack>
       <label class="srow-copy" for="message"><span>first update</span><small>what people should know. this is the first entry on the status page.</small></label>
-      <textarea id="message" name="message" rows="4" required maxlength="5000"{{if index .Problems "message"}} aria-invalid="true"{{end}}>{{.Message}}</textarea>
+      <textarea id="message" name="message" rows="4" required maxlength="5000"{{if index .Problems "message"}} aria-invalid="true"{{end}}>{{.Update.Body}}</textarea>
       {{with index .Problems "message"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
     {{if .Monitors}}

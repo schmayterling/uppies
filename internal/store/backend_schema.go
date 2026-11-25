@@ -11,7 +11,7 @@ import (
 //go:embed schema/*.sql
 var backendSchemas embed.FS
 
-const backendSchemaVersion = 25
+const backendSchemaVersion = 26
 
 const schemaTable = `create table if not exists uppies_schema (
 	id integer primary key check (id = 1),

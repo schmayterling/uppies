@@ -750,12 +750,14 @@ func parseMonitorForm(form url.Values, m store.Monitor) (store.Monitor, map[stri
 	return m, problems
 }
 
+const incidentUpdateTitleLimit = 200
+
 type incidentFormPage struct {
 	Chrome   chrome
 	Project  store.Project
 	Monitors []store.Monitor
 	Incident store.Incident
-	Message  string
+	Update   store.IncidentUpdate
 	Statuses []string
 	Impacts  []string
 	Problems map[string]string
@@ -815,7 +817,10 @@ func (s *Server) handleCreateIncident(w http.ResponseWriter, r *http.Request) {
 			in.MonitorIDs = append(in.MonitorIDs, monitorID)
 		}
 	}
-	message := strings.TrimSpace(form.Get("message"))
+	update := store.IncidentUpdate{
+		Title: strings.TrimSpace(form.Get("update_title")),
+		Body:  strings.TrimSpace(form.Get("message")),
+	}
 
 	problems := make(map[string]string)
 	if in.Title == "" || len(in.Title) > 200 {
@@ -827,15 +832,18 @@ func (s *Server) handleCreateIncident(w http.ResponseWriter, r *http.Request) {
 	if !slices.Contains(store.IncidentStatuses, in.Status) {
 		problems["status"] = "choose a status."
 	}
-	if message == "" || len(message) > 5000 {
+	if apiText("update_title", update.Title, 0, incidentUpdateTitleLimit) != nil {
+		problems["update_title"] = "use up to 200 characters for the update title."
+	}
+	if update.Body == "" || len(update.Body) > 5000 {
 		problems["message"] = "write a first update of 1 to 5000 characters."
 	}
 	if len(problems) > 0 {
-		page.Incident, page.Message, page.Problems = in, message, problems
+		page.Incident, page.Update, page.Problems = in, update, problems
 		s.render(w, r, http.StatusUnprocessableEntity, "incident_new.html", page)
 		return
 	}
-	id, err := s.store.CreateIncident(r.Context(), in, message, now)
+	id, err := s.store.CreateIncident(r.Context(), in, update, now)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -849,7 +857,7 @@ type incidentPage struct {
 	Incident store.Incident
 	Affected []string
 	Statuses []string
-	Message  string
+	Update   store.IncidentUpdate
 	Problems map[string]string
 }
 
@@ -864,6 +872,7 @@ func (s *Server) incidentPage(r *http.Request) (incidentPage, error) {
 		return page, err
 	}
 	page.Chrome = s.adminChrome(r, page.Incident.Title)
+	page.Update.Status = page.Incident.Status
 	page.Project, err = s.store.ProjectByID(r.Context(), page.Incident.ProjectID)
 	if err != nil {
 		return page, err
@@ -899,21 +908,28 @@ func (s *Server) handleAddIncidentUpdate(w http.ResponseWriter, r *http.Request)
 		s.fail(w, r, err)
 		return
 	}
-	status := r.PostForm.Get("status")
-	message := strings.TrimSpace(r.PostForm.Get("message"))
+	update := store.IncidentUpdate{
+		Status: r.PostForm.Get("status"),
+		Title:  strings.TrimSpace(r.PostForm.Get("update_title")),
+		Body:   strings.TrimSpace(r.PostForm.Get("message")),
+		AtMs:   s.now().UnixMilli(),
+	}
 	problems := make(map[string]string)
-	if !slices.Contains(store.IncidentStatuses, status) {
+	if !slices.Contains(store.IncidentStatuses, update.Status) {
 		problems["status"] = "choose a status."
 	}
-	if message == "" || len(message) > 5000 {
+	if apiText("update_title", update.Title, 0, incidentUpdateTitleLimit) != nil {
+		problems["update_title"] = "use up to 200 characters for the update title."
+	}
+	if update.Body == "" || len(update.Body) > 5000 {
 		problems["message"] = "write an update of 1 to 5000 characters."
 	}
 	if len(problems) > 0 {
-		page.Message, page.Problems = message, problems
+		page.Update, page.Problems = update, problems
 		s.render(w, r, http.StatusUnprocessableEntity, "incident.html", page)
 		return
 	}
-	if err := s.store.AddIncidentUpdate(r.Context(), page.Incident.ID, status, message, s.now().UnixMilli()); err != nil {
+	if err := s.store.AddIncidentUpdate(r.Context(), page.Incident.ID, update); err != nil {
 		s.fail(w, r, err)
 		return
 	}

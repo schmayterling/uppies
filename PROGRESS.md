@@ -15,11 +15,14 @@ timeline view and public status pages for several projects from one install.
 go build ./... && go vet ./... && go test -race ./...
 ```
 
-Last run: 2026-11-23, all six packages passed, after the basics were finished.
+Last run: 2026-11-25, build, vet and race tests passed for schema 26.
 
 ## Done and verified
 
 Each line names how it was verified.
+
+- Public incident lists share the same dated timeline. The seven-day status page history includes active published incidents. Verified by route tests and Chromium and WebKit at desktop and phone widths.
+- Schema 26 stores optional incident update titles. Blank titles use the status heading. Verified a populated v25 upgrade, titled updates through the admin and API, and the status-based recovery lifecycle.
 
 - State machine for monitors (`internal/health`): retries before down, good checks before up, downtime accounting. Verified by table tests, each seen failing once.
 - SQLite store (`internal/store`): schema version 1, projects, monitors, checks, daily rollups, events, incidents, users, sessions. Verified by tests on a temporary database file.

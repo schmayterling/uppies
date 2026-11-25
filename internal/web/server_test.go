@@ -522,7 +522,7 @@ func TestStatusPageFooterTimezoneDomainAndBadge(t *testing.T) {
 	_, err = s.store.CreateIncident(ctx, store.Incident{
 		ProjectID: projectID, Title: "slow search", Impact: "minor", Status: "investigating",
 		Published: true, StartedAtMs: startedAtMs,
-	}, "search is slow.", startedAtMs)
+	}, store.IncidentUpdate{Body: "search is slow."}, startedAtMs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1208,7 +1208,7 @@ func TestIncidentHistoryPageListsAYearAndHidesDrafts(t *testing.T) {
 		_, err := s.store.CreateIncident(ctx, store.Incident{
 			ProjectID: projectID, Title: in.title, Impact: "major", Status: "resolved",
 			Published: in.published, StartedAtMs: in.at.UnixMilli(),
-		}, "details.", in.at.UnixMilli())
+		}, store.IncidentUpdate{Body: "details."}, in.at.UnixMilli())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1526,7 +1526,7 @@ func TestAVisitorCanPickTheTimezone(t *testing.T) {
 	at := time.Date(2026, 11, 23, 4, 5, 0, 0, time.UTC).UnixMilli()
 	_, err = s.store.CreateIncident(ctx, store.Incident{
 		ProjectID: projectID, Title: "slow search", Impact: "minor", Status: "investigating", Published: true, StartedAtMs: at,
-	}, "search is slow.", at)
+	}, store.IncidentUpdate{Body: "search is slow."}, at)
 	if err != nil {
 		t.Fatal(err)
 	}

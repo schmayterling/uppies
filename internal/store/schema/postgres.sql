@@ -114,7 +114,8 @@ create table if not exists incident_updates (
 	incident_id bigint not null references incidents(id) on delete cascade,
 	status text collate "C" not null check (status in ('investigating', 'identified', 'monitoring', 'resolved')),
 	body text collate "C" not null check (length(body) between 1 and 5000),
-	at_ms bigint not null
+	at_ms bigint not null,
+	title text not null default ''
 );
 
 create index if not exists incident_updates_incident on incident_updates(incident_id, at_ms);
