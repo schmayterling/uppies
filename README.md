@@ -25,6 +25,13 @@ Open [localhost:8080](http://localhost:8080) to create your admin account, then 
 
 For a public install, use an HTTPS reverse proxy that forwards `Host` and `X-Forwarded-Proto`.
 
+If you forget a password, `reset-password` prints a new one and signs the account out everywhere. Point it at the server's database, and add `-db-backend` if the server uses one.
+
+```sh
+docker compose -f compose.sqlite.yaml exec uppies /uppies reset-password -db /data/uppies.db <username>
+./uppies reset-password -db uppies.db <username>
+```
+
 [API reference](API.md) · [Roadmap](ROADMAP.md)
 
 ## License

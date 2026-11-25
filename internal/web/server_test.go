@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"html"
 	"io"
@@ -174,6 +175,32 @@ func TestSignInRejectsAWrongPasswordAndThenLocksOut(t *testing.T) {
 	right := url.Values{"username": {"may"}, "password": {"correct-horse-battery"}}
 	if resp := s.post(t, s.anonymous, "/admin/login", right, nil); resp.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("after %d failures: got %d, want 429", maxLoginFailures, resp.StatusCode)
+	}
+}
+
+func TestResetPasswordGivesANewPasswordAndSignsOut(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	if _, err := ResetPassword(ctx, s.store, "nobody"); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("an unknown account: got err=%v, want ErrNotFound", err)
+	}
+	password, err := ResetPassword(ctx, s.store, "may")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(password) < minPasswordLen {
+		t.Fatalf("new password %q is shorter than %d characters", password, minPasswordLen)
+	}
+	if status, _ := s.get(t, s.admin, "/admin"); status != http.StatusSeeOther {
+		t.Errorf("the old session: got %d, want a redirect to sign in", status)
+	}
+	old := url.Values{"username": {"may"}, "password": {"correct-horse-battery"}}
+	if resp := s.post(t, s.anonymous, "/admin/login", old, nil); resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("the old password: got %d, want 401", resp.StatusCode)
+	}
+	fresh := url.Values{"username": {"may"}, "password": {password}}
+	if resp := s.post(t, s.anonymous, "/admin/login", fresh, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("the new password: got %d, want 303", resp.StatusCode)
 	}
 }
 

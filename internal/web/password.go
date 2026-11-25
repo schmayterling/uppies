@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
@@ -9,6 +10,8 @@ import (
 	"strings"
 
 	"golang.org/x/crypto/argon2"
+
+	"uppies/internal/store"
 )
 
 // Argon2id cost: 19 MiB of memory, 2 passes, 1 thread, the OWASP minimum.
@@ -53,4 +56,21 @@ func verifyPassword(hash, password string) (bool, error) {
 	}
 	got := argon2.IDKey([]byte(password), salt, passes, memory, threads, uint32(len(want)))
 	return subtle.ConstantTimeCompare(got, want) == 1, nil
+}
+
+// ResetPassword gives an account a new random password and signs it out on
+// every device. It is for the command line, for someone who cannot sign in to
+// change the password. It returns the new password, or store.ErrNotFound when
+// no account has the name.
+func ResetPassword(ctx context.Context, st *store.Store, username string) (string, error) {
+	userID, _, err := st.UserPasswordHash(ctx, username)
+	if err != nil {
+		return "", err
+	}
+	// 26 characters from crypto/rand, well over minPasswordLen.
+	password := rand.Text()
+	if err := st.SetPassword(ctx, userID, hashPassword(password), ""); err != nil {
+		return "", err
+	}
+	return password, nil
 }

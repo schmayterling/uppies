@@ -27,6 +27,9 @@ const (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "reset-password" {
+		os.Exit(resetPassword(os.Args[2:]))
+	}
 	addr := flag.String("addr", ":8080", "address to listen on")
 	dbBackend := flag.String("db-backend", os.Getenv("UPPIES_DB_BACKEND"), "sqlite (default), postgres, mariadb, turso-sqlite, or tursopg")
 	dbPath := flag.String("db", "uppies.db", "database file for sqlite and turso-sqlite")
@@ -34,6 +37,10 @@ func main() {
 	smtpAddr := flag.String("smtp-addr", "", "host:port of an smtp server for email alerts, for example smtp.example.com:587")
 	smtpFrom := flag.String("smtp-from", "", "sender address for email alerts")
 	demoData := flag.Bool("demo", false, "fill an empty database with demo data that shows every part of the interface")
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: uppies [flags]\n       uppies reset-password [flags] username\n\n")
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -47,6 +54,55 @@ func main() {
 		log.Error("uppies stopped", "error", err)
 		os.Exit(1)
 	}
+}
+
+// resetPassword runs "uppies reset-password", which sets a new random
+// password for an account and prints it. It returns the exit code.
+func resetPassword(args []string) int {
+	flags := flag.NewFlagSet("reset-password", flag.ContinueOnError)
+	dbBackend := flags.String("db-backend", os.Getenv("UPPIES_DB_BACKEND"), "sqlite (default), postgres, mariadb, turso-sqlite, or tursopg")
+	dbPath := flags.String("db", "uppies.db", "database file for sqlite and turso-sqlite")
+	flags.Usage = func() {
+		fmt.Fprintf(flags.Output(), "usage: uppies reset-password [flags] username\n\n"+
+			"Sets a new random password for the account, signs it out on every device and prints the password.\n"+
+			"Point it at the same database as the server, for example -db /data/uppies.db in the container.\n\n")
+		flags.PrintDefaults()
+	}
+	if err := flags.Parse(args); err != nil {
+		return 2
+	}
+	if flags.NArg() != 1 {
+		flags.Usage()
+		return 2
+	}
+	username := flags.Arg(0)
+	backend := store.Backend(*dbBackend)
+	// Opening a file that does not exist would create an empty database, and
+	// the account would then seem not to exist.
+	if backend == "" || backend == store.SQLite || backend == store.TursoSQLite {
+		if _, err := os.Stat(*dbPath); err != nil {
+			fmt.Fprintf(os.Stderr, "uppies: no database at %s. pass -db with the server's database file.\n", *dbPath)
+			return 1
+		}
+	}
+	ctx := context.Background()
+	st, err := store.OpenBackend(ctx, backend, *dbPath, os.Getenv("UPPIES_DATABASE_URL"))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "uppies: open the database: %v\n", err)
+		return 1
+	}
+	password, err := web.ResetPassword(ctx, st, username)
+	if err := errors.Join(err, st.Close()); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			fmt.Fprintf(os.Stderr, "uppies: no account is named %q.\n", username)
+		} else {
+			fmt.Fprintf(os.Stderr, "uppies: reset the password: %v\n", err)
+		}
+		return 1
+	}
+	fmt.Printf("new password for %s: %s\n", username, password)
+	fmt.Println("the account is signed out everywhere. sign in with this password, then change it under users.")
+	return 0
 }
 
 // newMailer builds the email sender from the flags and the environment. The
