@@ -51,6 +51,21 @@ func (s *Server) loadIndexIncidentPage(ctx context.Context, before store.Inciden
 		history.Older = indexIncidentCursorValue(store.IncidentCursor{StartedAtMs: last.StartedAtMs, ID: last.ID})
 		incidents = incidents[:limit]
 	}
+	if len(incidents) == 0 {
+		return history, nil
+	}
+	// An incident names the monitors its own page shows, as on that page.
+	placed, err := s.store.PlacedMonitors(ctx)
+	if err != nil {
+		return history, err
+	}
+	publicNames := make(map[int64]map[int64]string)
+	for _, m := range placed {
+		if publicNames[m.ProjectID] == nil {
+			publicNames[m.ProjectID] = make(map[int64]string)
+		}
+		publicNames[m.ProjectID][m.ID] = m.Name
+	}
 	today := store.DayStartMs(now.UnixMilli())
 	for _, in := range incidents {
 		started := time.UnixMilli(in.StartedAtMs)
@@ -62,11 +77,10 @@ func (s *Server) loadIndexIncidentPage(ctx context.Context, before store.Inciden
 		projectZone, _ := pageZone(store.Project{Timezone: in.ProjectTimezone}, "")
 		projectYear := started.In(projectZone).Year()
 		day := &history.Days[len(history.Days)-1]
-		day.Incidents = append(day.Incidents, incidentView{
-			Incident:       in.Incident,
-			ProjectName:    in.ProjectName,
-			ProjectHistory: fmt.Sprintf("/s/%s/history?year=%d", in.ProjectSlug, projectYear),
-		})
+		view := newIncidentView(in.Incident, publicNames[in.ProjectID])
+		view.ProjectName = in.ProjectName
+		view.ProjectHistory = fmt.Sprintf("/s/%s/history?year=%d", in.ProjectSlug, projectYear)
+		day.Incidents = append(day.Incidents, view)
 		day.Level = max(day.Level, impactLevels[in.Impact])
 	}
 	return history, nil

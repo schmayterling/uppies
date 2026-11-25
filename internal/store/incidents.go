@@ -224,69 +224,73 @@ func (s *Store) incidents(ctx context.Context, condition string, args ...any) ([
 	}
 	defer rows.Close()
 	var incidents []Incident
-	var ids []any
-	position := make(map[int64]int)
 	for rows.Next() {
 		var in Incident
 		if err := scanIncident(rows, &in); err != nil {
 			return nil, err
 		}
-		position[in.ID] = len(incidents)
 		incidents = append(incidents, in)
-		ids = append(ids, in.ID)
 	}
-	if err := rows.Err(); err != nil || len(incidents) == 0 {
-		return incidents, err
-	}
-
-	updates, err := s.incidentUpdates(ctx, ids)
-	if err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	details := make([]*Incident, len(incidents))
 	for i := range incidents {
-		incidents[i].Updates = updates[incidents[i].ID]
+		details[i] = &incidents[i]
+	}
+	return incidents, s.loadIncidentDetails(ctx, details)
+}
+
+// loadIncidentDetails fills in the updates, newest first, and the affected
+// monitors of the given incidents, with one query each.
+func (s *Store) loadIncidentDetails(ctx context.Context, incidents []*Incident) error {
+	if len(incidents) == 0 {
+		return nil
+	}
+	ids := make([]any, len(incidents))
+	byID := make(map[int64]*Incident, len(incidents))
+	for i, in := range incidents {
+		ids[i] = in.ID
+		byID[in.ID] = in
+	}
+	selected := strings.Repeat("?, ", len(ids)-1) + "?"
+
+	updates, err := s.db.QueryContext(ctx, `
+		select incident_id, id, status, title, body, at_ms from incident_updates
+		where incident_id in (`+selected+`) order by at_ms desc, id desc`, ids...)
+	if err != nil {
+		return err
+	}
+	defer updates.Close()
+	for updates.Next() {
+		var incidentID int64
+		var u IncidentUpdate
+		if err := updates.Scan(&incidentID, &u.ID, &u.Status, &u.Title, &u.Body, &u.AtMs); err != nil {
+			return err
+		}
+		in := byID[incidentID]
+		in.Updates = append(in.Updates, u)
+	}
+	if err := updates.Err(); err != nil {
+		return err
 	}
 
-	selected := strings.Repeat("?, ", len(ids)-1) + "?"
 	links, err := s.db.QueryContext(ctx, `
 		select incident_id, monitor_id from incident_monitors
 		where incident_id in (`+selected+`) order by monitor_id`, ids...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer links.Close()
 	for links.Next() {
 		var incidentID, monitorID int64
 		if err := links.Scan(&incidentID, &monitorID); err != nil {
-			return nil, err
+			return err
 		}
-		in := &incidents[position[incidentID]]
+		in := byID[incidentID]
 		in.MonitorIDs = append(in.MonitorIDs, monitorID)
 	}
-	return incidents, links.Err()
-}
-
-// incidentUpdates loads the updates of the given incidents with one query,
-// newest first, keyed by incident.
-func (s *Store) incidentUpdates(ctx context.Context, ids []any) (map[int64][]IncidentUpdate, error) {
-	selected := strings.Repeat("?, ", len(ids)-1) + "?"
-	rows, err := s.db.QueryContext(ctx, `
-		select incident_id, id, status, title, body, at_ms from incident_updates
-		where incident_id in (`+selected+`) order by at_ms desc, id desc`, ids...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	updates := make(map[int64][]IncidentUpdate, len(ids))
-	for rows.Next() {
-		var incidentID int64
-		var u IncidentUpdate
-		if err := rows.Scan(&incidentID, &u.ID, &u.Status, &u.Title, &u.Body, &u.AtMs); err != nil {
-			return nil, err
-		}
-		updates[incidentID] = append(updates[incidentID], u)
-	}
-	return updates, rows.Err()
+	return links.Err()
 }
 
 // PublishedIncidentsBetween returns a project's public incidents that started

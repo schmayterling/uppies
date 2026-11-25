@@ -88,7 +88,24 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 		return id
 	}
 	create(edge, "Older ongoing incident", "investigating", started-time.Hour.Milliseconds(), true)
-	checkout := create(core, "Checkout <orders>", "resolved", started, true)
+	monitor := func(name string) int64 {
+		t.Helper()
+		id, err := st.CreateMonitor(ctx, store.Monitor{
+			Name: name, Kind: "http", Target: "https://example.test", IntervalS: 60, TimeoutMs: 5000,
+			Retries: 1, RetryIntervalS: 20, RecoveryChecks: 1,
+		}, started)
+		check(err)
+		check(st.PlaceMonitor(ctx, core, id))
+		return id
+	}
+	payments, ledger := monitor("Payments API"), monitor("Internal ledger")
+	checkout, err := st.CreateIncident(ctx, store.Incident{
+		ProjectID: core, Title: "Checkout <orders>", Impact: "major", Status: "resolved",
+		StartedAtMs: started, Published: true, MonitorIDs: []int64{payments, ledger},
+	}, store.IncidentUpdate{Body: "incident update body"}, started+2*time.Hour.Milliseconds())
+	check(err)
+	// The ledger leaves the page, so the homepage stops naming it, as the page does.
+	check(st.SetPlacements(ctx, core, []store.Placement{{MonitorID: payments, Display: "bars"}}))
 	check(st.AddIncidentUpdate(ctx, checkout, store.IncidentUpdate{
 		Status: "resolved", Title: "Payments are back", Body: "Every **order** went through.", AtMs: started + 3*time.Hour.Milliseconds(),
 	}))
@@ -129,7 +146,8 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 		"Checkout &lt;orders&gt;", "Older ongoing incident", "Earlier year incident",
 		"<strong>Payments are back</strong>", `datetime="2026-01-01T02:30:00Z"`,
 		"<p>Every <strong>order</strong> went through.</p>", `datetime="2026-01-01T01:30:00Z"`,
-	}, []string{"First tied incident", "older incidents"})
+		`<span class="chip chip-plain">Payments API</span>`,
+	}, []string{"First tied incident", "older incidents", "Internal ledger"})
 	// The archive shows an incident's updates newest first, as a status page does.
 	_, checkoutArticle, _ := strings.Cut(older, "<h4>Checkout &lt;orders&gt;</h4>")
 	checkoutArticle, _, _ = strings.Cut(checkoutArticle, "</article>")

@@ -9,7 +9,8 @@ type IncidentCursor struct {
 	ID          int64
 }
 
-// PublishedIncidentSummary pairs a public incident and its updates with its page.
+// PublishedIncidentSummary pairs a public incident, with its updates and
+// affected monitors, with its page.
 type PublishedIncidentSummary struct {
 	Incident
 	ProjectName     string
@@ -50,26 +51,21 @@ func (s *Store) publishedIncidentSummaries(ctx context.Context, before IncidentC
 	defer rows.Close()
 
 	var incidents []PublishedIncidentSummary
-	var ids []any
 	for rows.Next() {
 		var in PublishedIncidentSummary
 		if err := scanIncident(rows, &in.Incident, &in.ProjectName, &in.ProjectSlug, &in.ProjectTimezone); err != nil {
 			return nil, err
 		}
 		incidents = append(incidents, in)
-		ids = append(ids, in.ID)
 	}
-	if err := rows.Err(); err != nil || len(incidents) == 0 {
-		return incidents, err
-	}
-	updates, err := s.incidentUpdates(ctx, ids)
-	if err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	details := make([]*Incident, len(incidents))
 	for i := range incidents {
-		incidents[i].Updates = updates[incidents[i].ID]
+		details[i] = &incidents[i].Incident
 	}
-	return incidents, nil
+	return incidents, s.loadIncidentDetails(ctx, details)
 }
 
 // VisitPublishedIncidentStartsBetween visits public incident starts in
