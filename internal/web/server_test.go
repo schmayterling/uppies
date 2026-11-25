@@ -227,6 +227,11 @@ func TestStatusPageShowsOnlyWhatIsPublic(t *testing.T) {
 	if !strings.Contains(page, "payments api is down") {
 		t.Error("a published incident is missing from the status page")
 	}
+	_, history, _ := strings.Cut(page, `<section aria-labelledby="history-heading">`)
+	history, _, _ = strings.Cut(history, "</section>")
+	if !strings.Contains(history, "payments api is down") {
+		t.Error("past incidents is missing the published active incident")
+	}
 	if strings.Contains(page, "10.0.0.7") {
 		t.Error("publishing the draft put the raw check error on the status page")
 	}

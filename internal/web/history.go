@@ -162,12 +162,11 @@ func dayLabel(day time.Time) string {
 	return strings.ToLower(day.Format("Jan 2, 2006"))
 }
 
-// recentDayGroups lists the last recentDays days, today first, each with the
-// resolved incidents that started on it. A day without incidents stays in the
-// list with none, so the page can say that nothing happened.
-func recentDayGroups(resolved []incidentView, now time.Time, zone *time.Location) []dayGroup {
+// recentDayGroups lists the last recentDays days, today first, with the
+// published incidents that started on each day and any intervening quiet days.
+func recentDayGroups(incidents []incidentView, now time.Time, zone *time.Location) []dayGroup {
 	byDay := make(map[string][]incidentView)
-	for _, in := range resolved {
+	for _, in := range incidents {
 		label := dayLabel(time.UnixMilli(in.StartedAtMs).In(zone))
 		byDay[label] = append(byDay[label], in)
 	}

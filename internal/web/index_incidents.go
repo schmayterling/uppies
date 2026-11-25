@@ -17,14 +17,10 @@ const (
 	indexIncidentArchiveLimit = 20
 )
 
-type indexIncident struct {
-	store.PublishedIncidentSummary
-	ProjectYear int
-}
-
 type indexIncidentHistory struct {
-	Incidents []indexIncident
-	Older     string
+	Days  []dayGroup
+	Zone  *time.Location
+	Older string
 }
 
 type indexIncidentsArchivePage struct {
@@ -37,12 +33,8 @@ type indexIncidentsArchivePage struct {
 	HasCursor       bool
 }
 
-func (s *Server) loadIndexIncidentHistory(r *http.Request) (indexIncidentHistory, error) {
-	return s.loadIndexIncidentPage(r.Context(), store.IncidentCursor{}, 0, indexIncidentPreviewLimit)
-}
-
-func (s *Server) loadIndexIncidentPage(ctx context.Context, before store.IncidentCursor, year, limit int) (indexIncidentHistory, error) {
-	var history indexIncidentHistory
+func (s *Server) loadIndexIncidentPage(ctx context.Context, before store.IncidentCursor, year, limit int, now time.Time) (indexIncidentHistory, error) {
+	history := indexIncidentHistory{Zone: time.UTC}
 	var incidents []store.PublishedIncidentSummary
 	var err error
 	if year == 0 {
@@ -59,10 +51,23 @@ func (s *Server) loadIndexIncidentPage(ctx context.Context, before store.Inciden
 		history.Older = indexIncidentCursorValue(store.IncidentCursor{StartedAtMs: last.StartedAtMs, ID: last.ID})
 		incidents = incidents[:limit]
 	}
+	today := store.DayStartMs(now.UnixMilli())
 	for _, in := range incidents {
-		zone, _ := pageZone(store.Project{Timezone: in.ProjectTimezone}, "")
-		year := time.UnixMilli(in.StartedAtMs).In(zone).Year()
-		history.Incidents = append(history.Incidents, indexIncident{PublishedIncidentSummary: in, ProjectYear: year})
+		started := time.UnixMilli(in.StartedAtMs)
+		date := dayLabel(started.UTC())
+		if n := len(history.Days); n == 0 || history.Days[n-1].Date != date {
+			daysAgo := int((today - store.DayStartMs(in.StartedAtMs)) / dayMs)
+			history.Days = append(history.Days, dayGroup{Date: date, Ago: agoLabel(daysAgo)})
+		}
+		projectZone, _ := pageZone(store.Project{Timezone: in.ProjectTimezone}, "")
+		projectYear := started.In(projectZone).Year()
+		day := &history.Days[len(history.Days)-1]
+		day.Incidents = append(day.Incidents, incidentView{
+			Incident:       in.Incident,
+			ProjectName:    in.ProjectName,
+			ProjectHistory: fmt.Sprintf("/s/%s/history?year=%d", in.ProjectSlug, projectYear),
+		})
+		day.Level = max(day.Level, impactLevels[in.Impact])
 	}
 	return history, nil
 }
@@ -116,7 +121,7 @@ func (s *Server) handleIndexIncidents(w http.ResponseWriter, r *http.Request) {
 	if calendarYear == 0 {
 		calendarYear = now.Year()
 	}
-	history, err := s.loadIndexIncidentPage(ctx, before, year, indexIncidentArchiveLimit)
+	history, err := s.loadIndexIncidentPage(ctx, before, year, indexIncidentArchiveLimit, now)
 	if err != nil {
 		s.fail(w, r, err)
 		return

@@ -20,7 +20,7 @@
   <div class="title-row title-ruled">
     <h2 id="list-heading">{{if .Filtered}}incidents in {{.Calendar.Year}}{{else}}all incidents{{end}}</h2>
   </div>
-  {{template "index-incident-rows" .IncidentHistory}}
+  {{template "index-incident-timeline" .IncidentHistory}}
   {{if or .HasCursor .IncidentHistory.Older}}
   <nav class="actions pager" aria-label="pages of the incident history">
     {{if .HasCursor}}<a class="button quiet" href="/incidents{{if .Filtered}}?year={{.Calendar.Year}}{{end}}">newest incidents</a>{{end}}

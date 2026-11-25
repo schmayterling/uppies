@@ -9,13 +9,13 @@
    a dot per update in the colour of its status, and a line that stops short
    of the dots on both ends. */
 .title-ruled { padding-block-end: var(--space-2); border-block-end: 1px solid var(--border); }
-.title-ruled + .rows { border-block-start: 0; }
 .tl { list-style: none; margin: var(--space-4) 0 0; padding: 0; }
 .tl-day { display: grid; grid-template-columns: calc(var(--space-8) * 2 + var(--space-6)) minmax(0, 1fr); gap: var(--space-2) var(--space-5); padding-block-end: var(--space-6); }
 .tl-day:last-child { padding-block-end: 0; }
 .tl-when { display: grid; justify-items: start; align-content: start; gap: var(--space-2); margin: 0; }
 .tl-date { margin: 0; font-size: var(--text-heading); font-weight: var(--weight-semibold); }
 .tl-what { display: grid; gap: var(--space-5); min-inline-size: 0; }
+.tl-incident { overflow-wrap: anywhere; }
 .tl-incident h4, .incident-open h2 { margin: 0; font-size: var(--text-heading); font-weight: var(--weight-semibold); }
 .tl-calm { padding-block-end: var(--space-4); color: var(--muted); font-size: var(--text-sm); }
 .tl-calm .tl-date { font-size: inherit; font-weight: var(--weight-regular); text-wrap: balance; }

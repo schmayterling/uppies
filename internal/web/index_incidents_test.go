@@ -99,11 +99,11 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 
 	for _, path := range []string{"/", "/status-pages?before=0.1"} {
 		page := get(path, http.StatusOK)
-		if count := strings.Count(page, `<strong class="index-name">`); count != 5 {
+		if count := strings.Count(page, `<article class="tl-incident">`); count != 5 {
 			t.Fatalf("%s: preview has %d incidents, want 5", path, count)
 		}
 		checkHTML(page, []string{
-			"href=\"/incidents\">full incident history",
+			"href=\"/incidents\">full incident history", ">dec 31, 2025</h3>",
 			"href=\"/s/core/history?year=2026\"", "Core &amp; Checkout",
 			"href=\"/s/edge/history?year=2025\"", "Active network incident", "monitoring",
 		}, []string{"Unpublished incident", "incident update body", "Older ongoing incident"})
@@ -114,7 +114,7 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 	checkHTML(first, []string{
 		"href=\"" + olderURL + "\"",
 		"rel=\"canonical\" href=\"" + origin + "/incidents\"",
-		"Active network incident", "First tied incident",
+		"Active network incident", "First tied incident", ">dec 31, 2025</h3>",
 		`class="heat" role="img" aria-label="0 incidents in 2026`, `href="/incidents?year=2025">2025</a>`,
 	}, []string{"Unpublished incident", "Checkout &lt;orders&gt;", "Older ongoing incident"})
 
@@ -123,8 +123,8 @@ func TestIndexIncidentHistoryShowsPublishedSummariesFromEveryPage(t *testing.T) 
 		"rel=\"canonical\" href=\"" + origin + olderURL + "\"",
 		"href=\"/incidents\">newest incidents",
 		"Checkout &lt;orders&gt;", "Older ongoing incident", "Earlier year incident",
-		"started <time datetime=\"2025-12-31T23:30:00Z\"",
-		"resolved <time datetime=\"2026-01-01T01:30:00Z\"",
+		`<strong>started</strong> <time class="meta" datetime="2025-12-31T23:30:00Z"`,
+		`<strong>resolved</strong> <time class="meta" datetime="2026-01-01T01:30:00Z"`,
 	}, []string{"First tied incident", "older incidents", "incident update body"})
 
 	year := get("/incidents?year=2025", http.StatusOK)

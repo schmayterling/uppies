@@ -12,8 +12,35 @@
       {{range .Incidents}}
       <article class="tl-incident">
         <h4>{{.Title}}</h4>
-        <p class="chips"><span class="chip chip-plain">{{.Impact}} impact</span>{{range .Affected}}<span class="chip chip-plain">{{.}}</span>{{end}}</p>
+        <p class="chips">
+          <span class="chip chip-plain">{{.Impact}} impact</span>
+          {{range .Affected}}<span class="chip chip-plain">{{.}}</span>{{end}}
+          {{if .ProjectHistory}}
+          <a class="chip chip-plain" href="{{.ProjectHistory}}"
+             aria-label="{{.ProjectName}} incident history">{{.ProjectName}}</a>
+          {{if not .ResolvedAtMs.Valid}}<span class="chip chip-plain">{{.Status}}</span>{{end}}
+          {{end}}
+        </p>
+        {{if .ProjectHistory}}
+        <ol class="updates">
+          {{if .ResolvedAtMs.Valid}}
+          <li class="update-resolved">
+            <p class="update-head">
+              <strong>resolved</strong> <time class="meta" datetime="{{rfc3339 .ResolvedAtMs.Int64}}">
+                {{local $.Second .ResolvedAtMs.Int64}}</time>
+            </p>
+          </li>
+          {{end}}
+          <li>
+            <p class="update-head">
+              <strong>started</strong> <time class="meta" datetime="{{rfc3339 .StartedAtMs}}">
+                {{local $.Second .StartedAtMs}}</time>
+            </p>
+          </li>
+        </ol>
+        {{else}}
         {{template "updates" (pair .Updates $.Second)}}
+        {{end}}
       </article>
       {{end}}
     </div>

@@ -70,7 +70,9 @@ type figure struct {
 
 type incidentView struct {
 	store.Incident
-	Affected []string
+	Affected       []string
+	ProjectName    string
+	ProjectHistory string
 }
 
 type statusPage struct {
@@ -100,7 +102,7 @@ type statusPage struct {
 	LastCheckAtMs int64
 	Components    []componentView
 	Active        []incidentView
-	// Recent lists the last few days, today first, with the resolved incidents of each.
+	// Recent lists published incidents by start day, today first.
 	Recent []dayGroup
 	// Maintenance holds the running and upcoming windows, soonest first.
 	Maintenance []maintenanceView
@@ -239,7 +241,8 @@ func (s *Server) handlePublicList(w http.ResponseWriter, r *http.Request) {
 	}
 	page := indexPage{Layout: instance.ListLayout}
 	if instance.PublicList {
-		page.Projects, err = s.indexRows(ctx, projects, s.now().UnixMilli(), page.Layout == "rows")
+		now := s.now()
+		page.Projects, err = s.indexRows(ctx, projects, now.UnixMilli(), page.Layout == "rows")
 		if err != nil {
 			s.fail(w, r, err)
 			return
@@ -252,7 +255,7 @@ func (s *Server) handlePublicList(w http.ResponseWriter, r *http.Request) {
 		for i := range page.Projects {
 			page.Projects[i].LogoVersion = logos[page.Projects[i].ID]
 		}
-		page.IncidentHistory, err = s.loadIndexIncidentHistory(r)
+		page.IncidentHistory, err = s.loadIndexIncidentPage(ctx, store.IncidentCursor{}, 0, indexIncidentPreviewLimit, now)
 		if err != nil {
 			s.fail(w, r, err)
 			return
@@ -576,20 +579,20 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 		}
 		page.Components = append(page.Components, view)
 	}
-	var resolved []incidentView
+	views := make([]incidentView, 0, len(incidents))
 	countedIncidents := 0
 	for _, in := range incidents {
 		view := newIncidentView(in, names)
+		views = append(views, view)
 		if in.ResolvedAtMs.Valid {
-			resolved = append(resolved, view)
-		} else {
-			page.Active = append(page.Active, view)
-			if !in.SourceMonitorID.Valid || !excluded[in.SourceMonitorID.Int64] {
-				countedIncidents++
-			}
+			continue
+		}
+		page.Active = append(page.Active, view)
+		if !in.SourceMonitorID.Valid || !excluded[in.SourceMonitorID.Int64] {
+			countedIncidents++
 		}
 	}
-	page.Recent = recentDayGroups(resolved, now, zone)
+	page.Recent = recentDayGroups(views, now, zone)
 	if project.HideQuietDays {
 		page.Recent = slices.DeleteFunc(page.Recent, func(g dayGroup) bool { return g.QuietDays > 0 })
 	}
