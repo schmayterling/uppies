@@ -1,4 +1,5 @@
-/* text written in markdown: the bodies of incident and maintenance updates */
+/* text written in markdown: update bodies, status page descriptions and footers */
+.md { overflow-wrap: anywhere; }
 .md > :first-child { margin-block-start: 0; }
 .md > :last-child { margin-block-end: 0; }
 .md :is(p, ul, ol, blockquote, pre, h5, h6) { margin-block: var(--space-2) 0; }

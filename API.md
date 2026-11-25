@@ -94,7 +94,8 @@ settings.
 | Setting | Accepted values | Default |
 | --- | --- | --- |
 | `name` | 1 to 120 characters | Required on create |
-| `tagline`, `footer_text`, `custom_css` | Up to 200, 500 and 20,000 characters, respectively | `""` |
+| `tagline`, `footer_text`, `custom_css` | Up to 200, 500 and 20,000 characters, respectively. The tagline is plain text for the page list and link previews. The footer is Markdown. | `""` |
+| `description` | Markdown up to 2,000 characters, shown above the page's status | `""` |
 | `homepage_url` | HTTP(S) URL with a host, up to 2,048 characters, or `""` | `""` |
 | `nav_links` | Up to six `label \| URL` lines, 2,000 characters total. Use HTTP(S) URLs, with up to 40 bytes per label. | `""` |
 | `navbar_brand` | `icon`, `icon-name`, `name` | `icon-name` |

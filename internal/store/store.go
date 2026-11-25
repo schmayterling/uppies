@@ -538,6 +538,12 @@ insert into instance_images_new select kind, content_type, data, updated_at_ms f
 drop table instance_images;
 alter table instance_images_new rename to instance_images;
 `,
+	// Step 28 gives a status page a description of its own, apart from its
+	// tagline. It starts as the tagline, which the page showed until now.
+	`
+alter table projects add column description text not null default '' check (length(description) <= 2000);
+update projects set description = tagline where description = '';
+`,
 }
 
 // Open opens the database file at path, creating and migrating it as needed.

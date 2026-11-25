@@ -15,8 +15,11 @@ type Project struct {
 	Slug string
 	Name string
 
-	// How the public status page looks.
+	// How the public status page looks. The tagline is one plain line for
+	// lists and link previews, and the description is Markdown shown above
+	// the page's status.
 	Tagline     string
+	Description string
 	HomepageURL string
 	AccentHue   int    // 0 to 360, the hue of the accent colour
 	Theme       string // "auto", "light" or "dark"
@@ -58,14 +61,14 @@ var GraphFills = []string{"gradient", "filled", "none"}
 
 const projectColumns = `id, slug, name, tagline, homepage_url, accent_hue, theme, show_face, lookback_days,
 	custom_css, footer_text, show_powered_by, noindex, timezone, domain, surface, corners, font, backfill,
-	nav_links, hide_quiet_days, graph_fill, navbar_brand, navbar_link, announcement, announcement_color`
+	nav_links, hide_quiet_days, graph_fill, navbar_brand, navbar_link, announcement, announcement_color, description`
 
 func scanProject(row rowScanner) (Project, error) {
 	var p Project
 	err := row.Scan(&p.ID, &p.Slug, &p.Name, &p.Tagline, &p.HomepageURL, &p.AccentHue, &p.Theme,
 		&p.ShowFace, &p.HistoryDays, &p.CustomCSS, &p.FooterText, &p.ShowPoweredBy, &p.NoIndex, &p.Timezone, &p.Domain,
 		&p.Surface, &p.Corners, &p.Font, &p.Backfill, &p.NavLinks, &p.HideQuietDays, &p.GraphFill, &p.NavbarBrand, &p.NavbarLink,
-		&p.Announcement, &p.AnnouncementColor)
+		&p.Announcement, &p.AnnouncementColor, &p.Description)
 	return p, err
 }
 
@@ -237,11 +240,12 @@ func updateProject(ctx context.Context, exec execSQL, p Project) error {
 			show_face = ?, lookback_days = ?, custom_css = ?, footer_text = ?, show_powered_by = ?,
 			noindex = ?, timezone = ?, domain = ?, surface = ?, corners = ?, font = ?, backfill = ?,
 			nav_links = ?, hide_quiet_days = ?, graph_fill = ?, navbar_brand = ?, navbar_link = ?,
-			announcement = ?, announcement_color = ?
+			announcement = ?, announcement_color = ?, description = ?
 		where id = ?`,
 		p.Name, p.Tagline, p.HomepageURL, p.AccentHue, p.Theme, p.ShowFace, p.HistoryDays, p.CustomCSS,
 		p.FooterText, p.ShowPoweredBy, p.NoIndex, p.Timezone, p.Domain, p.Surface, p.Corners, p.Font, p.Backfill,
-		p.NavLinks, p.HideQuietDays, p.GraphFill, p.NavbarBrand, p.NavbarLink, p.Announcement, p.AnnouncementColor, p.ID)
+		p.NavLinks, p.HideQuietDays, p.GraphFill, p.NavbarBrand, p.NavbarLink, p.Announcement, p.AnnouncementColor,
+		p.Description, p.ID)
 	if isUnique(err) {
 		return ErrDomainTaken
 	}

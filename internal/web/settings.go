@@ -17,6 +17,9 @@ import (
 
 const announcementLimit = 1000
 
+// descriptionLimit is the longest status page description, matching the schema.
+const descriptionLimit = 2000
+
 var announcementColors = []string{"blue", "green", "amber", "red", "neutral", "accent"}
 
 type settingsPage struct {
@@ -138,6 +141,10 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	p := page.Project
 	p.Name = strings.TrimSpace(form.Get("name"))
 	p.Tagline = strings.TrimSpace(form.Get("tagline"))
+	// An older form without the description keeps the one saved.
+	if form.Has("description") {
+		p.Description = strings.TrimSpace(strings.ReplaceAll(form.Get("description"), "\r", ""))
+	}
 	if form.Has("homepage_url") {
 		p.HomepageURL = strings.TrimSpace(form.Get("homepage_url"))
 	}
@@ -178,6 +185,9 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(p.Tagline) > 200 {
 		problems["tagline"] = "keep the tagline to 200 characters."
+	}
+	if utf8.RuneCountInString(p.Description) > descriptionLimit {
+		problems["description"] = fmt.Sprintf("keep the description to %d characters.", descriptionLimit)
 	}
 	if p.HomepageURL == "" && p.NavbarLink == "homepage" {
 		problems["homepage_url"] = "enter a homepage for the logo and name to open."

@@ -2,16 +2,12 @@
 <link rel="stylesheet" href="/s/{{.Project.Slug}}/theme.css">{{end}}
 {{define "main"}}
 {{template "site-bar" (pair . "status")}}
+{{with .Project.Description}}<div class="page-description md">{{markdown .}}</div>{{end}}
 <section class="banner banner-{{.BannerState}}" role="status" aria-label="current status">
   {{if .Project.ShowFace}}{{template "status-icon" .BannerIcon}}{{end}}
   <h1 class="banner-text">{{.BannerText}}</h1>
 </section>
-{{if or .Project.Tagline .LastCheckAtMs}}
-<div class="status-meta">
-  {{with .Project.Tagline}}<p class="muted">{{.}}</p>{{end}}
-  {{with .LastCheckAtMs}}<p class="meta status-checked">last check <time datetime="{{rfc3339 .}}">{{local $.Zone .}}</time></p>{{end}}
-</div>
-{{end}}
+{{with .LastCheckAtMs}}<p class="meta status-checked">last check <time datetime="{{rfc3339 .}}">{{local $.Zone .}}</time></p>{{end}}
 
 {{range .Active}}
 <article class="incident incident-open">
@@ -95,7 +91,7 @@
 </div>
 
 <footer class="page-foot meta">
-  {{with .Project.FooterText}}<p>{{.}}</p>{{end}}
+  {{with .Project.FooterText}}<div class="md">{{markdown .}}</div>{{end}}
   <p>this page reloads every minute.{{if .Project.ShowPoweredBy}} {{template "powered-by"}}{{end}}</p>
 </footer>
 {{end}}

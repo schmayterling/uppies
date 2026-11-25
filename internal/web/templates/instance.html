@@ -44,7 +44,7 @@
   <h2 class="group-title">homepage footer</h2>
   <div class="group">
     <div class="srow">
-      <label class="srow-copy" for="list_footer_text"><span>footer text</span></label>
+      <label class="srow-copy" for="list_footer_text"><span>footer text</span><small>markdown works here.</small></label>
       <div class="srow-control"><input id="list_footer_text" name="list_footer_text" value="{{.Instance.ListFooterText}}" maxlength="500"{{if index .Problems "list_footer_text"}} aria-invalid="true" aria-describedby="list-footer-problem"{{end}}></div>
       {{with index .Problems "list_footer_text"}}<p class="problem srow-problem" id="list-footer-problem">{{.}}</p>{{end}}
     </div>

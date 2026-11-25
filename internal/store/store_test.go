@@ -204,6 +204,48 @@ func TestASlugCanBeUsedOnce(t *testing.T) {
 	}
 }
 
+func TestUpgradeStartsEachDescriptionFromTheTagline(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "uppies.db")
+	old, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range migrations[:27] {
+		if _, err := old.ExecContext(ctx, step); err != nil {
+			t.Fatal(err)
+		}
+	}
+	setup := `pragma user_version = 27;
+		insert into projects (slug, name, tagline, created_at_ms) values ('pawl', 'Pawl', 'a cute cat pomodoro timer', 1);
+		insert into projects (slug, name, created_at_ms) values ('plain', 'Plain', 1);`
+	if _, err := old.ExecContext(ctx, setup); err != nil {
+		t.Fatal(err)
+	}
+	if err := old.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := Open(ctx, path)
+	if err != nil {
+		t.Fatalf("open a version 27 file: %v", err)
+	}
+	defer func() {
+		if err := s.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	for slug, want := range map[string]string{"pawl": "a cute cat pomodoro timer", "plain": ""} {
+		p, err := s.ProjectBySlug(ctx, slug)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p.Description != want || p.Tagline != want {
+			t.Errorf("%s after the upgrade: tagline %q, description %q, want both %q", slug, p.Tagline, p.Description, want)
+		}
+	}
+}
+
 func TestUpgradingAVersionOneFileKeepsItsDataAndAddsDefaults(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "uppies.db")

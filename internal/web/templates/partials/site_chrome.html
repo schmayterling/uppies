@@ -22,7 +22,7 @@
 {{define "index-footer"}}
 {{if or .FooterText .ShowPoweredBy}}
 <footer class="page-foot meta index-footer">
-  {{with .FooterText}}<p>{{.}}</p>{{end}}
+  {{with .FooterText}}<div class="md">{{markdown .}}</div>{{end}}
   {{if .ShowPoweredBy}}<p>{{template "powered-by"}}</p>{{end}}
 </footer>
 {{end}}

@@ -17,6 +17,7 @@ type apiPage struct {
 	Slug              string `json:"slug"`
 	Name              string `json:"name"`
 	Tagline           string `json:"tagline"`
+	Description       string `json:"description"`
 	HomepageURL       string `json:"homepage_url"`
 	AccentHue         int    `json:"accent_hue"`
 	Theme             string `json:"theme"`
@@ -46,7 +47,7 @@ func (p apiPage) cursor() string { return p.ID }
 func pageJSON(p store.Project) apiPage {
 	return apiPage{
 		ID: strconv.FormatInt(p.ID, 10), Slug: p.Slug, Name: p.Name,
-		Tagline: p.Tagline, HomepageURL: p.HomepageURL, AccentHue: p.AccentHue, Theme: p.Theme, ShowFace: p.ShowFace,
+		Tagline: p.Tagline, Description: p.Description, HomepageURL: p.HomepageURL, AccentHue: p.AccentHue, Theme: p.Theme, ShowFace: p.ShowFace,
 		HistoryDays: p.HistoryDays, Backfill: p.Backfill, NavLinks: p.NavLinks, NavbarBrand: p.NavbarBrand, NavbarLink: p.NavbarLink, CustomCSS: p.CustomCSS,
 		FooterText: p.FooterText, Announcement: p.Announcement, AnnouncementColor: p.AnnouncementColor,
 		ShowPoweredBy: p.ShowPoweredBy, NoIndex: p.NoIndex, Timezone: p.Timezone,
@@ -100,6 +101,7 @@ func (s *Server) apiCreatePage(w http.ResponseWriter, r *http.Request) {
 type pagePatch struct {
 	Name              *string `json:"name"`
 	Tagline           *string `json:"tagline"`
+	Description       *string `json:"description"`
 	HomepageURL       *string `json:"homepage_url"`
 	AccentHue         *int    `json:"accent_hue"`
 	Theme             *string `json:"theme"`
@@ -135,6 +137,7 @@ func (input pagePatch) apply(p *store.Project) error {
 	}{
 		{"name", input.Name, &p.Name, 1, 120, false},
 		{"tagline", input.Tagline, &p.Tagline, 0, 200, false},
+		{"description", input.Description, &p.Description, 0, descriptionLimit, false},
 		{"homepage_url", input.HomepageURL, &p.HomepageURL, 0, 2048, false},
 		{"nav_links", input.NavLinks, &p.NavLinks, 0, 2000, false},
 		{"custom_css", input.CustomCSS, &p.CustomCSS, 0, 20_000, true},

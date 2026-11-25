@@ -352,7 +352,7 @@ func TestStatusPageFollowsTheProjectSettings(t *testing.T) {
 	valid := url.Values{
 		"name": {"Acme Cloud"}, "tagline": {"how our services are doing"}, "homepage_url": {"https://acme.example"},
 		"theme": {"dark"}, "accent_hue": {"320"}, "history_days": {"30"}, "custom_css": {".banner { border-width: 3px; }"},
-		"timezone": {"UTC"},
+		"timezone": {"UTC"}, "description": {"We run **checkout** for Acme."},
 	}
 	invalid := url.Values{
 		"name": {"Acme Cloud"}, "homepage_url": {"javascript:alert(1)"},
@@ -384,6 +384,27 @@ func TestStatusPageFollowsTheProjectSettings(t *testing.T) {
 	}
 	if got := strings.Count(page, `class="day day-`); got != 30 {
 		t.Errorf("got %d day cells, want 30", got)
+	}
+	// The description is Markdown above the status. The tagline is not repeated on the page.
+	description := `<div class="page-description md"><p>We run <strong>checkout</strong> for Acme.</p>`
+	if at, banner := strings.Index(page, description), strings.Index(page, `class="banner `); at < 0 || at > banner {
+		t.Errorf("the description must come before the status, found at %d with the status at %d", at, banner)
+	}
+	if strings.Contains(page, `<p class="muted">how our services are doing</p>`) {
+		t.Error("the tagline must not show under the status any more")
+	}
+	older := maps.Clone(valid)
+	delete(older, "description")
+	if resp := s.post(t, s.admin, settings, older, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("a form without the description: got %d, want 303", resp.StatusCode)
+	}
+	if p, err := s.store.ProjectByID(ctx, projectID); err != nil || p.Description != "We run **checkout** for Acme." {
+		t.Errorf("a form without the description must keep it, got %q err=%v", p.Description, err)
+	}
+	tooLong := maps.Clone(valid)
+	tooLong.Set("description", strings.Repeat("é", 2001))
+	if resp := s.post(t, s.admin, settings, tooLong, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("a description over 2000 characters: got %d, want 422", resp.StatusCode)
 	}
 
 	status, theme := s.get(t, s.anonymous, "/s/acme/theme.css")
@@ -557,7 +578,8 @@ func TestStatusPageFooterTimezoneDomainAndBadge(t *testing.T) {
 
 	_, page := s.get(t, s.anonymous, "/s/acme")
 	page = html.UnescapeString(page) // the template writes "+" as an entity
-	for _, want := range []string{"2026-11-23 12:05 +08:00", "write to help@acme.example", `<meta name="robots" content="noindex">`} {
+	// The footer is Markdown, so the address becomes a mail link.
+	for _, want := range []string{"2026-11-23 12:05 +08:00", `write to <a href="mailto:help@acme.example">help@acme.example</a>`, `<meta name="robots" content="noindex">`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("status page is missing %q", want)
 		}

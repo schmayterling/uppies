@@ -28,7 +28,8 @@ create table if not exists projects (
 	navbar_brand text collate "C" not null default 'icon-name' check (navbar_brand in ('icon', 'icon-name', 'name')),
 	navbar_link text collate "C" not null default 'status' check (navbar_link in ('status', 'list', 'homepage')),
 	announcement text collate "C" not null default '' check (length(announcement) <= 1000),
-	announcement_color text collate "C" not null default '' check (announcement_color in ('', 'blue', 'green', 'amber', 'red', 'neutral', 'accent'))
+	announcement_color text collate "C" not null default '' check (announcement_color in ('', 'blue', 'green', 'amber', 'red', 'neutral', 'accent')),
+	description text collate "C" not null default '' check (length(description) <= 2000)
 );
 
 create unique index if not exists projects_domain on projects(domain) where domain <> '';

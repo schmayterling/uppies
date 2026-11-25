@@ -29,6 +29,7 @@ create table if not exists projects (
 	navbar_link text not null default 'status' check (navbar_link in ('status', 'list', 'homepage')),
 	announcement text not null default '' check (char_length(announcement) <= 1000),
 	announcement_color text not null default '' check (announcement_color in ('', 'blue', 'green', 'amber', 'red', 'neutral', 'accent')),
+	description text not null default '' check (char_length(description) <= 2000),
 	-- Empty domains do not participate in the unique index.
 	unique_domain varchar(254) as (nullif(domain, '')) virtual invisible,
 	unique key projects_domain (unique_domain),
