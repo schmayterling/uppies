@@ -32,8 +32,11 @@ label.srow { cursor: pointer; }
 .facts strong { color: var(--ink); }
 .update-row { display: grid; gap: var(--space-1); padding: var(--space-3); }
 .update-row .update-body { font-size: var(--text-ui); }
-/* an update's edit button sits at the end of its heading line */
-.update-head > .update-edit { margin-inline-start: auto; }
+/* an update's edit button sits at the end of its heading line. negative
+   margins make it take one line of text in the layout, so the heading keeps
+   its own height and stays at the top. the button still draws and clicks at
+   full size. */
+.update-head > .update-edit { align-self: center; margin-block: calc((1lh - var(--control-height)) / 2); margin-inline-start: auto; }
 /* the list of all monitors is arranged by dragging: a row inside or between
    categories, a category by its name. a category with no rows shows its note. */
 [data-order] [data-drag="row"] { cursor: grab; }
