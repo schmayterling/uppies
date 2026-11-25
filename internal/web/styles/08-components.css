@@ -22,7 +22,7 @@
 .admonition-success, .announcement-green { --tone: var(--status-success); }
 .announcement-neutral { --tone: var(--muted); }
 .announcement-accent { --tone: var(--accent); }
-.page-announcement { display: block; white-space: pre-wrap; border-inline-start: var(--focus-width) solid var(--tone); }
+.page-announcement { display: block; border-inline-start: var(--focus-width) solid var(--tone); }
 /* an admonition keeps its distance from whatever it follows: a heading, a line of text or a row of facts */
 .content > .admonition, .content > form > .admonition, .settings > .admonition, .settings > form > .admonition { margin-block: var(--space-4); }
 .channel { display: flex; gap: var(--space-2); align-items: baseline; min-inline-size: 0; }

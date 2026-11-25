@@ -24,20 +24,21 @@ func TestPageAnnouncementIsPinnedAndClearedThroughSettings(t *testing.T) {
 	form := url.Values{
 		"name": {"Acme"}, "theme": {"light"}, "accent_hue": {"200"},
 		"history_days": {"90"}, "timezone": {"UTC"},
-		"announcement": {"Planned update <today>\nCheck back shortly."}, "announcement_color": {"amber"},
+		"announcement": {"**Planned** update <today>\nCheck back shortly."}, "announcement_color": {"amber"},
 	}
 	if resp := s.post(t, s.admin, settings, form, nil); resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("save announcement: %d", resp.StatusCode)
 	}
 	for _, route := range []string{"/s/acme", "/s/acme/history"} {
 		_, page := s.get(t, s.anonymous, route)
-		if !strings.Contains(page, `class="page-announcement announcement-amber"`) ||
-			!strings.Contains(page, "Planned update &lt;today&gt;\nCheck back shortly.") {
-			t.Errorf("%s does not render the escaped announcement", route)
+		// The announcement is Markdown: stars make text strong, and raw HTML shows as typed.
+		if !strings.Contains(page, `class="page-announcement md announcement-amber"`) ||
+			!strings.Contains(page, "<p><strong>Planned</strong> update &lt;today&gt;<br>\nCheck back shortly.</p>") {
+			t.Errorf("%s does not render the announcement as escaped Markdown", route)
 		}
 	}
 	_, page := s.get(t, s.anonymous, "/s/acme")
-	announcement := strings.Index(page, `class="page-announcement announcement-amber"`)
+	announcement := strings.Index(page, `class="page-announcement md announcement-amber"`)
 	status := strings.Index(page, `aria-label="current status"`)
 	if announcement < 0 || status < 0 || announcement >= status {
 		t.Error("the pinned message must appear above the overall status")

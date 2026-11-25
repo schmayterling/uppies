@@ -110,7 +110,7 @@ settings.
 | `history_days` | Integer from 7 to 365 | 90 |
 | `backfill` | `none`, `up`, `degraded`, `down` | `none` |
 | `graph_fill` | `gradient`, `filled`, `none`, or `""` to inherit from the instance | `""` |
-| `announcement` | Pinned plain text up to 1,000 characters. Use `""` to hide it. | `""` |
+| `announcement` | Pinned Markdown up to 1,000 characters. Use `""` to hide it. | `""` |
 | `announcement_color` | `blue`, `green`, `amber`, `red`, `neutral`, `accent`, or `""` for blue | `""` |
 | `show_face`, `show_powered_by` | Booleans | `true` |
 | `hide_quiet_days`, `noindex` | Booleans | `false` |

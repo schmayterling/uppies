@@ -113,7 +113,7 @@ func announcementText(form url.Values, field, current string, problems map[strin
 	}
 	text := strings.TrimSpace(strings.ReplaceAll(form.Get(field), "\r", ""))
 	if !utf8.ValidString(text) || utf8.RuneCountInString(text) > announcementLimit || strings.ContainsRune(text, 0) {
-		problems[field] = "use up to 1000 characters of plain text."
+		problems[field] = "use up to 1000 characters."
 	}
 	return text
 }

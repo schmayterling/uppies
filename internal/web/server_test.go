@@ -1552,8 +1552,8 @@ func TestInstancePagesAndUsers(t *testing.T) {
 		if strings.Contains(page, "<h1>status pages</h1>") {
 			t.Errorf("front page in the %s layout has a visible duplicate heading", layout)
 		}
-		notice := strings.Index(page, `class="page-announcement announcement-amber"`)
-		if notice < 0 || notice >= strings.Index(page, marker) || !strings.Contains(page, "Planned work &lt;today&gt;.\nAn update will follow.") {
+		notice := strings.Index(page, `class="page-announcement md announcement-amber"`)
+		if notice < 0 || notice >= strings.Index(page, marker) || !strings.Contains(page, "Planned work &lt;today&gt;.<br>\nAn update will follow.") {
 			t.Errorf("the %s layout must show the escaped pinned announcement above the list", layout)
 		}
 		for _, want := range []string{
@@ -1572,7 +1572,7 @@ func TestInstancePagesAndUsers(t *testing.T) {
 		for _, want := range []string{
 			`class="site-bar"`, `class="site-brand" href="/status-pages"`, `>acme ops</a>`,
 			`href="/status-pages">status</a>`, `href="/incidents" aria-current="page">incidents</a>`,
-			`href="https://docs.example.com/"`, "Planned work &lt;today&gt;.\nAn update will follow.",
+			`href="https://docs.example.com/"`, "Planned work &lt;today&gt;.<br>\nAn update will follow.",
 			`class="page-foot meta index-footer"`, "Reach the &lt;ops&gt; team", `powered by <a href="https://github.com/schmayterling/uppies">uppies</a>.`,
 		} {
 			if !strings.Contains(archive, want) {

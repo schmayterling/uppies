@@ -60,7 +60,7 @@
   <h2 class="group-title">announcement</h2>
   <div class="group">
     <div class="srow" data-stack>
-      <label class="srow-copy" for="announcement"><span>pinned message</span><small>shown above the status. clear the message to remove it.</small></label>
+      <label class="srow-copy" for="announcement"><span>pinned message</span><small>shown above the status. markdown works here. clear the message to remove it.</small></label>
       <textarea id="announcement" name="announcement" rows="3" maxlength="1000"{{if index .Problems "announcement"}} aria-invalid="true" aria-describedby="announcement-problem"{{end}}>{{.Project.Announcement}}</textarea>
       {{with index .Problems "announcement"}}<p class="problem srow-problem" id="announcement-problem">{{.}}</p>{{end}}
     </div>

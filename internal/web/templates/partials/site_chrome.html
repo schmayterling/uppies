@@ -53,5 +53,5 @@
 {{end}}{{end}}
 
 {{define "pinned-announcement"}}{{if .First}}
-<aside class="page-announcement announcement-{{or .Second "blue"}}" role="note" aria-label="announcement">{{.First}}</aside>
+<aside class="page-announcement md announcement-{{or .Second "blue"}}" role="note" aria-label="announcement">{{markdown .First}}</aside>
 {{end}}{{end}}
