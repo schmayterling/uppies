@@ -21,6 +21,7 @@ Last run: 2026-11-25, build, vet and race tests passed for schema 26 with Markdo
 
 Each line names how it was verified.
 
+- A logo beside the status page name is 1.5em tall, one line of the name, so it scales with the name's type. A logo shown alone stays 32 pixels. Verified by measuring both modes in Chromium and WebKit at 1440 and 320 pixels (24 and 32 pixels beside 16-pixel text).
 - Incident and maintenance updates are written in Markdown (`internal/web/markdown.go`), with `__text__` for underline and `-# ` for small print. An update estimated at more than nine rows shows six lines and a read more toggle built on `<details>`, so status pages still run no script. Verified by renderer and route tests, each seen failing once, and in Chromium and WebKit at 1440, 390 and 320 pixels: the collapsed text always hides more than a line, opens fully, closes again, opens with Enter, and the page never scrolls sideways.
 - Public incident lists share the same dated timeline. The seven-day status page history includes active published incidents. Verified by route tests and Chromium and WebKit at desktop and phone widths.
 - Schema 26 stores optional incident update titles. Blank titles use the status heading. Verified a populated v25 upgrade, titled updates through the admin and API, and the status-based recovery lifecycle.
