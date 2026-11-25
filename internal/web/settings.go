@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"uppies/internal/alert"
@@ -26,7 +25,6 @@ type settingsPage struct {
 	AnnouncementColors []string
 	Chrome             chrome
 	Project            store.Project
-	Zones              []string
 	Themes             []string
 	Backfills          []string
 	Swatches           []int
@@ -64,7 +62,6 @@ func (s *Server) settingsPage(r *http.Request) (settingsPage, error) {
 		return page, err
 	}
 	page.Chrome = s.adminChrome(r, page.Project.Name+" settings")
-	page.Zones = zoneChoices(page.Project, page.Project.Timezone)
 	page.CustomHue = !slices.Contains(accentSwatches, page.Project.AccentHue)
 	page.Images, err = s.store.ProjectImageVersions(r.Context(), id)
 	if err != nil {
@@ -163,7 +160,10 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	p.ShowPoweredBy = form.Get("show_powered_by") == "on"
 	p.NoIndex = form.Get("noindex") == "on"
-	p.Timezone = strings.TrimSpace(form.Get("timezone"))
+	// The form no longer offers the page's timezone. One sent by an older form is still checked and kept.
+	if form.Has("timezone") {
+		p.Timezone = strings.TrimSpace(form.Get("timezone"))
+	}
 	p.Domain = strings.ToLower(strings.TrimSpace(form.Get("domain")))
 	p.AccentHue = formInt(form, "accent_hue", 0, 360, problems)
 	if custom := strings.TrimSpace(form.Get("accent_hue_custom")); custom != "" {
@@ -208,11 +208,10 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	if len(p.FooterText) > 500 {
 		problems["footer_text"] = "keep the footer text to 500 characters."
 	}
-	if _, err := time.LoadLocation(p.Timezone); err != nil || p.Timezone == "" || len(p.Timezone) > 64 {
+	if _, ok := loadZone(p.Timezone); !ok {
 		problems["timezone"] = "choose a timezone."
 		p.Timezone = page.Project.Timezone
 	}
-	page.Zones = zoneChoices(page.Project, p.Timezone)
 	if p.Domain != "" && (len(p.Domain) > 253 || !domainPattern.MatchString(p.Domain)) {
 		problems["domain"] = "enter a hostname without http:// or a path, for example status.example.com."
 	}

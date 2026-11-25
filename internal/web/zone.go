@@ -1,7 +1,9 @@
 package web
 
 import (
+	"context"
 	_ "embed" // zones.txt is compiled in
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -41,29 +43,74 @@ func systemZoneName() string {
 	return "UTC"
 }
 
-// pageZone picks the timezone a status page shows its times in: the one the
-// visitor asked for when it is a real zone, otherwise the project's own.
-func pageZone(project store.Project, asked string) (*time.Location, string) {
-	for _, name := range []string{asked, project.Timezone} {
-		if name == "" {
-			continue
-		}
-		if zone, err := time.LoadLocation(name); err == nil {
-			return zone, name
-		}
-	}
-	return time.UTC, "UTC"
+// browserZoneCookie names the cookie in which static/tz.js keeps the
+// visitor's browser timezone, so public pages can show times in it.
+const browserZoneCookie = "tz"
+
+// zoneChoice is the timezone a page shows its times in.
+type zoneChoice struct {
+	Zone *time.Location
+	Name string
+	// Asked is true when the visitor picked the zone in the address. Links
+	// then carry it, as a browser's own zone needs no carrying.
+	Asked bool
 }
 
-// zoneChoices lists the zones offered in the picker, with the current one first.
-func zoneChoices(project store.Project, current string) []string {
+// loadZone returns the named zone when it is a real one.
+func loadZone(name string) (*time.Location, bool) {
+	if name == "" || len(name) > 64 {
+		return nil, false
+	}
+	zone, err := time.LoadLocation(name)
+	return zone, err == nil
+}
+
+// instanceZone is the install's default timezone: the one the instance
+// settings name, or UTC, which the admin pages used before the setting.
+func instanceZone(settings store.InstanceSettings) zoneChoice {
+	if zone, ok := loadZone(settings.Timezone); ok {
+		return zoneChoice{Zone: zone, Name: settings.Timezone}
+	}
+	return zoneChoice{Zone: time.UTC, Name: "UTC"}
+}
+
+// visitorZone picks the timezone a public page shows its times in: the one
+// the visitor picked in the address, then their browser's, then the
+// install's default.
+func visitorZone(r *http.Request, settings store.InstanceSettings) zoneChoice {
+	if name := r.URL.Query().Get("tz"); name != "" {
+		if zone, ok := loadZone(name); ok {
+			return zoneChoice{Zone: zone, Name: name, Asked: true}
+		}
+	}
+	if cookie, err := r.Cookie(browserZoneCookie); err == nil {
+		if zone, ok := loadZone(cookie.Value); ok {
+			return zoneChoice{Zone: zone, Name: cookie.Value}
+		}
+	}
+	return instanceZone(settings)
+}
+
+// adminZone is the zone the admin pages show and read times in: the
+// install's default. A failed read falls back to the server's zone.
+func (s *Server) adminZone(ctx context.Context) zoneChoice {
+	instance, err := s.store.Instance(ctx)
+	if err != nil {
+		s.log.Error("read instance settings", "error", err)
+	}
+	return instanceZone(instance)
+}
+
+// zoneChoices lists the zones offered in a picker: the current one, then
+// the install's default, then every other zone.
+func zoneChoices(current, fallback string) []string {
 	choices := make([]string, 0, len(offeredZones)+2)
 	choices = append(choices, current)
-	if project.Timezone != current {
-		choices = append(choices, project.Timezone)
+	if fallback != current {
+		choices = append(choices, fallback)
 	}
 	for _, name := range offeredZones {
-		if name != current && name != project.Timezone {
+		if name != current && name != fallback {
 			choices = append(choices, name)
 		}
 	}

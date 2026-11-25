@@ -21,12 +21,12 @@
   <h1>copy your api token</h1>
   <p class="muted">save the token for {{.Name}} now. this is the only time it is shown.</p>
   <p class="target"><code>{{.Secret}}</code></p>
-  <p class="hint">expires <time datetime="{{rfc3339 .ExpiresMs}}">{{utc .ExpiresMs}}</time>.</p>
+  <p class="hint">expires <time datetime="{{rfc3339 .ExpiresMs}}">{{local $.Chrome.Location .ExpiresMs}}</time>.</p>
   <a class="button" href="/admin/api-tokens">done</a>
   {{else if .Token}}
   <p class="hint"><a href="/admin/api-tokens">all api tokens</a></p>
   <h1 class="target">{{.Token.Name}}</h1>
-  <p class="muted">{{.Token.Status}} · created by <span class="target">{{.Token.Owner}}</span> · expires <time datetime="{{rfc3339 .Token.ExpiresAtMs}}">{{utc .Token.ExpiresAtMs}}</time></p>
+  <p class="muted">{{.Token.Status}} · created by <span class="target">{{.Token.Owner}}</span> · expires <time datetime="{{rfc3339 .Token.ExpiresAtMs}}">{{local $.Chrome.Location .Token.ExpiresAtMs}}</time></p>
   {{with .Notice}}{{template "success" .}}{{end}}
   {{if eq .Token.Status "active"}}
   <h2 class="group-title">permissions</h2>
@@ -78,7 +78,7 @@
   <div class="group">
     {{range .Tokens}}
     <div class="srow">
-      <span class="srow-copy"><a class="target" href="/admin/api-tokens/{{.ID}}">{{.Name}}</a><small>{{.Status}} · {{.Owner}} · expires <time datetime="{{rfc3339 .ExpiresAtMs}}">{{utc .ExpiresAtMs}}</time></small></span>
+      <span class="srow-copy"><a class="target" href="/admin/api-tokens/{{.ID}}">{{.Name}}</a><small>{{.Status}} · {{.Owner}} · expires <time datetime="{{rfc3339 .ExpiresAtMs}}">{{local $.Chrome.Location .ExpiresAtMs}}</time></small></span>
       <span class="srow-control meta">{{.PermissionCount}} {{if eq .PermissionCount 1}}permission{{else}}permissions{{end}}</span>
     </div>
     {{else}}

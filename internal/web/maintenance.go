@@ -39,7 +39,7 @@ func (s *Server) handleMaintenanceHistory(w http.ResponseWriter, r *http.Request
 		s.fail(w, r, err)
 		return
 	}
-	zone, _ := pageZone(project, "")
+	zone := s.adminZone(r.Context()).Zone
 	page := maintenanceHistoryPage{
 		Chrome: s.adminChrome(r, "maintenance history"), Project: project, Zone: zone, Windows: windows, Before: before,
 	}
@@ -95,7 +95,7 @@ func (s *Server) maintenanceWindowPage(r *http.Request) (maintenanceWindowPage, 
 		return maintenanceWindowPage{}, err
 	}
 	nowMs := s.now().UnixMilli()
-	zone, _ := pageZone(project, "")
+	zone := s.adminZone(ctx).Zone
 	page := maintenanceWindowPage{
 		Chrome: s.adminChrome(r, window.Title), Project: project, Zone: zone, Before: before,
 		Window: maintenanceView{MaintenanceWindow: window, Running: window.RunningAt(nowMs), Updates: updates},

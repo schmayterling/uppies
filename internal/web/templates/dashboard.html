@@ -62,7 +62,7 @@
     {{range .Events}}
     <li class="list-row">
       <span><strong>{{.Title}}</strong> {{.Word}} {{with .Project}}<span class="meta">in {{.}}</span>{{end}}</span>
-      <time class="meta" datetime="{{rfc3339 .AtMs}}">{{utc .AtMs}}</time>
+      <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Chrome.Location .AtMs}}</time>
     </li>
     {{end}}
   </ol>

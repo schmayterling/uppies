@@ -61,7 +61,7 @@
           {{if and .LastError (eq .State "down")}}{{template "table-note" .LastError}}{{end}}
         </td>
         <td>{{if .Pages}}{{template "table-page-links" .Pages}}{{else}}<span class="muted">on none</span>{{end}}</td>
-        <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{utc .LastCheckAtMs}}</time>{{else}}<span class="muted">not yet</span>{{end}}</td>
+        <td>{{if .LastCheckAtMs}}<time datetime="{{rfc3339 .LastCheckAtMs}}">{{local $.Chrome.Location .LastCheckAtMs}}</time>{{else}}<span class="muted">not yet</span>{{end}}</td>
         <td class="number">{{if and .LastCheckAtMs (eq .State "ok") (ne .Kind "push")}}{{.LastLatencyMs}} ms{{end}}</td>
       </tr>
       {{end}}

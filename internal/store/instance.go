@@ -39,6 +39,10 @@ type InstanceSettings struct {
 	ListShowPoweredBy bool
 	// GraphFill is how graphs are filled unless a status page or a monitor says otherwise: one of GraphFills.
 	GraphFill string
+	// Timezone is the IANA name of the zone the admin pages show times in,
+	// and public pages when the visitor's browser does not tell its own.
+	// Empty means UTC.
+	Timezone string
 }
 
 // Sign-in page choices.
@@ -125,6 +129,8 @@ func (s *Store) Instance(ctx context.Context) (InstanceSettings, error) {
 			settings.ListShowPoweredBy = value == "1"
 		case "graph_fill":
 			settings.GraphFill = value
+		case "timezone":
+			settings.Timezone = value
 		}
 	}
 	return settings, rows.Err()
@@ -148,6 +154,7 @@ func (s *Store) SaveInstance(ctx context.Context, settings InstanceSettings) err
 		"list_layout": settings.ListLayout, "graph_fill": settings.GraphFill,
 		"list_announcement": settings.ListAnnouncement, "list_announcement_color": settings.ListAnnouncementColor,
 		"list_footer_text": settings.ListFooterText, "list_show_powered_by": listPoweredBy,
+		"timezone": settings.Timezone,
 	}
 	statement := `insert into instance_settings (key, value) values (?, ?)
 		on conflict (key) do update set value = excluded.value`

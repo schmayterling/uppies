@@ -39,6 +39,9 @@ type instancePage struct {
 	BackgroundVersion int64
 	FaviconVersion    int64
 	LogoVersion       int64
+	// ZoneName is the install's default timezone, and Zones the choices for it.
+	ZoneName string
+	Zones    []string
 }
 
 func (s *Server) instancePage(r *http.Request, title string) (instancePage, error) {
@@ -318,6 +321,8 @@ func (s *Server) renderInstance(w http.ResponseWriter, r *http.Request, status i
 		{Label: "admin accounts", Value: strconv.Itoa(facts.Users)},
 		{Label: "email alerts", Value: email},
 	}
+	page.ZoneName = instanceZone(page.Instance).Name
+	page.Zones = zoneChoices(page.ZoneName, page.ZoneName)
 	s.render(w, r, status, "instance.html", page)
 }
 
@@ -353,12 +358,20 @@ func (s *Server) handleSaveInstance(w http.ResponseWriter, r *http.Request) {
 	if r.PostForm.Has("list_footer_text") {
 		footer := strings.TrimSpace(r.PostForm.Get("list_footer_text"))
 		if !utf8.ValidString(footer) || apiText("list_footer_text", footer, 0, 500) != nil {
-			page.Problems["list_footer_text"] = "use up to 500 characters of plain text."
+			page.Problems["list_footer_text"] = "use up to 500 characters."
 		}
 		page.Instance.ListFooterText = footer
 	}
 	if r.PostForm.Has("list_show_powered_by") {
 		page.Instance.ListShowPoweredBy = r.PostForm.Get("list_show_powered_by") == "on"
+	}
+	if r.PostForm.Has("timezone") {
+		name := strings.TrimSpace(r.PostForm.Get("timezone"))
+		if _, ok := loadZone(name); ok {
+			page.Instance.Timezone = name
+		} else {
+			page.Problems["timezone"] = "choose a timezone."
+		}
 	}
 	if r.PostForm.Has("nav_links") {
 		page.Instance.NavLinks = strings.TrimSpace(r.PostForm.Get("nav_links"))

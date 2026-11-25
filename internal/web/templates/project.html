@@ -101,7 +101,7 @@
     <div class="field">
       <label for="window-starts">starts</label>
       <input id="window-starts" name="starts" type="datetime-local" value="{{.Window.Starts}}" required aria-describedby="window-starts-hint{{if index .Problems "starts"}} window-starts-problem{{end}}"{{if index .Problems "starts"}} aria-invalid="true"{{end}}>
-      <p class="hint" id="window-starts-hint">in this status page's timezone, {{.Project.Timezone}}.</p>
+      <p class="hint" id="window-starts-hint">in {{.ZoneName}}, the default timezone in the instance settings.</p>
       {{with index .Problems "starts"}}<p class="problem" id="window-starts-problem">{{.}}</p>{{end}}
     </div>
     <div class="field">

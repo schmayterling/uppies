@@ -144,11 +144,10 @@ func (s *Server) monitorOverview(r *http.Request, page *monitorFormPage) error {
 		return err
 	}
 	look := detailLook{Days: defaultLookbackDays, Backfill: "none", Fill: instance.GraphFill}
-	look.Zone, _ = pageZone(store.Project{Timezone: systemZoneName()}, "")
+	look.Zone = instanceZone(instance).Zone
 	if len(page.Pages) > 0 {
 		first := page.Pages[0]
-		zone, _ := pageZone(first, "")
-		if look, err = s.pageLook(ctx, first, "", zone); err != nil {
+		if look, err = s.pageLook(ctx, first, "", look.Zone); err != nil {
 			return err
 		}
 	}

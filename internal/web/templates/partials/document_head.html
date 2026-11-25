@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="{{assetURL "tokens.css"}}">
 <link rel="stylesheet" href="{{assetURL "app.css"}}">
 {{if or .Chrome.Admin .Chrome.Auth}}<link rel="stylesheet" href="/theme.css">{{end}}
+{{if .Chrome.Zone}}<script src="{{assetURL "tz.js"}}"></script>{{end}}
 {{if .Chrome.Admin}}<script src="{{assetURL "admin.js"}}"></script>
 <noscript><link rel="stylesheet" href="{{assetURL "noscript.css"}}"></noscript>{{end}}
 <meta name="description" content="{{if .Chrome.Description}}{{.Chrome.Description}}{{else if .Chrome.Admin}}the admin pages of this uppies install: monitors, alerts and status pages.{{else}}{{.Chrome.Title}}, served by uppies, a self-hosted uptime monitor.{{end}}">

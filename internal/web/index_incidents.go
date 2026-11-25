@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -33,14 +34,14 @@ type indexIncidentsArchivePage struct {
 	HasCursor       bool
 }
 
-func (s *Server) loadIndexIncidentPage(ctx context.Context, before store.IncidentCursor, year, limit int, now time.Time) (indexIncidentHistory, error) {
-	history := indexIncidentHistory{Zone: time.UTC}
+func (s *Server) loadIndexIncidentPage(ctx context.Context, before store.IncidentCursor, year, limit int, now time.Time, zone *time.Location) (indexIncidentHistory, error) {
+	history := indexIncidentHistory{Zone: zone}
 	var incidents []store.PublishedIncidentSummary
 	var err error
 	if year == 0 {
 		incidents, err = s.store.PublishedIncidentSummaries(ctx, before, limit+1)
 	} else {
-		from := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
+		from := time.Date(year, time.January, 1, 0, 0, 0, 0, zone)
 		incidents, err = s.store.PublishedIncidentSummariesBetween(ctx, before, from.UnixMilli(), from.AddDate(1, 0, 0).UnixMilli(), limit+1)
 	}
 	if err != nil {
@@ -66,16 +67,20 @@ func (s *Server) loadIndexIncidentPage(ctx context.Context, before store.Inciden
 		}
 		publicNames[m.ProjectID][m.ID] = m.Name
 	}
-	today := store.DayStartMs(now.UnixMilli())
+	today := noonOf(now.In(zone))
 	for _, in := range incidents {
-		started := time.UnixMilli(in.StartedAtMs)
-		date := dayLabel(started.UTC())
+		started := time.UnixMilli(in.StartedAtMs).In(zone)
+		date := dayLabel(started)
 		if n := len(history.Days); n == 0 || history.Days[n-1].Date != date {
-			daysAgo := int((today - store.DayStartMs(in.StartedAtMs)) / dayMs)
+			// Both are noon, so rounding absorbs the hour a clock change adds or removes.
+			daysAgo := int(math.Round(today.Sub(noonOf(started)).Hours() / 24))
 			history.Days = append(history.Days, dayGroup{Date: date, Ago: agoLabel(daysAgo)})
 		}
-		projectZone, _ := pageZone(store.Project{Timezone: in.ProjectTimezone}, "")
-		projectYear := started.In(projectZone).Year()
+		// The link opens the year of the page's own history, which its timezone bounds.
+		projectYear := started.Year()
+		if projectZone, ok := loadZone(in.ProjectTimezone); ok {
+			projectYear = started.In(projectZone).Year()
+		}
 		day := &history.Days[len(history.Days)-1]
 		view := newIncidentView(in.Incident, publicNames[in.ProjectID])
 		view.ProjectName = in.ProjectName
@@ -135,12 +140,13 @@ func (s *Server) handleIndexIncidents(w http.ResponseWriter, r *http.Request) {
 	if calendarYear == 0 {
 		calendarYear = now.Year()
 	}
-	history, err := s.loadIndexIncidentPage(ctx, before, year, indexIncidentArchiveLimit, now)
+	choice := visitorZone(r, instance)
+	history, err := s.loadIndexIncidentPage(ctx, before, year, indexIncidentArchiveLimit, now, choice.Zone)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	calendar, err := s.loadIndexCalendar(ctx, calendarYear, now)
+	calendar, err := s.loadIndexCalendar(ctx, calendarYear, now, choice.Zone)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -164,6 +170,7 @@ func (s *Server) handleIndexIncidents(w http.ResponseWriter, r *http.Request) {
 		Filtered:        year != 0,
 		HasCursor:       before.ID != 0,
 	}
+	page.Chrome.Zone = choice.Name
 	if calendarYear > 2000 {
 		page.PrevYear = calendarYear - 1
 	}

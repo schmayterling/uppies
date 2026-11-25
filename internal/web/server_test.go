@@ -540,7 +540,7 @@ func TestStatusPageFooterTimezoneDomainAndBadge(t *testing.T) {
 	}
 	// 2026-11-23 04:05 UTC is 12:05 in Manila, which is eight hours ahead.
 	startedAtMs := time.Date(2026, 11, 23, 4, 5, 0, 0, time.UTC).UnixMilli()
-	_, err = s.store.CreateIncident(ctx, store.Incident{
+	incidentID, err := s.store.CreateIncident(ctx, store.Incident{
 		ProjectID: projectID, Title: "slow search", Impact: "minor", Status: "investigating",
 		Published: true, StartedAtMs: startedAtMs,
 	}, store.IncidentUpdate{Body: "search is slow."}, startedAtMs)
@@ -557,15 +557,30 @@ func TestStatusPageFooterTimezoneDomainAndBadge(t *testing.T) {
 	if resp := s.post(t, s.admin, settings, form, nil); resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("save: got %d, want 303", resp.StatusCode)
 	}
-	_, settingsHTML := s.get(t, s.admin, settings)
+	// The default timezone is the install's. It moved from each page's settings to the instance settings.
+	instance := url.Values{"name": {"uppies"}, "public_list": {"on"}, "timezone": {"Asia/Manila"}}
+	if resp := s.post(t, s.admin, "/admin/instance", instance, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("save the instance timezone: got %d, want 303", resp.StatusCode)
+	}
+	instance.Set("timezone", "Mars/Olympus")
+	if resp := s.post(t, s.admin, "/admin/instance", instance, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("an unknown instance timezone: got %d, want 422", resp.StatusCode)
+	}
+	_, instanceHTML := s.get(t, s.admin, "/admin/instance")
 	for _, want := range []string{
 		`<select id="timezone" name="timezone"`, `<option value="Asia/Manila" selected>Asia/Manila</option>`,
 		`<option value="America/New_York">America/New_York</option>`, `<option value="Pacific/Auckland">Pacific/Auckland</option>`,
 		`<option value="Etc/GMT&#43;5">Etc/GMT&#43;5</option>`, `<option value="US/Eastern">US/Eastern</option>`,
 	} {
-		if !strings.Contains(settingsHTML, want) {
+		if !strings.Contains(instanceHTML, want) {
 			t.Errorf("timezone dropdown is missing %q", want)
 		}
+	}
+	if _, settingsHTML := s.get(t, s.admin, settings); strings.Contains(settingsHTML, `name="timezone"`) {
+		t.Error("a status page's settings must not offer a timezone any more")
+	}
+	if _, admin := s.get(t, s.admin, fmt.Sprintf("/admin/incidents/%d", incidentID)); !strings.Contains(html.UnescapeString(admin), "2026-11-23 12:05 +08:00") {
+		t.Error("the admin pages must show times in the instance timezone")
 	}
 	for field, bad := range map[string]string{"timezone": "Mars/Olympus", "domain": "https://status.acme.example/x"} {
 		invalid := url.Values{}
@@ -1673,16 +1688,49 @@ func TestAVisitorCanPickTheTimezone(t *testing.T) {
 		_, page := s.get(t, s.anonymous, path)
 		return html.UnescapeString(page)
 	}
-	if page := read("/s/acme"); !strings.Contains(page, "2026-11-23 04:05 utc") {
-		t.Error("without a choice the page shows the project's zone, which is UTC here")
+	page := read("/s/acme")
+	if !strings.Contains(page, "2026-11-23 04:05 utc") || !strings.Contains(page, `data-zone="UTC"`) || !strings.Contains(page, "/static/tz.js?v=") {
+		t.Error("without a choice the page shows the install's zone, UTC here, and loads the script that reads the browser's")
 	}
-	page := read("/s/acme?tz=Asia/Tokyo")
+	page = read("/s/acme?tz=Asia/Tokyo")
 	// The template writes the slash in a link's query as %2f, which means the same.
 	if !strings.Contains(page, "2026-11-23 13:05 +09:00") || !strings.Contains(page, `history?tz=Asia%2fTokyo`) {
 		t.Error("with tz=Asia/Tokyo the page shows Tokyo time and carries the choice into its links")
 	}
 	if page := read("/s/acme?tz=Mars/Olympus"); !strings.Contains(page, "2026-11-23 04:05 utc") {
-		t.Error("an unknown zone falls back to the project's zone")
+		t.Error("an unknown zone falls back to the install's zone")
+	}
+
+	// tz.js keeps the browser's zone in a cookie. New York is five hours behind UTC in November.
+	browser := func(path, zone string) string {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodGet, s.server.URL+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.AddCookie(&http.Cookie{Name: "tz", Value: zone})
+		resp, err := s.anonymous.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := resp.Body.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return html.UnescapeString(string(body))
+	}
+	page = browser("/s/acme", "America/New_York")
+	if !strings.Contains(page, "2026-11-22 23:05 -05:00") || !strings.Contains(page, `data-zone="America/New_York"`) || strings.Contains(page, "history?tz=America") {
+		t.Error("the browser's zone shows times in it without adding it to links")
+	}
+	if page := browser("/s/acme?tz=Asia/Tokyo", "America/New_York"); !strings.Contains(page, "2026-11-23 13:05 +09:00") {
+		t.Error("a zone picked in the address wins over the browser's")
+	}
+	if page := browser("/s/acme", "../../etc/passwd"); !strings.Contains(page, "2026-11-23 04:05 utc") {
+		t.Error("a cookie that is not a zone falls back to the install's zone")
 	}
 }
 

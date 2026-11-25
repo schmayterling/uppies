@@ -226,7 +226,13 @@ func (s *Server) handleMonitorPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m := placed.Monitor
-	zone, zoneName := pageZone(project, r.URL.Query().Get("tz"))
+	instance, err := s.store.Instance(r.Context())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	choice := visitorZone(r, instance)
+	zone, zoneName := choice.Zone, choice.Name
 	look, err := s.pageLook(r.Context(), project, placed.GraphFill, zone)
 	if err != nil {
 		s.fail(w, r, err)
@@ -247,16 +253,12 @@ func (s *Server) handleMonitorPage(w http.ResponseWriter, r *http.Request) {
 		Project: project, Monitor: m, Category: placed.Category, Images: images, Zone: zone, ZoneName: zoneName, Detail: detail,
 	}
 	page.State, page.Word = componentState(m)
-	if zoneName != project.Timezone {
+	if choice.Asked {
 		page.TZ = zoneName
 	}
+	page.Chrome.Zone = zoneName
 	// Saved links were checked when they were saved, so a problem here is not expected and shows none.
 	page.NavLinks, _ = parseNavLinks(project.NavLinks)
-	instance, err := s.store.Instance(r.Context())
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
 	page.Chrome.Description = "Current status, uptime, and response times for " + m.Name + " on " + project.Name + "."
 	origin := publicOrigin(r, instance.PublicURL)
 	path := "/monitors/" + strconv.FormatInt(m.ID, 10)
@@ -344,7 +346,7 @@ func (s *Server) handlePageBadge(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	page, err := s.statusPage(r.Context(), project, "")
+	page, err := s.statusPage(r, project)
 	if err != nil {
 		s.fail(w, r, err)
 		return

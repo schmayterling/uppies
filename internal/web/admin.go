@@ -76,11 +76,13 @@ func (s *Server) adminChrome(r *http.Request, title string) chrome {
 		"/admin": "overview", "/admin/monitors": "monitors", "/admin/alerts": "alerts", "/admin/projects": "projects", "/admin/appearance": "appearance", "/admin/instance": "instance", "/admin/users": "users",
 	}
 	c := chrome{Title: title, Admin: true, Nav: nav{Section: sections[r.URL.Path]}, Favicon: s.faviconAddress(r.Context())}
-	if instance, err := s.store.Instance(r.Context()); err != nil {
+	instance, err := s.store.Instance(r.Context())
+	if err != nil {
 		s.log.Error("load instance settings", "path", r.URL.Path, "error", err)
 	} else {
 		c.Brand = instance.Name
 	}
+	c.Location = instanceZone(instance).Zone
 	logos, err := s.store.LogoVersions(r.Context())
 	if err != nil {
 		s.log.Error("load sidebar logos", "path", r.URL.Path, "error", err)
@@ -418,6 +420,8 @@ type projectPage struct {
 	// Maintenance holds the running and upcoming windows.
 	Maintenance []store.MaintenanceWindow
 	Zone        *time.Location
+	// ZoneName names Zone, the install's default, for the maintenance form.
+	ZoneName string
 	// Window holds the new-window form's values after a failed submit.
 	Window   maintenanceForm
 	Problems map[string]string
@@ -554,10 +558,7 @@ func (s *Server) projectPage(r *http.Request) (projectPage, error) {
 	if err != nil {
 		return projectPage{}, err
 	}
-	zone, err := time.LoadLocation(project.Timezone)
-	if err != nil {
-		zone = time.UTC // the zone was valid when saved, so only a system without zone data lands here
-	}
+	choice := s.adminZone(ctx)
 	// A missing or malformed "before" means the first page.
 	beforeID, _ := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
 	events, err := s.store.Events(ctx, id, max(beforeID, 0), timelinePageSize+1)
@@ -602,7 +603,8 @@ func (s *Server) projectPage(r *http.Request) (projectPage, error) {
 		Saved:       r.URL.Query().Get("saved") == "1",
 		Incidents:   incidents,
 		Maintenance: windows,
-		Zone:        zone,
+		Zone:        choice.Zone,
+		ZoneName:    choice.Name,
 	}
 	if len(events) > timelinePageSize {
 		events = events[:timelinePageSize]

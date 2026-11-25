@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"{{if .Chrome.Admin}} data-density="tool"{{end}}{{if .Chrome.CanonicalURL}} prefix="og: https://ogp.me/ns#"{{end}}>
+<html lang="en"{{if .Chrome.Admin}} data-density="tool"{{end}}{{with .Chrome.Zone}} data-zone="{{.}}"{{end}}{{if .Chrome.CanonicalURL}} prefix="og: https://ogp.me/ns#"{{end}}>
 <head>
 {{- template "document-head" . -}}
 {{block "head" .}}{{end}}

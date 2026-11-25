@@ -12,7 +12,7 @@
   <li><strong>{{if .Incident.Published}}public{{else}}draft{{end}}</strong></li>
   <li>status <strong>{{.Incident.Status}}</strong></li>
   <li>impact <strong>{{.Incident.Impact}}</strong></li>
-  <li>started <strong><time datetime="{{rfc3339 .Incident.StartedAtMs}}">{{utc .Incident.StartedAtMs}}</time></strong></li>
+  <li>started <strong><time datetime="{{rfc3339 .Incident.StartedAtMs}}">{{local $.Chrome.Location .Incident.StartedAtMs}}</time></strong></li>
   {{if .Affected}}<li>affects <strong>{{range $i, $name := .Affected}}{{if $i}}, {{end}}{{$name}}{{end}}</strong></li>{{end}}
 </ul>
 {{if not .Incident.Published}}{{template "warning" "this is a draft. only you can see it. publishing shows it and every update below on the status page."}}{{end}}
@@ -24,7 +24,7 @@
     <li class="update-row">
       <span class="update-head">
         {{template "incident-update-heading" .}}
-        <time class="meta" datetime="{{rfc3339 .AtMs}}">{{utc .AtMs}}</time>
+        <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Chrome.Location .AtMs}}</time>
       </span>
       {{template "update-body" .Body}}
     </li>

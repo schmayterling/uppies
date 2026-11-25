@@ -157,6 +157,12 @@ type historyPage struct {
 
 var impactLevels = map[string]int{"minor": 1, "major": 2, "critical": 3}
 
+// noonOf is noon on the day of t, in t's zone. Days compared at noon stay
+// whole days apart across a clock change.
+func noonOf(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 12, 0, 0, 0, t.Location())
+}
+
 // dayLabel names a day the way the lists show it, such as "nov 23, 2026".
 func dayLabel(day time.Time) string {
 	return strings.ToLower(day.Format("Jan 2, 2006"))
@@ -279,14 +285,25 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	zone, zoneName := pageZone(project, r.URL.Query().Get("tz"))
-	now := s.now().In(zone)
+	instance, err := s.store.Instance(ctx)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	choice := visitorZone(r, instance)
+	zone := choice.Zone
+	// The page's own timezone still decides where its years begin and end.
+	yearZone, ok := loadZone(project.Timezone)
+	if !ok {
+		yearZone = instanceZone(instance).Zone
+	}
+	now := s.now().In(yearZone)
 	// An absent or impossible year means the current one.
 	year, err := strconv.Atoi(r.URL.Query().Get("year"))
 	if err != nil || year < 2000 || year > now.Year() {
 		year = now.Year()
 	}
-	from := time.Date(year, time.January, 1, 0, 0, 0, 0, zone)
+	from := time.Date(year, time.January, 1, 0, 0, 0, 0, yearZone)
 	incidents, err := s.store.PublishedIncidentsBetween(ctx, project.ID, from.UnixMilli(), from.AddDate(1, 0, 0).UnixMilli())
 	if err != nil {
 		s.fail(w, r, err)
@@ -322,9 +339,10 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 		Months:   monthLabels(year, zone),
 		Total:    len(incidents),
 	}
-	if zoneName != project.Timezone {
-		page.TZ = zoneName
+	if choice.Asked {
+		page.TZ = choice.Name
 	}
+	page.Chrome.Zone = choice.Name
 	// Saved links were checked when they were saved, so a problem here is not expected and shows none.
 	page.NavLinks, _ = parseNavLinks(project.NavLinks)
 	groups := yearDayGroups(views, year, now, zone, project.HideQuietDays)
@@ -333,11 +351,6 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	page.Days, page.Page, page.Older, page.Newer = paginate(groups, requested, timelinePerPage)
 	if year < now.Year() {
 		page.NextYear = year + 1
-	}
-	instance, err := s.store.Instance(ctx)
-	if err != nil {
-		s.fail(w, r, err)
-		return
 	}
 	query := make(url.Values)
 	if year != now.Year() {

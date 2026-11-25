@@ -255,7 +255,7 @@ func (s *Server) handlePublicList(w http.ResponseWriter, r *http.Request) {
 		for i := range page.Projects {
 			page.Projects[i].LogoVersion = logos[page.Projects[i].ID]
 		}
-		page.IncidentHistory, err = s.loadIndexIncidentPage(ctx, store.IncidentCursor{}, 0, indexIncidentPreviewLimit, now)
+		page.IncidentHistory, err = s.loadIndexIncidentPage(ctx, store.IncidentCursor{}, 0, indexIncidentPreviewLimit, now, visitorZone(r, instance).Zone)
 		if err != nil {
 			s.fail(w, r, err)
 			return
@@ -264,6 +264,7 @@ func (s *Server) handlePublicList(w http.ResponseWriter, r *http.Request) {
 	page.State, page.Summary = indexSummary(page.Projects)
 	page.indexSite = s.newIndexSite(ctx, instance, page.State, instance.Name+" status",
 		"Service status and incident history for "+instance.Name+".")
+	page.Chrome.Zone = visitorZone(r, instance).Name
 	page.Chrome.Auth = page.Layout == "compact"
 	page.Chrome.SignInLink = true
 
@@ -403,7 +404,7 @@ func (s *Server) handleStatusPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) renderStatusPage(w http.ResponseWriter, r *http.Request, project store.Project) {
-	page, err := s.statusPage(r.Context(), project, r.URL.Query().Get("tz"))
+	page, err := s.statusPage(r, project)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -430,7 +431,7 @@ func (s *Server) handleBadge(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	page, err := s.statusPage(r.Context(), project, r.URL.Query().Get("tz"))
+	page, err := s.statusPage(r, project)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -475,7 +476,8 @@ func groupByCategory(placed []store.PlacedMonitor) []store.PlacedMonitor {
 }
 
 // statusPage gathers everything the public sees about a project.
-func (s *Server) statusPage(ctx context.Context, project store.Project, askedZone string) (statusPage, error) {
+func (s *Server) statusPage(r *http.Request, project store.Project) (statusPage, error) {
+	ctx := r.Context()
 	placed, err := s.store.MonitorsByProject(ctx, project.ID)
 	if err != nil {
 		return statusPage{}, err
@@ -501,7 +503,8 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 	if err != nil {
 		return statusPage{}, err
 	}
-	zone, zoneName := pageZone(project, askedZone)
+	choice := visitorZone(r, instance)
+	zone := choice.Zone
 	maintenance, err := s.store.ActiveMaintenanceCoverage(ctx, nowMs, project.ID)
 	if err != nil {
 		return statusPage{}, err
@@ -520,16 +523,17 @@ func (s *Server) statusPage(ctx context.Context, project store.Project, askedZon
 		Chrome: chrome{
 			Title: project.Name + " status", Unbranded: !project.ShowPoweredBy, Favicon: s.projectFaviconAddress(ctx, project.Slug, images),
 			Description: cmp.Or(project.Tagline, "the current status of "+project.Name+"."),
+			Zone:        choice.Name,
 		},
 		Project:  project,
 		instance: instance,
 		Zone:     zone,
 		Images:   images,
 	}
-	page.ZoneName, page.Zones = zoneName, zoneChoices(project, zoneName)
-	// TZ carries a visitor's own choice into links. It is empty when the page shows the project's zone.
-	if zoneName != project.Timezone {
-		page.TZ = zoneName
+	page.ZoneName, page.Zones = choice.Name, zoneChoices(choice.Name, instanceZone(instance).Name)
+	// TZ carries a zone picked in the address into links.
+	if choice.Asked {
+		page.TZ = choice.Name
 	}
 	names := make(map[int64]string, len(monitors))
 	for _, m := range monitors {

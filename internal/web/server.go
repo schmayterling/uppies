@@ -84,7 +84,7 @@ func New(st *store.Store, log *slog.Logger, monitorsChanged func(), mailer *aler
 		s.appCSS = append(s.appCSS, data...)
 	}
 	assets := make(map[string]string)
-	for _, name := range []string{"tokens.css", "app.css", "admin.js", "noscript.css"} {
+	for _, name := range []string{"tokens.css", "app.css", "admin.js", "noscript.css", "tz.js"} {
 		data := s.appCSS
 		if name != "app.css" {
 			data, err = staticFiles.ReadFile("static/" + name)
@@ -328,6 +328,12 @@ type chrome struct {
 	// Logo is the version of the install's logo, or 0 when there is none. The
 	// install's name shows it in place of the status icon.
 	Logo int64
+	// Location is the zone the admin pages show times in.
+	Location *time.Location
+	// Zone names the zone a public page shows its times in. A page that sets
+	// it loads tz.js, which saves the browser's zone and reloads once when it
+	// differs.
+	Zone string
 	// Favicon is the address of the install's own favicon, empty when it has
 	// none, in which case the built-in one is linked. A status page with a
 	// favicon of its own links that one after it, and the later link wins.
@@ -367,13 +373,10 @@ type navProject struct {
 }
 
 var templateFuncs = template.FuncMap{
-	"utc": func(ms int64) string {
-		return time.UnixMilli(ms).UTC().Format("2006-01-02 15:04") + " utc"
-	},
 	// local shows a time in the given zone with its offset, which stays
 	// unambiguous where zone abbreviations do not.
 	"local": func(zone *time.Location, ms int64) string {
-		if zone == time.UTC {
+		if zone == nil || zone == time.UTC {
 			return time.UnixMilli(ms).UTC().Format("2006-01-02 15:04") + " utc"
 		}
 		return time.UnixMilli(ms).In(zone).Format("2006-01-02 15:04 -07:00")

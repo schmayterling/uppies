@@ -101,7 +101,7 @@ settings.
 | `navbar_brand` | `icon`, `icon-name`, `name` | `icon-name` |
 | `navbar_link` | `status` for this page, `list` for the page list, `homepage` for `homepage_url` | `status` |
 | `domain` | Hostname up to 253 characters, or `""` | `""` |
-| `timezone` | Recognized timezone name up to 64 characters, such as `Asia/Manila` | `UTC` |
+| `timezone` | Recognized timezone name up to 64 characters, such as `Asia/Manila`. It sets where the years of the page's incident history begin. Visitors see times in their browser's timezone, else the instance default. | `UTC` |
 | `theme` | `auto`, `light`, `dark` | `auto` |
 | `surface` | `neutral`, `paper` | `neutral` |
 | `corners` | `sharp`, `soft`, `round` | `soft` |

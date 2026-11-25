@@ -61,7 +61,7 @@ func TestLoadIndexCalendarCountsEveryPublishedIncident(t *testing.T) {
 			create(core, "critical", "resolved", jan1.AddDate(1, 0, 0), true)
 
 			s := &Server{store: st}
-			calendar, err := s.loadIndexCalendar(ctx, 2026, now)
+			calendar, err := s.loadIndexCalendar(ctx, 2026, now, time.UTC)
 			check(err)
 			if calendar.Total != 203 {
 				t.Errorf("total = %d, want 203 public incidents in 2026 UTC", calendar.Total)

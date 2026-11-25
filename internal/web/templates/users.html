@@ -12,7 +12,7 @@
 <div class="group">
   {{range .Users}}
   <div class="srow">
-    <span class="srow-copy"><span>{{.Username}}{{if eq .ID $.Me}} <span class="meta">(you)</span>{{end}}</span><small>added <time datetime="{{rfc3339 .CreatedAtMs}}">{{utc .CreatedAtMs}}</time></small></span>
+    <span class="srow-copy"><span>{{.Username}}{{if eq .ID $.Me}} <span class="meta">(you)</span>{{end}}</span><small>added <time datetime="{{rfc3339 .CreatedAtMs}}">{{local $.Chrome.Location .CreatedAtMs}}</time></small></span>
     <span class="srow-control">{{if ne .ID $.Me}}<form method="post" action="/admin/users/{{.ID}}/delete"><button class="button quiet" type="submit">remove</button></form>{{end}}</span>
   </div>
   {{end}}
