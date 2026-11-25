@@ -56,7 +56,7 @@
       {{template "incident-update-heading" .}}
       <time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Second .AtMs}}</time>
     </p>
-    <p class="update-body">{{.Body}}</p>
+    {{template "update-body" .Body}}
   </li>
   {{end}}
 </ol>{{end}}

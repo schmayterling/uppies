@@ -35,7 +35,8 @@
     </div>
     <div class="srow" data-stack>
       <label class="srow-copy" for="message"><span>first update</span><small>what people should know. this is the first entry on the status page.</small></label>
-      <textarea id="message" name="message" rows="4" required maxlength="5000"{{if index .Problems "message"}} aria-invalid="true"{{end}}>{{.Update.Body}}</textarea>
+      <textarea id="message" name="message" rows="4" required maxlength="5000" aria-describedby="message-hint"{{if index .Problems "message"}} aria-invalid="true"{{end}}>{{.Update.Body}}</textarea>
+      {{template "markdown-hint" "message-hint"}}
       {{with index .Problems "message"}}<p class="problem srow-problem">{{.}}</p>{{end}}
     </div>
     {{if .Monitors}}

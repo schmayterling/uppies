@@ -400,4 +400,6 @@ var templateFuncs = template.FuncMap{
 	"seconds": func(ms int) int {
 		return ms / 1000
 	},
+	"markdown":   renderMarkdown,
+	"longUpdate": longUpdate,
 }

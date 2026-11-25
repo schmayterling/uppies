@@ -248,6 +248,11 @@ GET `/updates` returns messages with `id`, `body` and `at`. POST a
 `body` of 1 to 5,000 characters to add a message. You can read or add
 messages after the window ends. Deleting a window removes its messages.
 
+Status pages render the bodies of maintenance and incident updates as
+Markdown. Two underscores underline text, as in `__text__`, and a line
+that starts with `-# ` is small print. Raw HTML shows as typed. The API
+stores and returns the text unchanged.
+
 ### Incidents
 
 | Method and path | Permission |

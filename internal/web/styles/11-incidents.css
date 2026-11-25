@@ -3,7 +3,7 @@
 .incident-open { border-color: var(--status-warning); }
 .timeline { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-3); }
 .timeline li { display: grid; gap: var(--space-0-5); }
-.update-body { white-space: pre-line; overflow-wrap: anywhere; }
+.update-body { overflow-wrap: anywhere; }
 /* the timeline: the day on the left, what happened on the right. each
    incident's updates run down a rail that reads line, space, dot, space, line:
    a dot per update in the colour of its status, and a line that stops short
@@ -60,6 +60,27 @@
   overflow-wrap: anywhere;
 }
 .updates .update-body { margin: var(--space-1) 0 0; }
+/* a long update shows its first six lines and fades out until its read more
+   toggle opens. markdown.go decides which updates are long. */
+.update-long:has(> .update-more:not([open])) > .update-body {
+  max-block-size: 6lh;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, black calc(100% - 2lh), transparent);
+}
+.update-more > summary {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--target-min);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  list-style: none;
+}
+.update-more > summary::-webkit-details-marker { display: none; }
+@media (hover: hover) { .update-more > summary:hover { color: var(--accent); } }
+.update-more[open] .update-more-closed, .update-more:not([open]) .update-more-open { display: none; }
 @media (max-width: 520px) {
   .tl-day { grid-template-columns: minmax(0, 1fr); }
   .tl-when { display: flex; flex-wrap: wrap; align-items: center; padding-block-end: var(--space-2); border-block-end: 1px solid var(--border); }

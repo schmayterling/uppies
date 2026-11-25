@@ -548,9 +548,7 @@ func TestStatusPageFooterTimezoneDomainAndBadge(t *testing.T) {
 	}
 	for field, bad := range map[string]string{"timezone": "Mars/Olympus", "domain": "https://status.acme.example/x"} {
 		invalid := url.Values{}
-		for key, values := range form {
-			invalid[key] = values
-		}
+		maps.Copy(invalid, form)
 		invalid.Set(field, bad)
 		if resp := s.post(t, s.admin, settings, invalid, nil); resp.StatusCode != http.StatusUnprocessableEntity {
 			t.Errorf("%s %q: got %d, want 422", field, bad, resp.StatusCode)
@@ -995,6 +993,53 @@ func TestPlannedMaintenanceIsAnnouncedAndShownWhileRunning(t *testing.T) {
 		if !strings.Contains(page, want) {
 			t.Errorf("status page during maintenance is missing %q", want)
 		}
+	}
+}
+
+func TestUpdatesShowMarkdownAndLongOnesCollapse(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nowMs := time.Now().UnixMilli()
+	incidentID, err := s.store.CreateIncident(ctx, store.Incident{
+		ProjectID: projectID, Title: "checkout errors", Impact: "major", Status: "investigating",
+		Published: true, StartedAtMs: nowMs - 60_000,
+	}, store.IncidentUpdate{Body: "**payments** fail. __do not retry__.\n-# times are in utc"}, nowMs-60_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	long := strings.Repeat("the fix is rolling out region by region.\n", 12)
+	if err := s.store.AddIncidentUpdate(ctx, incidentID, store.IncidentUpdate{Status: "identified", Body: long, AtMs: nowMs}); err != nil {
+		t.Fatal(err)
+	}
+	windowID, err := s.store.CreateMaintenanceWindow(ctx, store.MaintenanceWindow{
+		ProjectID: projectID, Title: "database upgrade", StartsAtMs: nowMs - 60_000, EndsAtMs: nowMs + 3_600_000,
+	}, nowMs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.AddMaintenanceUpdate(ctx, projectID, windowID, "writes are *paused*", nowMs); err != nil {
+		t.Fatal(err)
+	}
+
+	_, page := s.get(t, s.anonymous, "/s/acme")
+	for _, want := range []string{
+		"<strong>payments</strong>", "<u>do not retry</u>", `<p class="md-subtext">times are in utc</p>`, "<em>paused</em>",
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("status page is missing %q", want)
+		}
+	}
+	// The active incident and the seven-day history both show the long update.
+	if got := strings.Count(page, `<details class="update-more">`); got != 2 {
+		t.Errorf("got %d read more toggles, want one per copy of the long update", got)
+	}
+	_, admin := s.get(t, s.admin, fmt.Sprintf("/admin/incidents/%d", incidentID))
+	if !strings.Contains(admin, "<u>do not retry</u>") {
+		t.Error("the admin incident page must show updates as they will look in public")
 	}
 }
 

@@ -1,0 +1,12 @@
+{{/* an update's text, written in markdown. a long one shows its first lines
+   and a toggle that needs no script: the text is cut short while the toggle
+   is closed (11-incidents.css). */}}
+{{define "update-body"}}{{if longUpdate .}}
+<div class="update-long">
+  <div class="update-body md">{{markdown .}}</div>
+  <details class="update-more"><summary><span class="update-more-closed">read more</span><span class="update-more-open">show less</span></summary></details>
+</div>
+{{else}}<div class="update-body md">{{markdown .}}</div>{{end}}{{end}}
+
+{{/* the line under an update's text field. it takes the hint's id. */}}
+{{define "markdown-hint"}}<p class="hint" id="{{.}}">markdown works here. <code>__text__</code> underlines it, and a line that starts with <code>-#</code> is small print.</p>{{end}}

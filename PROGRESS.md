@@ -15,12 +15,13 @@ timeline view and public status pages for several projects from one install.
 go build ./... && go vet ./... && go test -race ./...
 ```
 
-Last run: 2026-11-25, build, vet and race tests passed for schema 26.
+Last run: 2026-11-25, build, vet and race tests passed for schema 26 with Markdown updates.
 
 ## Done and verified
 
 Each line names how it was verified.
 
+- Incident and maintenance updates are written in Markdown (`internal/web/markdown.go`), with `__text__` for underline and `-# ` for small print. An update estimated at more than nine rows shows six lines and a read more toggle built on `<details>`, so status pages still run no script. Verified by renderer and route tests, each seen failing once, and in Chromium and WebKit at 1440, 390 and 320 pixels: the collapsed text always hides more than a line, opens fully, closes again, opens with Enter, and the page never scrolls sideways.
 - Public incident lists share the same dated timeline. The seven-day status page history includes active published incidents. Verified by route tests and Chromium and WebKit at desktop and phone widths.
 - Schema 26 stores optional incident update titles. Blank titles use the status heading. Verified a populated v25 upgrade, titled updates through the admin and API, and the status-based recovery lifecycle.
 
@@ -199,6 +200,8 @@ Each line names how it was verified.
 - 2026-11-23: Backfilled days say "no data" in their tooltip and never enter the uptime figure. Painting history green must not change the numbers.
 
 - 2026-11-23: A status page cannot read a visitor's clock without script, so the timezone is a choice the visitor makes, carried in the address as `tz`.
+- 2026-11-25: Update text is Markdown rendered by `github.com/yuin/goldmark` v1.8.7, chosen by the user over a parser written in the repository. It follows CommonMark and has no dependencies of its own. Raw HTML and setext headings are switched off, `__text__` underlines instead of making text strong, headings become h5 and h6 under the incident's h4, and images become links because the content security policy blocks images from other sites.
+- 2026-11-25: Whether an update collapses is decided on the server from its length, because a page without script cannot measure overflow. The threshold sits above the collapsed height so the toggle never opens onto nothing.
 
 ## Do not repeat
 
@@ -211,6 +214,8 @@ Each line names how it was verified.
 - After changing how a control is laid out, click it in every state. The sidebar toggle was measured but never clicked while collapsed, and it was broken.
 - When a form becomes a dialog, find every link that pointed at the old form. One link kept pointing at an anchor that no longer opened anything.
 - In zsh, `rm -f name*` fails when nothing matches and stops a command chain. Name the files.
+- Do not drop goldmark's indented code block parser: without it an indented line ends parsing and every word after it disappears. `TestUpdateMarkdownKeepsEveryWord` guards this.
+- Playwright's WebKit screenshots inject a style that the content security policy refuses, which logs a console error on every page. Read the console in a pass without screenshots.
 - Headless Chrome will not lay a page out narrower than about 500 pixels. For phone widths, use device metrics emulation over the DevTools protocol.
 
 ## Next

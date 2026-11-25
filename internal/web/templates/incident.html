@@ -26,7 +26,7 @@
         {{template "incident-update-heading" .}}
         <time class="meta" datetime="{{rfc3339 .AtMs}}">{{utc .AtMs}}</time>
       </span>
-      <span class="update-body">{{.Body}}</span>
+      {{template "update-body" .Body}}
     </li>
     {{end}}
   </ol>
@@ -50,7 +50,8 @@
     </div>
     <div class="field">
       <label for="message">what changed</label>
-      <textarea id="message" name="message" rows="5" required maxlength="5000"{{if index .Problems "message"}} aria-invalid="true" aria-describedby="message-problem"{{end}}>{{.Update.Body}}</textarea>
+      <textarea id="message" name="message" rows="5" required maxlength="5000" aria-describedby="message-hint{{if index .Problems "message"}} message-problem{{end}}"{{if index .Problems "message"}} aria-invalid="true"{{end}}>{{.Update.Body}}</textarea>
+      {{template "markdown-hint" "message-hint"}}
       {{with index .Problems "message"}}<p class="problem" id="message-problem">{{.}}</p>{{end}}
     </div>
     <div class="actions"><button class="button" type="submit">post update</button><button class="button quiet" type="button" data-close-dialog>cancel</button></div>

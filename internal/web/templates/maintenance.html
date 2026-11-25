@@ -34,7 +34,8 @@
   <form class="form" method="post" action="/admin/projects/{{.Project.ID}}/maintenance/{{.Window.ID}}/updates">
     <div class="field">
       <label for="maintenance-update-body">message</label>
-      <textarea id="maintenance-update-body" name="body" maxlength="5000" rows="4" required{{if .Problem}} aria-invalid="true" aria-describedby="maintenance-update-problem"{{end}}>{{.Draft}}</textarea>
+      <textarea id="maintenance-update-body" name="body" maxlength="5000" rows="4" required aria-describedby="maintenance-update-hint{{if .Problem}} maintenance-update-problem{{end}}"{{if .Problem}} aria-invalid="true"{{end}}>{{.Draft}}</textarea>
+      {{template "markdown-hint" "maintenance-update-hint"}}
       {{if .Problem}}<p class="problem" id="maintenance-update-problem">{{.Problem}}</p>{{end}}
     </div>
     <div class="actions"><button class="button" type="submit">add update</button><button class="button quiet" type="button" data-close-dialog>cancel</button></div>
