@@ -134,6 +134,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	mux.HandleFunc("GET /theme.css", s.handleInstanceTheme)
 	mux.HandleFunc("GET /sign-in-background", s.handleSignInBackground)
 	mux.HandleFunc("GET /favicon.ico", s.handleInstanceFavicon)
+	mux.HandleFunc("GET /logo", s.handleInstanceLogo)
 	mux.HandleFunc("GET /s/{slug}", s.handleStatusPage)
 	mux.HandleFunc("GET /s/{slug}/history", s.handleHistory)
 	mux.HandleFunc("GET /s/{slug}/theme.css", s.handleTheme)
@@ -160,6 +161,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("POST /admin/appearance", s.handleSaveAppearance)
 	admin("POST /admin/appearance/sign-in", s.handleSaveSignInPage)
 	admin("POST /admin/appearance/favicon", s.handleSaveFavicon)
+	admin("POST /admin/appearance/logo", s.handleSaveLogo)
 	admin("GET /admin/instance", s.handleInstance)
 	admin("POST /admin/instance", s.handleSaveInstance)
 	admin("GET /admin/users", s.handleUsers)
@@ -243,7 +245,7 @@ func limitBody(next http.Handler) http.Handler {
 			limit = maxUploadBytes
 		case r.URL.Path == "/admin/appearance/sign-in":
 			limit = maxBackgroundUploadBytes
-		case r.URL.Path == "/admin/appearance/favicon":
+		case r.URL.Path == "/admin/appearance/favicon", r.URL.Path == "/admin/appearance/logo":
 			limit = maxUploadBytes
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, limit)

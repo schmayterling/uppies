@@ -15,12 +15,13 @@ timeline view and public status pages for several projects from one install.
 go build ./... && go vet ./... && go test -race ./...
 ```
 
-Last run: 2026-11-25, build, vet and race tests passed for schema 26 with Markdown updates.
+Last run: 2026-11-25, build, vet and race tests passed for schema 27.
 
 ## Done and verified
 
 Each line names how it was verified.
 
+- Schema 27 lets the install have a logo (appearance, "logo"). It takes the status icon's place beside the site name on the public list and the incident archive, sized like a status page logo. The sign-in page still shows the check. Verified by a route test seen failing once, the store workflow on fresh SQLite, Turso SQLite, PostgreSQL, MariaDB and TursoPG, a v26 to v27 upgrade on all five that kept the favicon and sign-in background bytes and served the new logo after a restart, and Chromium and WebKit at 1440, 390 and 320 pixels.
 - A logo beside the status page name is 1.5em tall, one line of the name, so it scales with the name's type. A logo shown alone stays 32 pixels. Verified by measuring both modes in Chromium and WebKit at 1440 and 320 pixels (24 and 32 pixels beside 16-pixel text).
 - Incident and maintenance updates are written in Markdown (`internal/web/markdown.go`), with `__text__` for underline and `-# ` for small print. An update estimated at more than nine rows shows six lines and a read more toggle built on `<details>`, so status pages still run no script. Verified by renderer and route tests, each seen failing once, and in Chromium and WebKit at 1440, 390 and 320 pixels: the collapsed text always hides more than a line, opens fully, closes again, opens with Enter, and the page never scrolls sideways.
 - Public incident lists share the same dated timeline. The seven-day status page history includes active published incidents. Verified by route tests and Chromium and WebKit at desktop and phone widths.
@@ -202,6 +203,7 @@ Each line names how it was verified.
 
 - 2026-11-23: A status page cannot read a visitor's clock without script, so the timezone is a choice the visitor makes, carried in the address as `tz`.
 - 2026-11-25: Update text is Markdown rendered by `github.com/yuin/goldmark` v1.8.7, chosen by the user over a parser written in the repository. It follows CommonMark and has no dependencies of its own. Raw HTML and setext headings are switched off, `__text__` underlines instead of making text strong, headings become h5 and h6 under the incident's h4, and images become links because the content security policy blocks images from other sites.
+- 2026-11-25: The install's logo is a new kind in `instance_images`, so schema 27 widens that table's CHECK. SQLite and Turso SQLite rebuild the table, PostgreSQL drops and adds the constraint, MariaDB redefines the column, and TursoPG rebuilds the table because it cannot drop a constraint. Rejected: a separate table for one image.
 - 2026-11-25: Whether an update collapses is decided on the server from its length, because a page without script cannot measure overflow. The threshold sits above the collapsed height so the toggle never opens onto nothing.
 
 ## Do not repeat

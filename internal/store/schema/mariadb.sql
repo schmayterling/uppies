@@ -213,7 +213,7 @@ create table if not exists instance_settings (
 ) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_nopad_bin;
 
 create table if not exists instance_images (
-	kind varchar(32) primary key check (kind in ('login_background', 'favicon')),
+	kind varchar(32) primary key check (kind in ('login_background', 'favicon', 'logo')),
 	content_type longtext not null,
 	data mediumblob not null check (octet_length(data) between 1 and 2097152),
 	updated_at_ms bigint not null

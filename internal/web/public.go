@@ -120,8 +120,11 @@ type indexSite struct {
 	Chrome   chrome
 	NavLinks []navLink
 	// Listed is false when the instance keeps its status pages off the front page.
-	Listed            bool
-	StatusIcon        string
+	Listed     bool
+	StatusIcon string
+	// LogoVersion is set when the install has a logo, which takes the status
+	// icon's place beside the site name.
+	LogoVersion       int64
 	Announcement      string
 	AnnouncementColor string
 	FooterText        string
@@ -290,6 +293,12 @@ func (s *Server) newIndexSite(ctx context.Context, instance store.InstanceSettin
 	if site.Listed {
 		site.NavLinks, _ = parseNavLinks(instance.NavLinks)
 	}
+	// The page still opens without its logo, so a failed read is only logged.
+	logo, err := s.store.InstanceImageVersion(ctx, store.ImageInstanceLogo)
+	if err != nil {
+		s.log.Error("read instance logo", "error", err)
+	}
+	site.LogoVersion = logo
 	return site
 }
 

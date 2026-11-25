@@ -48,11 +48,13 @@ var (
 	ListLayouts      = []string{"rows", "cards", "compact"}
 )
 
-// Instance image kinds: the background of the sign-in page, and the favicon
-// of every page that is not a status page with a favicon of its own.
+// Instance image kinds: the background of the sign-in page, the favicon of
+// every page that is not a status page with a favicon of its own, and the
+// logo beside the site name on the public list and the sign-in page.
 const (
 	ImageLoginBackground = "login_background"
 	ImageInstanceFavicon = "favicon"
+	ImageInstanceLogo    = "logo"
 )
 
 // MaxBackgroundBytes is the largest instance image the schema accepts.

@@ -754,6 +754,65 @@ func TestTheInstallHasAFaviconOfItsOwn(t *testing.T) {
 	}
 }
 
+func TestTheInstallLogoTakesTheStatusIconsPlaceOnThePublicList(t *testing.T) {
+	s := newSite(t)
+	png, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
+	if err != nil {
+		t.Fatal(err)
+	}
+	brand := func(path string) string {
+		t.Helper()
+		_, page := s.get(t, s.anonymous, path)
+		_, link, found := strings.Cut(page, `<a class="site-brand" href="/status-pages">`)
+		if !found {
+			t.Fatalf("%s has no site name link", path)
+		}
+		link, _, _ = strings.Cut(link, "</a>")
+		return link
+	}
+	const save = "/admin/appearance/logo"
+	if b := brand("/"); !strings.Contains(b, "status-icon") || strings.Contains(b, "<img") {
+		t.Errorf("before an upload the site name shows the status icon, got %q", b)
+	}
+	if status, _ := s.get(t, s.anonymous, "/logo"); status != http.StatusNotFound {
+		t.Fatalf("logo before an upload: got %d, want 404", status)
+	}
+	if resp := s.upload(t, s.anonymous, save, map[string][]byte{"logo": png}, nil); resp.Header.Get("Location") != "/admin/login" {
+		t.Fatalf("anonymous upload: got %d to %q, want a redirect to /admin/login", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	if resp := s.upload(t, s.admin, save, map[string][]byte{"logo": []byte("<html></html>")}, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("a web page as the logo: got %d, want 422", resp.StatusCode)
+	}
+	if resp := s.upload(t, s.admin, save, map[string][]byte{"logo": png}, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("upload: got %d, want 303", resp.StatusCode)
+	}
+	for _, path := range []string{"/", "/incidents"} {
+		if b := brand(path); !strings.Contains(b, `<img class="logo" src="/logo?v=`) || strings.Contains(b, "status-icon") {
+			t.Errorf("%s: the logo must replace the status icon, got %q", path, b)
+		}
+	}
+	resp, err := s.anonymous.Get(s.server.URL + "/logo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	served, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := resp.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(served, png) || !strings.Contains(resp.Header.Get("Content-Security-Policy"), "sandbox") {
+		t.Errorf("the logo must be served as uploaded and sandboxed, got %d bytes and policy %q", len(served), resp.Header.Get("Content-Security-Policy"))
+	}
+	if resp := s.upload(t, s.admin, save, nil, map[string]string{"remove_logo": "on"}); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("remove: got %d, want 303", resp.StatusCode)
+	}
+	if b := brand("/"); !strings.Contains(b, "status-icon") {
+		t.Errorf("after removal the site name shows the status icon again, got %q", b)
+	}
+}
+
 func TestSignInPageLayoutAndBackgroundAreChosenInAppearance(t *testing.T) {
 	s := newSite(t)
 	png, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")

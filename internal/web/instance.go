@@ -34,9 +34,11 @@ type instancePage struct {
 	// GraphFills are the ways a graph can be filled.
 	GraphFills []string
 	// BackgroundVersion is set when a sign-in background image is uploaded,
-	// and FaviconVersion when the install has a favicon.
+	// FaviconVersion when the install has a favicon, and LogoVersion when it
+	// has a logo.
 	BackgroundVersion int64
 	FaviconVersion    int64
+	LogoVersion       int64
 }
 
 func (s *Server) instancePage(r *http.Request, title string) (instancePage, error) {
@@ -55,6 +57,10 @@ func (s *Server) instancePage(r *http.Request, title string) (instancePage, erro
 		return page, err
 	}
 	page.FaviconVersion, err = s.store.InstanceImageVersion(r.Context(), store.ImageInstanceFavicon)
+	if err != nil {
+		return page, err
+	}
+	page.LogoVersion, err = s.store.InstanceImageVersion(r.Context(), store.ImageInstanceLogo)
 	return page, err
 }
 
@@ -80,6 +86,16 @@ func (s *Server) projectFaviconAddress(ctx context.Context, slug string, images 
 }
 
 func (s *Server) handleSaveFavicon(w http.ResponseWriter, r *http.Request) {
+	s.saveInstanceImage(w, r, store.ImageInstanceFavicon)
+}
+
+func (s *Server) handleSaveLogo(w http.ResponseWriter, r *http.Request) {
+	s.saveInstanceImage(w, r, store.ImageInstanceLogo)
+}
+
+// saveInstanceImage stores or removes the install's favicon or logo from the
+// appearance form whose file field and remove box are named after the kind.
+func (s *Server) saveInstanceImage(w http.ResponseWriter, r *http.Request, kind string) {
 	page, err := s.instancePage(r, "appearance")
 	if err != nil {
 		s.fail(w, r, err)
@@ -89,20 +105,20 @@ func (s *Server) handleSaveFavicon(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	data, contentType, problem, err := readUpload(r, "favicon", store.MaxImageBytes)
+	data, contentType, problem, err := readUpload(r, kind, store.MaxImageBytes)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
 	if problem != "" {
-		page.Problems = map[string]string{"favicon": problem}
+		page.Problems = map[string]string{kind: problem}
 		s.render(w, r, http.StatusUnprocessableEntity, "appearance.html", page)
 		return
 	}
 	if data != nil {
-		err = s.store.SetInstanceImage(r.Context(), store.ImageInstanceFavicon, contentType, data, s.now().UnixMilli())
-	} else if r.PostForm.Get("remove_favicon") == "on" {
-		err = s.store.DeleteInstanceImage(r.Context(), store.ImageInstanceFavicon)
+		err = s.store.SetInstanceImage(r.Context(), kind, contentType, data, s.now().UnixMilli())
+	} else if r.PostForm.Get("remove_"+kind) == "on" {
+		err = s.store.DeleteInstanceImage(r.Context(), kind)
 	}
 	if err != nil {
 		s.fail(w, r, err)
@@ -115,6 +131,20 @@ func (s *Server) handleSaveFavicon(w http.ResponseWriter, r *http.Request) {
 // address on their own, so a status page without a favicon gets it too.
 func (s *Server) handleInstanceFavicon(w http.ResponseWriter, r *http.Request) {
 	contentType, data, err := s.store.InstanceImage(r.Context(), store.ImageInstanceFavicon)
+	if errors.Is(err, store.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	s.writeImage(w, r, contentType, data)
+}
+
+// handleInstanceLogo serves the logo that the public list shows beside the site name.
+func (s *Server) handleInstanceLogo(w http.ResponseWriter, r *http.Request) {
+	contentType, data, err := s.store.InstanceImage(r.Context(), store.ImageInstanceLogo)
 	if errors.Is(err, store.ErrNotFound) {
 		http.NotFound(w, r)
 		return

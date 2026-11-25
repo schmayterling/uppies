@@ -206,7 +206,7 @@ create table if not exists instance_settings (
 );
 
 create table if not exists instance_images (
-	kind text collate "C" primary key check (kind in ('login_background', 'favicon')),
+	kind text collate "C" primary key check (kind in ('login_background', 'favicon', 'logo')),
 	content_type text collate "C" not null,
 	data bytea not null check (length(data) between 1 and 2097152),
 	updated_at_ms bigint not null

@@ -110,6 +110,7 @@ func TestDatabaseBackendWorkflow(t *testing.T) {
 			image := []byte{0, 255, 39, 92, 128}
 			check(s.SetProjectImage(ctx, project, ImageFavicon, "image/png", image, now))
 			check(s.SetInstanceImage(ctx, ImageInstanceFavicon, "image/png", image, now))
+			check(s.SetInstanceImage(ctx, ImageInstanceLogo, "image/png", image, now))
 			_, got, err := s.ProjectImage(ctx, project, ImageFavicon)
 			check(err)
 			if !bytes.Equal(got, image) {

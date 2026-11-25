@@ -206,7 +206,7 @@ create table if not exists instance_settings (
 ) strict;
 
 create table if not exists instance_images (
-	kind text primary key check (kind in ('login_background', 'favicon')),
+	kind text primary key check (kind in ('login_background', 'favicon', 'logo')),
 	content_type text not null,
 	data blob not null check (length(data) between 1 and 2097152),
 	updated_at_ms integer not null
