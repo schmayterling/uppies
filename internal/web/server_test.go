@@ -1179,6 +1179,111 @@ func TestUpdatesShowMarkdownAndLongOnesCollapse(t *testing.T) {
 	}
 }
 
+func TestEarlierUpdatesCanBeEdited(t *testing.T) {
+	ctx := context.Background()
+	s := newSite(t)
+	projectID, err := s.store.CreateProject(ctx, "acme", "Acme", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nowMs := time.Now().UnixMilli()
+	incidentID, err := s.store.CreateIncident(ctx, store.Incident{
+		ProjectID: projectID, Title: "checkout errors", Impact: "major", Status: "investigating",
+		Published: true, StartedAtMs: nowMs - 60_000,
+	}, store.IncidentUpdate{Body: "paymnets fail."}, nowMs-60_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := s.store.CreateIncident(ctx, store.Incident{
+		ProjectID: projectID, Title: "other", Impact: "minor", Status: "investigating", Published: true, StartedAtMs: nowMs,
+	}, store.IncidentUpdate{Body: "another incident."}, nowMs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.AddIncidentUpdate(ctx, incidentID, store.IncidentUpdate{Status: "identified", Body: "found it.", AtMs: nowMs}); err != nil {
+		t.Fatal(err)
+	}
+	incident, err := s.store.Incident(ctx, incidentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := incident.Updates[len(incident.Updates)-1] // updates are newest first
+	otherIncident, err := s.store.Incident(ctx, other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminPage := fmt.Sprintf("/admin/incidents/%d", incidentID)
+	// The page streams, so a template that fails halfway still answers 200. Check that its end arrived.
+	status, page := s.get(t, s.admin, adminPage)
+	if status != http.StatusOK || !strings.Contains(page, fmt.Sprintf(`<dialog id="edit-update-%d"`, first.ID)) || !strings.Contains(page, `<dialog id="delete-incident"`) {
+		t.Fatalf("the incident page must render an edit dialog for each update and the rest of the page, got %d", status)
+	}
+	edit := fmt.Sprintf("/admin/incidents/%d/updates/%d/edit", incidentID, first.ID)
+	fixed := url.Values{"update_title": {"First look"}, "message": {"**payments** fail."}}
+	if resp := s.post(t, s.anonymous, edit, fixed, nil); resp.Header.Get("Location") != "/admin/login" {
+		t.Fatalf("anonymous edit: got %d, want a redirect to sign in", resp.StatusCode)
+	}
+	invalid := url.Values{"message": {""}}
+	resp, err := s.admin.PostForm(s.server.URL+edit, invalid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	refused, err := io.ReadAll(resp.Body)
+	if err := errors.Join(err, resp.Body.Close()); err != nil {
+		t.Fatal(err)
+	}
+	reopened := fmt.Sprintf(`<dialog id="edit-update-%d" aria-labelledby="edit-update-%d-heading" data-open-on-load>`, first.ID, first.ID)
+	if resp.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(string(refused), reopened) || !strings.Contains(string(refused), "write an update of 1 to 5000 characters.") {
+		t.Errorf("an empty edit: got %d, want 422 with that update's form open and its problem", resp.StatusCode)
+	}
+	notTheirs := fmt.Sprintf("/admin/incidents/%d/updates/%d/edit", incidentID, otherIncident.Updates[0].ID)
+	if resp := s.post(t, s.admin, notTheirs, fixed, nil); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("editing another incident's update: got %d, want 404", resp.StatusCode)
+	}
+	if resp := s.post(t, s.admin, edit, fixed, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("edit: got %d, want 303", resp.StatusCode)
+	}
+	_, page = s.get(t, s.anonymous, "/s/acme")
+	if !strings.Contains(page, "<strong>First look</strong>") || !strings.Contains(page, "<strong>payments</strong> fail.") || strings.Contains(page, "paymnets") {
+		t.Error("the status page must show the edited title and text")
+	}
+	if after, err := s.store.Incident(ctx, incidentID); err != nil || after.Status != "identified" || after.Updates[len(after.Updates)-1].Status != "investigating" {
+		t.Errorf("an edit must keep the statuses: incident %q, update %+v, err=%v", after.Status, after.Updates, err)
+	}
+
+	windowID, err := s.store.CreateMaintenanceWindow(ctx, store.MaintenanceWindow{
+		ProjectID: projectID, Title: "database upgrade", StartsAtMs: nowMs - 60_000, EndsAtMs: nowMs + 3_600_000,
+	}, nowMs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.AddMaintenanceUpdate(ctx, projectID, windowID, "writes are pasued", nowMs); err != nil {
+		t.Fatal(err)
+	}
+	updates, err := s.store.MaintenanceUpdatesBefore(ctx, windowID, 0, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	maintenance := fmt.Sprintf("/admin/projects/%d/maintenance/%d", projectID, windowID)
+	editMaintenance := fmt.Sprintf("%s/updates/%d/edit", maintenance, updates[0].ID)
+	if resp := s.post(t, s.admin, editMaintenance, url.Values{"body": {""}}, nil); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("an empty maintenance edit: got %d, want 422", resp.StatusCode)
+	}
+	if _, page := s.get(t, s.admin, maintenance); !strings.Contains(page, fmt.Sprintf(`<dialog id="edit-maintenance-update-%d"`, updates[0].ID)) || !strings.Contains(page, `<dialog id="delete-maintenance"`) {
+		t.Error("the maintenance page must render an edit dialog for each update and the rest of the page")
+	}
+	wrongWindow := fmt.Sprintf("/admin/projects/%d/maintenance/%d/updates/%d/edit", projectID, windowID+1, updates[0].ID)
+	if resp := s.post(t, s.admin, wrongWindow, url.Values{"body": {"x"}}, nil); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("editing through another window: got %d, want 404", resp.StatusCode)
+	}
+	if resp := s.post(t, s.admin, editMaintenance, url.Values{"body": {"writes are *paused*"}}, nil); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("maintenance edit: got %d, want 303", resp.StatusCode)
+	}
+	if _, page := s.get(t, s.anonymous, "/s/acme"); !strings.Contains(page, "writes are <em>paused</em>") || strings.Contains(page, "pasued") {
+		t.Error("the status page must show the edited maintenance update")
+	}
+}
+
 func TestScopedMaintenanceNoticeAndEndedHistory(t *testing.T) {
 	ctx := context.Background()
 	s := newSite(t)

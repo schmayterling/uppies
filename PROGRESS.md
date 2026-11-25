@@ -21,6 +21,7 @@ Last run: 2026-11-25, build, vet and race tests passed for schema 27.
 
 Each line names how it was verified.
 
+- Earlier incident and maintenance updates can be edited from their admin pages: a pencil on each update opens a form for its title (incidents) and text. The status and time stay as posted, so editing never changes an incident's lifecycle. An update ID from another incident or window gives 404. There is no API for edits yet. Verified by a route test, seen failing for each ownership check and for a template that broke halfway, and in Chromium and WebKit at 1440 and 390 pixels.
 - The homepage and status page announcements render Markdown, with the same rules as update bodies. Verified by the announcement route tests, seen failing without the Markdown, and in Chromium and WebKit at 1440 and 320 pixels.
 - `uppies reset-password [-db-backend name] [-db file] username` sets a random 26-character password, signs the account out on every device and prints the password. It refuses a SQLite path that does not exist, so a wrong path cannot create an empty database. Verified by a route test seen failing once, and by running the built binary against a live server's database: the old session and password stopped working and the printed password signed in.
 - Public pages show times in the visitor's browser timezone. `static/tz.js` saves it in a `tz` cookie and reloads once when the page was drawn in another zone. A zone picked in the address still wins and carries into links. Without either, pages use the instance default timezone, a new instance setting that also sets the zone of the admin pages and the maintenance form. Unset means UTC. A page's own timezone left its settings form and only bounds the years of its incident history. Verified by route tests, each seen failing once, and in Chromium and WebKit with emulated New York and Tokyo zones: the first visit loads twice, later visits once, and a picked zone loads once.
@@ -226,6 +227,7 @@ Each line names how it was verified.
 - In zsh, `rm -f name*` fails when nothing matches and stops a command chain. Name the files.
 - Do not drop goldmark's indented code block parser: without it an indented line ends parsing and every word after it disappears. `TestUpdateMarkdownKeepsEveryWord` guards this.
 - Playwright's WebKit screenshots inject a style that the content security policy refuses, which logs a console error on every page. Read the console in a pass without screenshots.
+- Pages stream as they render, so a template that fails halfway still answers 200 with the page cut short (an untyped `nil` in a template did this once). A route test should check that the end of the page arrived, such as the last dialog.
 - Headless Chrome will not lay a page out narrower than about 500 pixels. For phone widths, use device metrics emulation over the DevTools protocol.
 
 ## Next

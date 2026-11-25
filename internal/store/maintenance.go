@@ -303,6 +303,19 @@ func (s *Store) AddMaintenanceUpdate(ctx context.Context, projectID, windowID in
 	return requireOneRow(res)
 }
 
+// EditMaintenanceUpdate changes an update's text when the update belongs to
+// the window and the window to the page. Its time stays as posted.
+func (s *Store) EditMaintenanceUpdate(ctx context.Context, projectID, windowID, updateID int64, body string) error {
+	res, err := s.db.ExecContext(ctx, `
+		update maintenance_updates set body = ?
+		where id = ? and window_id = ? and window_id in (select id from maintenance_windows where project_id = ?)`,
+		body, updateID, windowID, projectID)
+	if err != nil {
+		return err
+	}
+	return requireOneRow(res)
+}
+
 func (s *Store) MaintenanceUpdatesAfter(ctx context.Context, windowID, after int64, limit int) ([]MaintenanceUpdate, error) {
 	return s.maintenanceUpdates(ctx, `
 		select id, body, at_ms from maintenance_updates

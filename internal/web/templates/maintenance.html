@@ -19,7 +19,13 @@
     <button class="button quiet" type="button" data-open-dialog="add-maintenance-update">{{template "icon" "plus"}}add update</button>
   </div>
   {{if .Window.Updates}}
-  <div class="incident">{{template "maintenance-updates" (pair .Window.Updates .Zone)}}</div>
+  <div class="incident"><ol class="updates">
+    {{range .Window.Updates}}<li>
+      <p class="update-head"><time class="meta" datetime="{{rfc3339 .AtMs}}">{{local $.Zone .AtMs}}</time>
+        <button class="icon-button update-edit" type="button" data-open-dialog="edit-maintenance-update-{{.ID}}" aria-label="edit the update from {{local $.Zone .AtMs}}" title="edit">{{template "icon" "pencil"}}</button></p>
+      {{template "update-body" .Body}}
+    </li>{{end}}
+  </ol></div>
   {{else}}<p class="panel empty">no updates yet.</p>{{end}}
   {{if or .Before .OlderID}}
   <nav class="actions" aria-label="maintenance update pages">
@@ -28,6 +34,23 @@
   </nav>
   {{end}}
 </section>
+
+{{range .Window.Updates}}
+{{$editing := eq .ID $.Editing}}
+<dialog id="edit-maintenance-update-{{.ID}}" aria-labelledby="edit-maintenance-update-{{.ID}}-heading"{{if $editing}} data-open-on-load{{end}}>
+  <h2 id="edit-maintenance-update-{{.ID}}-heading">edit this update</h2>
+  <p class="hint">its time stays as posted.</p>
+  <form class="form" method="post" action="/admin/projects/{{$.Project.ID}}/maintenance/{{$.Window.ID}}/updates/{{.ID}}/edit{{with $.Before}}?before={{.}}{{end}}">
+    <div class="field">
+      <label for="edit-maintenance-body-{{.ID}}">message</label>
+      <textarea id="edit-maintenance-body-{{.ID}}" name="body" maxlength="5000" rows="4" required aria-describedby="edit-maintenance-body-{{.ID}}-hint{{if $editing}}{{if $.EditProblem}} edit-maintenance-body-{{.ID}}-problem{{end}}{{end}}"{{if $editing}}{{if $.EditProblem}} aria-invalid="true"{{end}}{{end}}>{{if $editing}}{{$.EditDraft}}{{else}}{{.Body}}{{end}}</textarea>
+      {{template "markdown-hint" (printf "edit-maintenance-body-%d-hint" .ID)}}
+      {{if $editing}}{{with $.EditProblem}}<p class="problem" id="edit-maintenance-body-{{$.Editing}}-problem">{{.}}</p>{{end}}{{end}}
+    </div>
+    <div class="actions"><button class="button" type="submit">save update</button><button class="button quiet" type="button" data-close-dialog>cancel</button></div>
+  </form>
+</dialog>
+{{end}}
 
 <dialog id="add-maintenance-update" aria-labelledby="maintenance-update-heading"{{if .Problem}} data-open-on-load{{end}}>
   <h2 id="maintenance-update-heading">add an update</h2>

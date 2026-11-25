@@ -186,6 +186,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("GET /admin/projects/{id}/maintenance/{window}", s.handleMaintenanceWindow)
 	admin("POST /admin/projects/{id}/maintenance/{window}/end", s.handleEndMaintenance)
 	admin("POST /admin/projects/{id}/maintenance/{window}/updates", s.handleAddMaintenanceUpdate)
+	admin("POST /admin/projects/{id}/maintenance/{window}/updates/{update}/edit", s.handleEditMaintenanceUpdate)
 	admin("POST /admin/projects/{id}/maintenance/{window}/delete", s.handleDeleteMaintenance)
 	admin("GET /admin/projects/{id}/settings", s.handleSettings)
 	admin("POST /admin/projects/{id}/settings", s.handleUpdateSettings)
@@ -206,6 +207,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	admin("POST /admin/projects/{id}/incidents", s.handleCreateIncident)
 	admin("GET /admin/incidents/{id}", s.handleIncident)
 	admin("POST /admin/incidents/{id}/updates", s.handleAddIncidentUpdate)
+	admin("POST /admin/incidents/{id}/updates/{update}/edit", s.handleEditIncidentUpdate)
 	admin("POST /admin/incidents/{id}/publish", s.handlePublishIncident)
 	admin("POST /admin/incidents/{id}/delete", s.handleDeleteIncident)
 

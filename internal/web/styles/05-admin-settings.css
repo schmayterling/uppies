@@ -32,6 +32,8 @@ label.srow { cursor: pointer; }
 .facts strong { color: var(--ink); }
 .update-row { display: grid; gap: var(--space-1); padding: var(--space-3); }
 .update-row .update-body { font-size: var(--text-ui); }
+/* an update's edit button sits at the end of its heading line */
+.update-head > .update-edit { margin-inline-start: auto; }
 /* the list of all monitors is arranged by dragging: a row inside or between
    categories, a category by its name. a category with no rows shows its note. */
 [data-order] [data-drag="row"] { cursor: grab; }

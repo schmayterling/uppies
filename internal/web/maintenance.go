@@ -60,6 +60,11 @@ type maintenanceWindowPage struct {
 	OlderID int64
 	Draft   string
 	Problem string
+	// Editing is the ID of the update whose edit form failed, with what was
+	// typed in EditDraft and its problem in EditProblem.
+	Editing     int64
+	EditDraft   string
+	EditProblem string
 }
 
 func maintenanceAdminIDs(r *http.Request) (int64, int64, error) {
@@ -143,6 +148,45 @@ func (s *Server) handleEndMaintenance(w http.ResponseWriter, r *http.Request) {
 	}
 	s.monitorsChanged()
 	http.Redirect(w, r, fmt.Sprintf("/admin/projects/%d/maintenance/%d", projectID, windowID), http.StatusSeeOther)
+}
+
+// handleEditMaintenanceUpdate saves new text for an earlier update. The form
+// keeps the page of updates it was on, so the page shows it again.
+func (s *Server) handleEditMaintenanceUpdate(w http.ResponseWriter, r *http.Request) {
+	projectID, windowID, err := maintenanceAdminIDs(r)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	updateID, err := strconv.ParseInt(r.PathValue("update"), 10, 64)
+	if err != nil {
+		s.fail(w, r, store.ErrNotFound)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	body := strings.TrimSpace(r.PostForm.Get("body"))
+	if apiText("body", body, 1, 5000) != nil {
+		page, err := s.maintenanceWindowPage(r)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		page.Editing, page.EditDraft, page.EditProblem = updateID, body, "write an update of 1 to 5,000 characters."
+		s.render(w, r, http.StatusUnprocessableEntity, "maintenance.html", page)
+		return
+	}
+	if err := s.store.EditMaintenanceUpdate(r.Context(), projectID, windowID, updateID, body); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	back := fmt.Sprintf("/admin/projects/%d/maintenance/%d", projectID, windowID)
+	if before, err := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64); err == nil && before > 0 {
+		back += fmt.Sprintf("?before=%d", before)
+	}
+	http.Redirect(w, r, back+"#updates-heading", http.StatusSeeOther)
 }
 
 func (s *Server) handleAddMaintenanceUpdate(w http.ResponseWriter, r *http.Request) {

@@ -861,6 +861,11 @@ type incidentPage struct {
 	Statuses []string
 	Update   store.IncidentUpdate
 	Problems map[string]string
+	// Editing is the ID of the update whose edit form failed, with what was
+	// typed in EditDraft and its problems in EditProblems.
+	Editing      int64
+	EditDraft    store.IncidentUpdate
+	EditProblems map[string]string
 }
 
 func (s *Server) incidentPage(r *http.Request) (incidentPage, error) {
@@ -932,6 +937,46 @@ func (s *Server) handleAddIncidentUpdate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err := s.store.AddIncidentUpdate(r.Context(), page.Incident.ID, update); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/admin/incidents/%d", page.Incident.ID), http.StatusSeeOther)
+}
+
+// handleEditIncidentUpdate saves a new title and text for an earlier update.
+func (s *Server) handleEditIncidentUpdate(w http.ResponseWriter, r *http.Request) {
+	page, err := s.incidentPage(r)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	updateID, err := strconv.ParseInt(r.PathValue("update"), 10, 64)
+	if err != nil {
+		s.fail(w, r, store.ErrNotFound)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	draft := store.IncidentUpdate{
+		ID:    updateID,
+		Title: strings.TrimSpace(r.PostForm.Get("update_title")),
+		Body:  strings.TrimSpace(r.PostForm.Get("message")),
+	}
+	problems := make(map[string]string)
+	if apiText("update_title", draft.Title, 0, incidentUpdateTitleLimit) != nil {
+		problems["update_title"] = "use up to 200 characters for the update title."
+	}
+	if draft.Body == "" || len(draft.Body) > 5000 {
+		problems["message"] = "write an update of 1 to 5000 characters."
+	}
+	if len(problems) > 0 {
+		page.Editing, page.EditDraft, page.EditProblems = updateID, draft, problems
+		s.render(w, r, http.StatusUnprocessableEntity, "incident.html", page)
+		return
+	}
+	if err := s.store.EditIncidentUpdate(r.Context(), page.Incident.ID, updateID, draft.Title, draft.Body); err != nil {
 		s.fail(w, r, err)
 		return
 	}

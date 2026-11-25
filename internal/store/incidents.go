@@ -186,6 +186,19 @@ func (s *Store) Incident(ctx context.Context, incidentID int64) (Incident, error
 	return incidents[0], nil
 }
 
+// EditIncidentUpdate changes the title and text of one of an incident's
+// updates. Its status and time stay as posted, so the incident's lifecycle
+// does not change. It returns ErrNotFound when the update is not the incident's.
+func (s *Store) EditIncidentUpdate(ctx context.Context, incidentID, updateID int64, title, body string) error {
+	res, err := s.db.ExecContext(ctx,
+		"update incident_updates set title = ?, body = ? where id = ? and incident_id = ?",
+		title, body, updateID, incidentID)
+	if err != nil {
+		return err
+	}
+	return requireOneRow(res)
+}
+
 // PublishedIncidents returns a project's public incidents that started at or
 // after sinceMs or are still open, newest first.
 func (s *Store) PublishedIncidents(ctx context.Context, projectID, sinceMs int64) ([]Incident, error) {
