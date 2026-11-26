@@ -2,7 +2,6 @@ package web
 
 import (
 	"fmt"
-	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -102,11 +101,14 @@ func yearDayGroups(incidents []incidentView, year int, now time.Time, zone *time
 		label := dayLabel(time.UnixMilli(in.StartedAtMs).In(zone))
 		byDay[label] = append(byDay[label], in)
 	}
-	day := time.Date(year, time.December, 31, 12, 0, 0, 0, zone)
-	if day.After(now) {
-		day = time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, zone)
+	// Dates are stepped in UTC, where every calendar date exists. In the
+	// visitor's zone a date can be missing: Samoa skipped 30 December 2011,
+	// so a day back from the 31st landed on the 31st again, forever (issue 4).
+	today := calendarDate(now.In(zone))
+	day := time.Date(year, time.December, 31, 0, 0, 0, 0, time.UTC)
+	if day.After(today) {
+		day = today
 	}
-	today := time.Date(now.In(zone).Year(), now.In(zone).Month(), now.In(zone).Day(), 12, 0, 0, 0, zone)
 	var groups []dayGroup
 	for ; day.Year() == year; day = day.AddDate(0, 0, -1) {
 		label := dayLabel(day)
@@ -114,8 +116,7 @@ func yearDayGroups(incidents []incidentView, year int, now time.Time, zone *time
 		if hideQuiet && len(found) == 0 {
 			continue
 		}
-		// Both are noon, so rounding absorbs the hour a clock change adds or removes.
-		daysAgo := int(math.Round(today.Sub(day).Hours() / 24))
+		daysAgo := int(today.Sub(day).Hours() / 24)
 		groups = append(groups, dayGroup{Date: label, Ago: agoLabel(daysAgo), Incidents: found, Level: worstLevel(found)})
 	}
 	return mergeQuietRuns(groups)
@@ -163,6 +164,12 @@ func noonOf(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 12, 0, 0, 0, t.Location())
 }
 
+// calendarDate is the date t falls on where it was read, as midnight UTC, so
+// that stepping it by days never meets a date a timezone skipped.
+func calendarDate(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+}
+
 // dayLabel names a day the way the lists show it, such as "nov 23, 2026".
 func dayLabel(day time.Time) string {
 	return strings.ToLower(day.Format("Jan 2, 2006"))
@@ -206,16 +213,16 @@ func incidentMap(incidents []store.Incident, year int, now time.Time, zone *time
 
 // incidentCalendarWeeks builds one column per week, Sunday on top, one cell per day.
 func incidentCalendarWeeks(totals incidentDayTotals, year int, now time.Time, zone *time.Location) [][]heatCell {
-	// Days are stepped at noon, so "after today" must compare against the end of today.
-	endOfToday := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, zone)
-	first := time.Date(year, time.January, 1, 12, 0, 0, 0, zone)
-	last := time.Date(year, time.December, 31, 12, 0, 0, 0, zone)
+	// Dates are stepped in UTC, where every calendar date exists (see yearDayGroups).
+	today := calendarDate(now.In(zone))
+	first := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
+	last := time.Date(year, time.December, 31, 0, 0, 0, 0, time.UTC)
 	day := first.AddDate(0, 0, -int(first.Weekday()))
 	var weeks [][]heatCell
 	for !day.After(last) {
 		week := make([]heatCell, 0, 7)
 		for range 7 {
-			cell := heatCell{Blank: day.Year() != year, Future: day.Year() == year && day.After(endOfToday)}
+			cell := heatCell{Blank: day.Year() != year, Future: day.Year() == year && day.After(today)}
 			if !cell.Blank && !cell.Future {
 				t := totals[day.Format(time.DateOnly)]
 				cell.Level = t.level

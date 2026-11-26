@@ -168,3 +168,50 @@ func TestPaginate(t *testing.T) {
 		t.Fatalf("an empty list: got %d entries, page %d, older %d, newer %d", len(shown), page, older, newer)
 	}
 }
+
+// Samoa skipped 30 December 2011: its clocks went from the 29th to the 31st.
+// Stepping back a day from the 31st there once landed on the 31st again and
+// looped forever, which ran the server out of memory (issue 4).
+func TestYearDayGroupsInAZoneThatSkippedADay(t *testing.T) {
+	apia, err := time.LoadLocation("Pacific/Apia")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 11, 26, 12, 0, 0, 0, apia)
+	done := make(chan []dayGroup, 1)
+	go func() { done <- yearDayGroups(nil, 2011, now, apia, false) }()
+	select {
+	case groups := <-done:
+		// The page lists calendar dates, so 2011 keeps all 365, the skipped one included.
+		if len(groups) != 1 || groups[0].Date != "jan 1 to dec 31, 2011" || groups[0].QuietDays != 365 {
+			t.Fatalf("got %+v, want one quiet run over all 365 days of 2011", groups)
+		}
+	case <-time.After(5 * time.Second):
+		// The loop is still running and allocating. Stop the test binary
+		// before it takes the machine's memory.
+		panic("yearDayGroups did not finish for Samoa in 2011")
+	}
+}
+
+// The incident map of the same year keeps a cell for the skipped date, so
+// the days after it stay under the right weekday.
+func TestIncidentMapInAZoneThatSkippedADay(t *testing.T) {
+	apia, err := time.LoadLocation("Pacific/Apia")
+	if err != nil {
+		t.Fatal(err)
+	}
+	weeks := incidentMap(nil, 2011, time.Date(2026, 11, 26, 12, 0, 0, 0, apia), apia)
+	days := 0
+	for _, week := range weeks {
+		for _, cell := range week {
+			if !cell.Blank {
+				days++
+			}
+		}
+	}
+	// December 30, 2011 was a Friday, in the last column.
+	last := weeks[len(weeks)-1]
+	if days != 365 || last[5].Tip != "dec 30, 2011: no incidents" || last[6].Tip != "dec 31, 2011: no incidents" {
+		t.Fatalf("got %d days ending %q, %q, want 365 with dec 30 on friday and dec 31 on saturday", days, last[5].Tip, last[6].Tip)
+	}
+}

@@ -21,6 +21,7 @@ Last run: 2026-11-25, build, vet and race tests passed for schema 27.
 
 Each line names how it was verified.
 
+- Fixed issue 4, a memory blow-up. The incident history walked a year backwards one day at a time in the visitor's timezone. Samoa and Tokelau skipped 30 December 2011, so stepping back from the 31st there landed on the 31st again and looped forever while appending. One request, `/s/<page>/history?tz=Pacific/Apia&year=2011`, grew the heap to 29 GB locally. Production was killed for running out of memory on 2026-11-24 and 2026-11-25 while a crawler walked those links. History dates are now stepped in UTC, and so is the incident map's grid, which had lost the skipped date. Verified by two regression tests seen failing (a 5 second hang and 364 grid days), the original request answering in 3 ms, and 32,292 requests over every zone and every year from 2000 for both history pages, with the heap flat at 14 MB.
 - Earlier incident and maintenance updates can be edited from their admin pages: a pencil on each update opens a form for its title (incidents) and text. The status and time stay as posted, so editing never changes an incident's lifecycle. An update ID from another incident or window gives 404. There is no API for edits yet. Verified by a route test, seen failing for each ownership check and for a template that broke halfway, and in Chromium and WebKit at 1440 and 390 pixels.
 - The homepage and status page announcements render Markdown, with the same rules as update bodies. Verified by the announcement route tests, seen failing without the Markdown, and in Chromium and WebKit at 1440 and 320 pixels.
 - `uppies reset-password [-db-backend name] [-db file] username` sets a random 26-character password, signs the account out on every device and prints the password. It refuses a SQLite path that does not exist, so a wrong path cannot create an empty database. Verified by a route test seen failing once, and by running the built binary against a live server's database: the old session and password stopped working and the printed password signed in.
@@ -228,6 +229,7 @@ Each line names how it was verified.
 - Do not drop goldmark's indented code block parser: without it an indented line ends parsing and every word after it disappears. `TestUpdateMarkdownKeepsEveryWord` guards this.
 - Playwright's WebKit screenshots inject a style that the content security policy refuses, which logs a console error on every page. Read the console in a pass without screenshots.
 - Pages stream as they render, so a template that fails halfway still answers 200 with the page cut short (an untyped `nil` in a template did this once). A route test should check that the end of the page arrived, such as the last dialog.
+- Do not step dates with `AddDate` in a visitor's timezone. A zone can skip a date (Pacific/Apia, 30 December 2011), and stepping back across it never moves. Step calendar dates in UTC and use the zone only to read today and to place events on dates.
 - Headless Chrome will not lay a page out narrower than about 500 pixels. For phone widths, use device metrics emulation over the DevTools protocol.
 
 ## Next
